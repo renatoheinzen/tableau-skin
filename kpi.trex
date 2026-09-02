@@ -12,5 +12,9 @@
     </source-location>
 
     <icon>iVBORw0KGgoAAAANSUhEUgAAAEYAAABGCAIAAAD+THXTAAAAjElEQVR4nO3asQ2DAAwAQUApI2WLrEAVhqdjBabJCKEIQof+ahd+ufX4fH2Ge5muXuD/ShKUJChJUJKgJMHjyNB7Xs/e46B9W37O3PBKJQlKEpQkKElQkqAkQUmCkgQlCUoSlCQoSVCSoCRBSYKSBCUJShKUJChJUJKgJMHYNz+gJEFJgpIEJQlKEnwBjzUEPQWyJeYAAAAASUVORK5CYII=</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
   </worksheet-extension>
 </manifest>
