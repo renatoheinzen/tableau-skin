@@ -241,7 +241,15 @@
     });
   }
 
+  var initTimeoutId = setTimeout(function () {
+    labelEl.textContent = 'Pré-visualização (fora do Tableau)';
+    valueEl.textContent = '708.139.030';
+    applyAccent();
+    console.warn('[Projedata KPI] initializeAsync não respondeu — normal se aberto fora do Tableau.');
+  }, 3000);
+
   tableau.extensions.initializeAsync().then(function () {
+    clearTimeout(initTimeoutId);
     loadSettings();
     var worksheet = tableau.extensions.worksheetContent.worksheet;
     worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateKpi);
@@ -251,6 +259,7 @@
       panel.style.display = 'block';
     }
   }).catch(function (err) {
+    clearTimeout(initTimeoutId);
     labelEl.textContent = 'Pré-visualização (fora do Tableau)';
     valueEl.textContent = '708.139.030';
     applyAccent();
