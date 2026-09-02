@@ -159,7 +159,7 @@
     labelEl.textContent = 'Sem conexão com o Tableau';
     valueEl.textContent = '—';
     console.warn('[Projedata KPI] initializeAsync não respondeu — normal se aberto fora do Tableau.');
-  }, 3000);
+  }, 15000);
 
   tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
     clearTimeout(initTimeoutId);
