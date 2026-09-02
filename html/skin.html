@@ -17,7 +17,6 @@
     height: 100%;
     position: relative;
     background-color: #3246FF;
-    background-image: url('../assets/background.jpg?v=2');
     background-size: cover;
     background-position: center;
   }
@@ -32,9 +31,33 @@
 </head>
 <body>
 <div id="skin-root">
-  <img id="logo" src="../assets/logo.png?v=1" alt="" onerror="this.style.display='none'">
+  <img id="logo" alt="">
 </div>
 <script>
+  var root = document.getElementById('skin-root');
+  var logo = document.getElementById('logo');
+
+  function loadFresh(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('not found');
+      return r.blob();
+    }).then(function (blob) {
+      return URL.createObjectURL(blob);
+    });
+  }
+
+  loadFresh('../assets/background.jpg').then(function (objectUrl) {
+    root.style.backgroundImage = 'url(' + objectUrl + ')';
+  }).catch(function () {
+    // sem imagem de fundo definida ainda, mantém a cor sólida
+  });
+
+  loadFresh('../assets/logo.png').then(function (objectUrl) {
+    logo.src = objectUrl;
+  }).catch(function () {
+    logo.style.display = 'none';
+  });
+
   if (typeof tableau !== 'undefined' && tableau.extensions) {
     tableau.extensions.initializeAsync().catch(function (err) {
       console.warn('[Projedata Skin] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
