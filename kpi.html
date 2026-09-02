@@ -196,34 +196,47 @@
   saveBtn.addEventListener('click', saveSettings);
 
   // --- Leitura do dado colocado nas Marcas da planilha ---
+  var loadTimeoutId = null;
+
   function updateKpi() {
+    labelEl.textContent = 'Carregando...';
+    console.log('[Projedata KPI] iniciando leitura de dados...');
+
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      labelEl.textContent = 'Tempo excedido — abra o console (F12) para detalhes';
+      valueEl.textContent = '—';
+      console.warn('[Projedata KPI] getSummaryDataAsync não respondeu em 8s.');
+    }, 8000);
+
     var worksheet = tableau.extensions.worksheetContent.worksheet;
-    worksheet.getSummaryDataReaderAsync(undefined, { ignoreSelection: true }).then(function (reader) {
-      return reader.getAllPagesAsync().then(function (dataTable) {
-        reader.releaseAsync();
-        return dataTable;
-      });
-    }).then(function (dataTable) {
-      if (!dataTable || !dataTable.columns || dataTable.columns.length === 0) {
+
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      console.log('[Projedata KPI] dados recebidos:', sumData);
+
+      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
         labelEl.textContent = 'Arraste um campo para as Marcas';
         valueEl.textContent = '—';
         return;
       }
-      var columnName = dataTable.columns[0].fieldName;
+
+      var columnName = sumData.columns[0].fieldName;
       var displayLabel = state.customLabel && state.customLabel.trim() !== ''
         ? state.customLabel
         : columnName;
       labelEl.textContent = displayLabel;
 
-      if (dataTable.data.length > 0) {
-        var cell = dataTable.data[0][0];
+      if (sumData.data && sumData.data.length > 0) {
+        var cell = sumData.data[0][0];
         valueEl.textContent = cell.formattedValue;
       } else {
         valueEl.textContent = 'Sem dados';
       }
     }).catch(function (err) {
-      console.error('Erro ao ler dados da planilha:', err);
-      labelEl.textContent = 'Erro ao carregar dado';
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata KPI] erro ao ler dados da planilha:', err);
+      labelEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
       valueEl.textContent = '—';
     });
   }
