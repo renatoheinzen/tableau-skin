@@ -156,8 +156,8 @@
   }
 
   var initTimeoutId = setTimeout(function () {
-    labelEl.textContent = 'Pré-visualização (fora do Tableau)';
-    valueEl.textContent = '708.139.030';
+    labelEl.textContent = 'Sem conexão com o Tableau';
+    valueEl.textContent = '—';
     console.warn('[Projedata KPI] initializeAsync não respondeu — normal se aberto fora do Tableau.');
   }, 3000);
 
@@ -169,8 +169,8 @@
     updateKpi();
   }).catch(function (err) {
     clearTimeout(initTimeoutId);
-    labelEl.textContent = 'Pré-visualização (fora do Tableau)';
-    valueEl.textContent = '708.139.030';
+    labelEl.textContent = 'Sem conexão com o Tableau';
+    valueEl.textContent = '—';
     console.warn('Extensions API não inicializou (normal se aberto fora do Tableau):', err);
   });
 })();
