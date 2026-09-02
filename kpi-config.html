@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Format Extension — Projedata KPI Card</title>
+<script src="https://extensions.tableauusercontent.com/tableau.extensions.1.latest.js"></script>
+<style>
+  :root {
+    --azul-escuro: #0C0F3D;
+    --azul: #3246FF;
+    --laranja: #FE5000;
+    --amarelo: #FFB400;
+    --cinza-claro: #EBF0F5;
+    --cinza: #F6F6F6;
+    --preto: #161616;
+    --branco: #FFFFFF;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: 'Montserrat', Arial, sans-serif;
+    color: var(--preto);
+    background: var(--branco);
+  }
+  body { padding: 16px; overflow-y: auto; }
+  h2 { margin: 0 0 4px 0; font-size: 15px; color: var(--azul-escuro); }
+  .subtitle { font-size: 11px; color: #888; margin-bottom: 16px; }
+
+  label.field { display: block; margin-top: 12px; font-weight: 600; font-size: 12px; color: var(--azul-escuro); }
+  input[type="text"], select {
+    width: 100%; padding: 6px 8px; margin-top: 4px;
+    border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+  }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { font-weight: 600; font-size: 12px; color: var(--azul-escuro); margin: 0; }
+
+  .accent-row { display: flex; gap: 10px; margin: 8px 0 4px 0; }
+  .accent-swatch {
+    width: 24px; height: 24px; border-radius: 50%;
+    cursor: pointer; border: 2px solid transparent;
+  }
+  .accent-swatch.selected { border-color: var(--preto); }
+  .hint { color: #999; font-size: 10px; margin-top: 3px; }
+
+  .actions {
+    display: flex; gap: 8px; margin-top: 22px;
+    position: sticky; bottom: 0; background: var(--branco); padding-top: 10px;
+  }
+  button {
+    flex: 1; padding: 9px; border: none; border-radius: 4px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  #save-btn { background: var(--azul); color: var(--branco); }
+  #save-btn:hover { background: var(--azul-escuro); }
+  #cancel-btn { background: var(--cinza); color: var(--preto); }
+  #cancel-btn:hover { background: #e2e2e2; }
+</style>
+</head>
+<body>
+
+<h2>Projedata KPI Card</h2>
+<div class="subtitle">Formatar extensão</div>
+
+<label class="field">Cor de destaque</label>
+<div class="accent-row" id="accent-row">
+  <div class="accent-swatch selected" data-accent="" style="background:#3246FF" title="Azul"></div>
+  <div class="accent-swatch" data-accent="accent-laranja" style="background:#FE5000" title="Laranja"></div>
+  <div class="accent-swatch" data-accent="accent-amarelo" style="background:#FFB400" title="Amarelo"></div>
+  <div class="accent-swatch" data-accent="accent-azul-escuro" style="background:#0C0F3D" title="Azul escuro"></div>
+</div>
+
+<label class="field">
+  Rótulo customizado (opcional)
+  <input type="text" id="custom-label-input" placeholder="Deixe em branco para usar o nome do campo">
+</label>
+
+<div class="checkbox-row">
+  <input type="checkbox" id="show-label-input" checked>
+  <label for="show-label-input">Mostrar rótulo</label>
+</div>
+
+<label class="field">
+  Prefixo
+  <input type="text" id="prefix-input" placeholder="Ex: R$ ">
+</label>
+
+<label class="field">
+  Sufixo
+  <input type="text" id="suffix-input" placeholder="Ex:  un.">
+</label>
+
+<label class="field">
+  Tamanho da fonte
+  <select id="font-size-input">
+    <option value="size-small">Pequeno</option>
+    <option value="size-medium" selected>Médio</option>
+    <option value="size-large">Grande</option>
+  </select>
+</label>
+
+<label class="field">
+  Alinhamento
+  <select id="align-input">
+    <option value="align-left" selected>Esquerda</option>
+    <option value="align-center">Centro</option>
+  </select>
+</label>
+
+<div class="actions">
+  <button id="cancel-btn">Cancelar</button>
+  <button id="save-btn">Salvar</button>
+</div>
+
+<script>
+(function () {
+  var accentRow = document.getElementById('accent-row');
+  var customLabelInput = document.getElementById('custom-label-input');
+  var showLabelInput = document.getElementById('show-label-input');
+  var prefixInput = document.getElementById('prefix-input');
+  var suffixInput = document.getElementById('suffix-input');
+  var fontSizeInput = document.getElementById('font-size-input');
+  var alignInput = document.getElementById('align-input');
+  var saveBtn = document.getElementById('save-btn');
+  var cancelBtn = document.getElementById('cancel-btn');
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    prefix: '', suffix: '', fontSize: 'size-medium', align: 'align-left',
+    lastRawValue: ''
+  };
+
+  function selectAccent(accent) {
+    state.accent = accent;
+    document.querySelectorAll('.accent-swatch').forEach(function (el) {
+      el.classList.toggle('selected', el.dataset.accent === accent);
+    });
+  }
+
+  accentRow.addEventListener('click', function (e) {
+    var swatch = e.target.closest('.accent-swatch');
+    if (swatch) selectAccent(swatch.dataset.accent);
+  });
+
+  function populateForm() {
+    selectAccent(state.accent || '');
+    customLabelInput.value = state.customLabel || '';
+    showLabelInput.checked = state.showLabel !== false;
+    prefixInput.value = state.prefix || '';
+    suffixInput.value = state.suffix || '';
+    fontSizeInput.value = state.fontSize || 'size-medium';
+    alignInput.value = state.align || 'align-left';
+  }
+
+  function closeWithoutSaving() {
+    tableau.extensions.ui.closeDialog('cancelled');
+  }
+  cancelBtn.addEventListener('click', closeWithoutSaving);
+
+  function save() {
+    state.customLabel = customLabelInput.value;
+    state.showLabel = showLabelInput.checked;
+    state.prefix = prefixInput.value;
+    state.suffix = suffixInput.value;
+    state.fontSize = fontSizeInput.value;
+    state.align = alignInput.value;
+
+    tableau.extensions.settings.set('projedataKpiState', JSON.stringify(state));
+    tableau.extensions.settings.saveAsync().then(function () {
+      tableau.extensions.ui.closeDialog('saved');
+    }).catch(function (err) {
+      console.error('[Projedata KPI config] erro ao salvar:', err);
+      alert('Erro ao salvar configurações. Veja o console (F12).');
+    });
+  }
+  saveBtn.addEventListener('click', save);
+
+  tableau.extensions.initializeDialogAsync().then(function () {
+    try {
+      var saved = tableau.extensions.settings.get('projedataKpiState');
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    populateForm();
+  }).catch(function (err) {
+    console.error('[Projedata KPI config] erro ao inicializar dialog:', err);
+    populateForm();
+  });
+})();
+</script>
+
+</body>
+</html>
