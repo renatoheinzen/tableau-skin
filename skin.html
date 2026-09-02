@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Skin</title>
+<script src="https://extensions.tableauusercontent.com/tableau.extensions.1.latest.js"></script>
+<style>
+  :root {
+    --azul-escuro: #0C0F3D;
+    --azul: #3246FF;
+    --laranja: #FE5000;
+    --amarelo: #FFB400;
+    --cinza-claro: #EBF0F5;
+    --cinza: #F6F6F6;
+    --preto: #161616;
+    --branco: #FFFFFF;
+  }
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    font-family: 'Montserrat', Arial, sans-serif;
+    overflow: hidden;
+  }
+  #skin-root {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    transition: background 0.15s ease;
+    box-sizing: border-box;
+  }
+
+  /* --- Presets --- */
+  #skin-root.preset-faixa-lateral {
+    background: var(--azul-escuro);
+  }
+  #skin-root.preset-header {
+    background: linear-gradient(180deg, var(--azul-escuro) 0%, var(--azul-escuro) 100%);
+    display: flex;
+    align-items: center;
+    padding: 0 20px;
+  }
+  #skin-root.preset-header .header-label {
+    display: block;
+    color: var(--branco);
+    font-weight: 700;
+    font-size: 14px;
+  }
+  #skin-root.preset-card {
+    background: var(--cinza);
+    border-left: 4px solid var(--azul);
+    border-radius: 6px;
+  }
+  #skin-root.preset-card.accent-laranja { border-left-color: var(--laranja); }
+  #skin-root.preset-card.accent-amarelo { border-left-color: var(--amarelo); }
+  #skin-root.preset-card.accent-azul-escuro { border-left-color: var(--azul-escuro); }
+  #skin-root.preset-fundo-neutro {
+    background: var(--cinza-claro);
+  }
+  #skin-root.preset-branco {
+    background: var(--branco);
+    border: 1px solid var(--cinza-claro);
+    border-radius: 6px;
+  }
+  #skin-root.preset-custom {
+    /* cor definida via variável inline --custom-color no JS */
+    background: var(--custom-color, var(--cinza));
+  }
+
+  .header-label { display: none; }
+
+  /* --- Botão de configuração (some quando o painel está "pronto") --- */
+  #gear {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.85);
+    color: var(--azul-escuro);
+    border: 1px solid rgba(0,0,0,0.1);
+    font-size: 12px;
+    line-height: 20px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 20;
+  }
+
+  /* --- Painel de configuração --- */
+  #config-panel {
+    position: absolute;
+    inset: 0;
+    background: var(--branco);
+    z-index: 10;
+    padding: 14px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    font-size: 12px;
+    color: var(--preto);
+  }
+  #config-panel h3 {
+    margin: 0 0 10px 0;
+    font-size: 13px;
+    color: var(--azul-escuro);
+  }
+  .preset-option {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+    margin-bottom: 4px;
+    border: 1px solid transparent;
+  }
+  .preset-option:hover { background: var(--cinza); }
+  .preset-option.selected { border-color: var(--azul); background: var(--cinza-claro); }
+  .swatch {
+    width: 16px;
+    height: 16px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    border: 1px solid rgba(0,0,0,0.15);
+  }
+  .accent-row {
+    display: flex;
+    gap: 6px;
+    margin: 6px 0 10px 26px;
+  }
+  .accent-swatch {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    cursor: pointer;
+    border: 2px solid transparent;
+  }
+  .accent-swatch.selected { border-color: var(--preto); }
+  label.field {
+    display: block;
+    margin-top: 10px;
+    font-weight: 600;
+    color: var(--azul-escuro);
+  }
+  input[type="text"] {
+    width: 100%;
+    padding: 4px 6px;
+    box-sizing: border-box;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+  }
+  input[type="color"] {
+    width: 100%;
+    height: 26px;
+    margin-top: 4px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 0;
+  }
+  #save-btn {
+    margin-top: 14px;
+    width: 100%;
+    padding: 8px;
+    background: var(--azul);
+    color: var(--branco);
+    border: none;
+    border-radius: 4px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  #save-btn:hover { background: var(--azul-escuro); }
+</style>
+</head>
+<body>
+
+<div id="skin-root" class="preset-fundo-neutro">
+  <span class="header-label" id="header-label-text">Projedata</span>
+  <div id="gear" title="Configurar Projedata Skin">⚙</div>
+
+  <div id="config-panel" style="display:none;">
+    <h3>Projedata Skin</h3>
+
+    <div class="preset-option" data-preset="preset-faixa-lateral">
+      <span class="swatch" style="background:#0C0F3D"></span> Faixa lateral (azul escuro)
+    </div>
+    <div class="preset-option" data-preset="preset-header">
+      <span class="swatch" style="background:#0C0F3D"></span> Header com título
+    </div>
+    <div class="preset-option" data-preset="preset-card">
+      <span class="swatch" style="background:#F6F6F6;border-left:3px solid #3246FF"></span> Card KPI (borda colorida)
+    </div>
+    <div class="accent-row" id="accent-row" style="display:none;">
+      <div class="accent-swatch selected" data-accent="" style="background:#3246FF" title="Azul"></div>
+      <div class="accent-swatch" data-accent="accent-laranja" style="background:#FE5000" title="Laranja"></div>
+      <div class="accent-swatch" data-accent="accent-amarelo" style="background:#FFB400" title="Amarelo"></div>
+      <div class="accent-swatch" data-accent="accent-azul-escuro" style="background:#0C0F3D" title="Azul escuro"></div>
+    </div>
+    <div class="preset-option" data-preset="preset-fundo-neutro">
+      <span class="swatch" style="background:#EBF0F5"></span> Fundo neutro (cinza claro)
+    </div>
+    <div class="preset-option" data-preset="preset-branco">
+      <span class="swatch" style="background:#FFFFFF;border:1px solid #ccc"></span> Painel branco
+    </div>
+    <div class="preset-option" data-preset="preset-custom">
+      <span class="swatch" style="background:conic-gradient(#3246FF,#FE5000,#FFB400,#0C0F3D)"></span> Cor customizada
+    </div>
+    <div id="custom-color-field" style="display:none; margin-left:26px;">
+      <input type="color" id="custom-color-input" value="#F6F6F6">
+    </div>
+
+    <label class="field" id="header-label-field" style="display:none;">
+      Texto do header
+      <input type="text" id="header-text-input" value="Projedata">
+    </label>
+
+    <button id="save-btn">Salvar</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('skin-root');
+  var gear = document.getElementById('gear');
+  var panel = document.getElementById('config-panel');
+  var saveBtn = document.getElementById('save-btn');
+  var accentRow = document.getElementById('accent-row');
+  var customColorField = document.getElementById('custom-color-field');
+  var customColorInput = document.getElementById('custom-color-input');
+  var headerLabelField = document.getElementById('header-label-field');
+  var headerTextInput = document.getElementById('header-text-input');
+  var headerLabelText = document.getElementById('header-label-text');
+
+  var PRESET_CLASSES = ['preset-faixa-lateral', 'preset-header', 'preset-card', 'preset-fundo-neutro', 'preset-branco', 'preset-custom'];
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var state = {
+    preset: 'preset-fundo-neutro',
+    accent: '',
+    customColor: '#F6F6F6',
+    headerText: 'Projedata'
+  };
+
+  function applyState() {
+    PRESET_CLASSES.concat(ACCENT_CLASSES).forEach(function (c) { root.classList.remove(c); });
+    root.classList.add(state.preset);
+    if (state.preset === 'preset-card' && state.accent) {
+      root.classList.add(state.accent);
+    }
+    if (state.preset === 'preset-custom') {
+      root.style.setProperty('--custom-color', state.customColor);
+    }
+    headerLabelText.style.display = (state.preset === 'preset-header') ? 'block' : 'none';
+    headerLabelText.textContent = state.headerText;
+
+    // Mostra/esconde controles relevantes no painel
+    accentRow.style.display = (state.preset === 'preset-card') ? 'flex' : 'none';
+    customColorField.style.display = (state.preset === 'preset-custom') ? 'block' : 'none';
+    headerLabelField.style.display = (state.preset === 'preset-header') ? 'block' : 'none';
+
+    document.querySelectorAll('.preset-option').forEach(function (el) {
+      el.classList.toggle('selected', el.dataset.preset === state.preset);
+    });
+    document.querySelectorAll('.accent-swatch').forEach(function (el) {
+      el.classList.toggle('selected', el.dataset.accent === state.accent);
+    });
+  }
+
+  document.querySelectorAll('.preset-option').forEach(function (el) {
+    el.addEventListener('click', function () {
+      state.preset = el.dataset.preset;
+      applyState();
+    });
+  });
+
+  document.querySelectorAll('.accent-swatch').forEach(function (el) {
+    el.addEventListener('click', function () {
+      state.accent = el.dataset.accent;
+      applyState();
+    });
+  });
+
+  customColorInput.addEventListener('input', function () {
+    state.customColor = customColorInput.value;
+    applyState();
+  });
+
+  headerTextInput.addEventListener('input', function () {
+    state.headerText = headerTextInput.value;
+    applyState();
+  });
+
+  gear.addEventListener('click', function () {
+    panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+  });
+
+  function loadFromSettings() {
+    try {
+      var saved = tableau.extensions.settings.get('projedataSkinState');
+      if (saved) {
+        var parsed = JSON.parse(saved);
+        state = Object.assign(state, parsed);
+      }
+    } catch (e) {
+      // sem configuração salva ainda, usa o padrão
+    }
+    customColorInput.value = state.customColor;
+    headerTextInput.value = state.headerText;
+    applyState();
+  }
+
+  function saveSettings() {
+    tableau.extensions.settings.set('projedataSkinState', JSON.stringify(state));
+    tableau.extensions.settings.saveAsync().then(function () {
+      panel.style.display = 'none';
+    });
+  }
+
+  saveBtn.addEventListener('click', saveSettings);
+
+  tableau.extensions.initializeAsync().then(function () {
+    loadFromSettings();
+    // Se ainda não há configuração salva, abre o painel automaticamente
+    if (!tableau.extensions.settings.get('projedataSkinState')) {
+      panel.style.display = 'block';
+    }
+  }).catch(function (err) {
+    // Modo de pré-visualização fora do Tableau (abrindo o HTML direto no navegador)
+    applyState();
+    panel.style.display = 'block';
+    console.warn('Extensions API não inicializou (normal se aberto fora do Tableau):', err);
+  });
+})();
+</script>
+
+</body>
+</html>

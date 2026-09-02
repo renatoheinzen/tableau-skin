@@ -1,0 +1,31 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.projedata.inifexbi.skin" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name name-en="Projedata Skin" name-pt-BR="Projedata Skin">Projedata Skin</name>
+    <description description-en="Painéis de fundo com o padrão visual da marca Projedata (cores, blocos, faixas)." description-pt-BR="Painéis de fundo com o padrão visual da marca Projedata (cores, blocos, faixas).">
+      Painéis de fundo com o padrão visual da marca Projedata (cores, blocos, faixas).
+    </description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" support-email="ti@projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <!--
+      IMPORTANTE (preencher antes de publicar):
+      Trocar a URL abaixo pela URL real, em HTTPS, onde o projedata-skin.html
+      será hospedado (ex: dentro do domínio do API Gateway InifleXBI, ou um
+      bucket estático / GitHub Pages dedicado).
+    -->
+    <source-location>
+      <url>https://SEU-DOMINIO-AQUI/extensions/projedata-skin/projedata-skin.html</url>
+    </source-location>
+
+    <!--
+      Ícone opcional: um PNG 26x26 em base64 dentro de <icon>...</icon>.
+      Deixado em branco no protótipo; o Tableau usa um ícone padrão se omitido.
+    -->
+
+    <permissions>
+      <!-- Não precisa ler dados do workbook, só estiliza o próprio objeto -->
+    </permissions>
+  </dashboard-extension>
+</manifest>
