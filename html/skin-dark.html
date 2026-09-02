@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Skin Escuro</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  #skin-root {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: #0C0F3D;
+    background-size: cover;
+    background-position: center;
+  }
+  #logo {
+    position: absolute;
+    top: 32px;
+    left: 16px;
+    max-width: 180px;
+    max-height: 70px;
+  }
+</style>
+</head>
+<body>
+<div id="skin-root">
+  <img id="logo" alt="">
+</div>
+<script>
+  var root = document.getElementById('skin-root');
+  var logo = document.getElementById('logo');
+
+  function loadFresh(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('not found');
+      return r.blob();
+    }).then(function (blob) {
+      return URL.createObjectURL(blob);
+    });
+  }
+
+  loadFresh('../assets/background-dark.jpg').then(function (objectUrl) {
+    root.style.backgroundImage = 'url(' + objectUrl + ')';
+  }).catch(function () {
+    // sem imagem de fundo definida ainda, mantém a cor sólida
+  });
+
+  loadFresh('../assets/logo.png').then(function (objectUrl) {
+    logo.src = objectUrl;
+  }).catch(function () {
+    logo.style.display = 'none';
+  });
+
+  if (typeof tableau !== 'undefined' && tableau.extensions) {
+    tableau.extensions.initializeAsync().catch(function (err) {
+      console.warn('[Projedata Skin Escuro] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
+    });
+  }
+</script>
+</body>
+</html>
