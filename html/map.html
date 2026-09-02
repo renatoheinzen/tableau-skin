@@ -3,6 +3,8 @@
 <head>
 <meta charset="UTF-8">
 <title>Projedata Map Card</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
 <style>
   :root {
@@ -19,56 +21,50 @@
     margin: 0; padding: 0; width: 100%; height: 100%;
     font-family: 'Montserrat', Arial, sans-serif;
     overflow: hidden;
-    background: var(--branco);
+    background: var(--cinza);
   }
   #map-root {
     width: 100%; height: 100%;
     box-sizing: border-box;
     position: relative;
-    display: flex;
-    flex-direction: column;
   }
   #map-status {
     position: absolute; top: 8px; left: 12px;
-    font-size: 12px; color: #6b7280; z-index: 2;
+    font-size: 12px; color: #6b7280; z-index: 1000;
+    background: rgba(255,255,255,0.9);
+    padding: 3px 8px; border-radius: 4px;
   }
-  #map-svg-wrap { flex: 1; min-height: 0; }
-  #map-svg { width: 100%; height: 100%; display: block; }
+  #map-canvas { width: 100%; height: 100%; background: #E8ECF0; }
 
-  path.state {
+  .leaflet-interactive.state-shape {
     stroke: var(--branco);
-    stroke-width: 0.6;
-    cursor: default;
-    transition: opacity 0.1s;
+    stroke-width: 1;
+    transition: fill-opacity 0.1s;
   }
-  path.state:hover { opacity: 0.75; stroke-width: 1.2; }
-  path.state.no-data { fill: #E5E7EB; }
+  .leaflet-interactive.state-shape:hover { fill-opacity: 0.75 !important; }
 
-  #map-tooltip {
-    position: absolute;
-    pointer-events: none;
-    background: var(--azul-escuro);
-    color: var(--branco);
-    font-size: 12px;
-    padding: 6px 10px;
-    border-radius: 4px;
-    white-space: nowrap;
-    z-index: 5;
-    opacity: 0;
-    transform: translate(-50%, -100%);
-    transition: opacity 0.08s;
+  .projedata-tooltip {
+    background: var(--azul-escuro) !important;
+    color: var(--branco) !important;
+    border: none !important;
+    border-radius: 4px !important;
+    font-size: 12px !important;
+    font-family: 'Montserrat', Arial, sans-serif;
+    padding: 6px 10px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.25) !important;
   }
-  #map-tooltip .tt-title { font-weight: 700; margin-bottom: 2px; }
-  #map-tooltip .tt-value { color: #C9D0FF; }
+  .projedata-tooltip::before { display: none !important; }
+  .projedata-tooltip .tt-title { font-weight: 700; margin-bottom: 2px; }
+  .projedata-tooltip .tt-value { color: #C9D0FF; }
 
   #map-legend {
     position: absolute; right: 10px; bottom: 10px;
-    background: rgba(255,255,255,0.9);
+    background: rgba(255,255,255,0.92);
     border-radius: 4px;
     padding: 6px 8px;
     font-size: 10px;
     color: #6b7280;
-    z-index: 3;
+    z-index: 1000;
   }
   #map-legend.hidden { display: none !important; }
   #map-legend .legend-bar {
@@ -83,32 +79,28 @@
     font-size: 10px;
     padding: 3px 8px;
     border-radius: 10px;
-    z-index: 3;
+    z-index: 1000;
   }
   #map-unknown.hidden { display: none !important; }
+
+  .leaflet-control-attribution { font-size: 9px !important; }
 </style>
 </head>
 <body>
 
 <div id="map-root">
   <div id="map-status">Carregando...</div>
-  <div id="map-svg-wrap">
-    <svg id="map-svg" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet"></svg>
-  </div>
+  <div id="map-canvas"></div>
   <div id="map-legend" class="hidden">
     <div class="legend-bar" id="legend-bar"></div>
     <div class="legend-labels"><span id="legend-min">0</span><span id="legend-max">0</span></div>
   </div>
   <div id="map-unknown" class="hidden"></div>
-  <div id="map-tooltip"></div>
 </div>
 
 <script>
 (function () {
-  var root = document.getElementById('map-root');
   var statusEl = document.getElementById('map-status');
-  var svg = document.getElementById('map-svg');
-  var tooltip = document.getElementById('map-tooltip');
   var legendEl = document.getElementById('map-legend');
   var legendBar = document.getElementById('legend-bar');
   var legendMin = document.getElementById('legend-min');
@@ -123,8 +115,11 @@
   var LOW_COLOR = [235, 240, 245]; // --cinza-claro
 
   var state = { accent: '', showLegend: true };
-  var geoFeatures = null; // parsed geojson features
-  var geoByKey = null;    // normalized name/sigla -> feature
+  var geoData = null;
+  var geoByKey = null;
+  var map = null;
+  var geoLayer = null;
+  var hasFitOnce = false;
 
   function stripAccents(s) {
     return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -135,37 +130,41 @@
 
   function loadGeo() {
     return fetch('geo/br-states.json').then(function (r) { return r.json(); }).then(function (geo) {
-      geoFeatures = geo.features;
+      geoData = geo;
       geoByKey = {};
-      geoFeatures.forEach(function (f) {
+      geo.features.forEach(function (f) {
         geoByKey[normKey(f.properties.name)] = f;
         geoByKey[normKey(f.properties.sigla)] = f;
       });
     });
   }
 
-  // Simple equirectangular projection scaled by latitude of Brazil's centroid.
-  var REF_LAT_RAD = -15 * Math.PI / 180;
-  function project(lon, lat) {
-    return [lon * Math.cos(REF_LAT_RAD), -lat];
+  function initMap() {
+    map = L.map('map-canvas', {
+      zoomControl: true,
+      scrollWheelZoom: false,
+      attributionControl: true
+    }).setView([-15, -55], 4);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap contributors',
+      maxZoom: 18
+    }).addTo(map);
+
+    var resizeObserver = new ResizeObserver(function () {
+      map.invalidateSize();
+      tryInitialFit();
+    });
+    resizeObserver.observe(document.getElementById('map-canvas'));
   }
 
-  function ringToPoints(ring) {
-    return ring.map(function (c) { return project(c[0], c[1]); });
-  }
-
-  function pathFromPolygon(coords) {
-    // coords: array of rings (outer + holes), each ring array of [lon,lat]
-    return coords.map(function (ring) {
-      var pts = ringToPoints(ring);
-      return 'M' + pts.map(function (p) { return p[0].toFixed(2) + ',' + p[1].toFixed(2); }).join('L') + 'Z';
-    }).join(' ');
-  }
-
-  function featureToPathD(feature) {
-    var g = feature.geometry;
-    if (g.type === 'Polygon') return pathFromPolygon(g.coordinates);
-    return g.coordinates.map(function (poly) { return pathFromPolygon(poly); }).join(' ');
+  function tryInitialFit() {
+    if (hasFitOnce || !geoLayer) return;
+    var size = map.getSize();
+    if (size.x > 0 && size.y > 0) {
+      fitToBrazil();
+      hasFitOnce = true;
+    }
   }
 
   function lerpColor(t) {
@@ -180,52 +179,38 @@
     return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
   }
 
+  function fitToBrazil() {
+    if (!geoLayer) return;
+    map.invalidateSize({ animate: false });
+    map.fitBounds(geoLayer.getBounds(), { padding: [12, 12], maxZoom: 6, animate: false });
+  }
+
   function renderMap(dataByState, minVal, maxVal, unknownCount) {
-    while (svg.firstChild) svg.removeChild(svg.firstChild);
+    if (geoLayer) { map.removeLayer(geoLayer); geoLayer = null; }
 
-    var xs = [], ys = [];
-    var frag = document.createDocumentFragment();
-
-    geoFeatures.forEach(function (feature) {
-      var d = featureToPathD(feature);
-      var path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-      path.setAttribute('d', d);
-      path.setAttribute('class', 'state');
-
-      var entry = dataByState[normKey(feature.properties.name)] || dataByState[normKey(feature.properties.sigla)];
-      if (entry) {
-        var t = maxVal > minVal ? (entry.value - minVal) / (maxVal - minVal) : 1;
-        path.setAttribute('fill', lerpColor(t));
-        path.dataset.name = feature.properties.name;
-        path.dataset.value = entry.formattedValue;
-      } else {
-        path.classList.add('no-data');
-        path.dataset.name = feature.properties.name;
-        path.dataset.value = 'Sem dados';
+    geoLayer = L.geoJSON(geoData, {
+      className: 'state-shape',
+      style: function (feature) {
+        var entry = dataByState[normKey(feature.properties.name)] || dataByState[normKey(feature.properties.sigla)];
+        if (entry) {
+          var t = maxVal > minVal ? (entry.value - minVal) / (maxVal - minVal) : 1;
+          return { fillColor: lerpColor(t), fillOpacity: 0.85, weight: 1, color: '#FFFFFF' };
+        }
+        return { fillColor: '#E5E7EB', fillOpacity: 0.6, weight: 1, color: '#FFFFFF' };
+      },
+      onEachFeature: function (feature, layer) {
+        var entry = dataByState[normKey(feature.properties.name)] || dataByState[normKey(feature.properties.sigla)];
+        var valueHtml = entry ? entry.formattedValue : 'Sem dados';
+        layer.bindTooltip(
+          '<div class="tt-title">' + feature.properties.name + '</div><div class="tt-value">' + valueHtml + '</div>',
+          { className: 'projedata-tooltip', sticky: true, direction: 'top' }
+        );
       }
+    }).addTo(map);
 
-      path.addEventListener('mousemove', onHover);
-      path.addEventListener('mouseleave', hideTooltip);
-      frag.appendChild(path);
-
-      // collect bbox
-      (feature.geometry.type === 'Polygon' ? [feature.geometry.coordinates] : feature.geometry.coordinates)
-        .forEach(function (poly) {
-          poly.forEach(function (ring) {
-            ring.forEach(function (c) {
-              var p = project(c[0], c[1]);
-              xs.push(p[0]); ys.push(p[1]);
-            });
-          });
-        });
-    });
-
-    svg.appendChild(frag);
-
-    var minX = Math.min.apply(null, xs), maxX = Math.max.apply(null, xs);
-    var minY = Math.min.apply(null, ys), maxY = Math.max.apply(null, ys);
-    var padX = (maxX - minX) * 0.03, padY = (maxY - minY) * 0.03;
-    svg.setAttribute('viewBox', (minX - padX) + ' ' + (minY - padY) + ' ' + (maxX - minX + padX * 2) + ' ' + (maxY - minY + padY * 2));
+    tryInitialFit();
+    setTimeout(tryInitialFit, 400);
+    setTimeout(tryInitialFit, 1200);
 
     legendEl.classList.toggle('hidden', !state.showLegend);
     var accentHex = ACCENT_COLORS[state.accent] || ACCENT_COLORS[''];
@@ -249,16 +234,6 @@
     if (abs >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + 'K';
     return String(Math.round(n));
   }
-
-  function onHover(evt) {
-    var target = evt.currentTarget;
-    var rect = root.getBoundingClientRect();
-    tooltip.innerHTML = '<div class="tt-title">' + target.dataset.name + '</div><div class="tt-value">' + target.dataset.value + '</div>';
-    tooltip.style.left = (evt.clientX - rect.left) + 'px';
-    tooltip.style.top = (evt.clientY - rect.top - 10) + 'px';
-    tooltip.style.opacity = '1';
-  }
-  function hideTooltip() { tooltip.style.opacity = '0'; }
 
   function loadState() {
     try {
@@ -350,6 +325,7 @@
   }, 15000);
 
   try {
+    initMap();
     Promise.all([
       tableau.extensions.initializeAsync({ configure: openConfigDialog }),
       loadGeo()
