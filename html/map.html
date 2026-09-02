@@ -116,10 +116,11 @@
 
   var state = { accent: '', showLegend: true };
   var geoData = null;
-  var geoByKey = null;
+  var geoIndex = null;  // "normCountry|normRegion" -> feature
   var map = null;
   var geoLayer = null;
   var hasFitOnce = false;
+  var pendingFitBounds = null;
 
   function stripAccents(s) {
     return (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '');
@@ -127,14 +128,24 @@
   function normKey(s) {
     return stripAccents(String(s || '')).toLowerCase().trim();
   }
+  function regionKey(props) {
+    return (props.country_code || '') + '|' + (props.sigla || props.name || '');
+  }
 
   function loadGeo() {
-    return fetch('geo/br-states.json').then(function (r) { return r.json(); }).then(function (geo) {
+    return fetch('geo/world-admin1.json').then(function (r) { return r.json(); }).then(function (geo) {
       geoData = geo;
-      geoByKey = {};
+      geoIndex = {};
       geo.features.forEach(function (f) {
-        geoByKey[normKey(f.properties.name)] = f;
-        geoByKey[normKey(f.properties.sigla)] = f;
+        var countryCands = [normKey(f.properties.country_code), normKey(f.properties.country)];
+        var regionCands = [normKey(f.properties.sigla), normKey(f.properties.name)];
+        countryCands.forEach(function (cc) {
+          if (!cc) return;
+          regionCands.forEach(function (rc) {
+            if (!rc) return;
+            geoIndex[cc + '|' + rc] = f;
+          });
+        });
       });
     });
   }
@@ -144,7 +155,7 @@
       zoomControl: true,
       scrollWheelZoom: false,
       attributionControl: true
-    }).setView([-15, -55], 4);
+    }).setView([-15, -55], 2);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '&copy; OpenStreetMap contributors',
@@ -159,10 +170,10 @@
   }
 
   function tryInitialFit() {
-    if (hasFitOnce || !geoLayer) return;
+    if (hasFitOnce || !pendingFitBounds) return;
     var size = map.getSize();
     if (size.x > 0 && size.y > 0) {
-      fitToBrazil();
+      fitToData();
       hasFitOnce = true;
     }
   }
@@ -179,32 +190,36 @@
     return [(v >> 16) & 255, (v >> 8) & 255, v & 255];
   }
 
-  function fitToBrazil() {
-    if (!geoLayer) return;
+  function fitToData() {
+    if (!pendingFitBounds) return;
     map.invalidateSize({ animate: false });
-    map.fitBounds(geoLayer.getBounds(), { padding: [12, 12], maxZoom: 6, animate: false });
+    map.fitBounds(pendingFitBounds, { padding: [12, 12], maxZoom: 6, animate: false });
   }
 
   function renderMap(dataByState, minVal, maxVal, unknownCount) {
     if (geoLayer) { map.removeLayer(geoLayer); geoLayer = null; }
 
+    pendingFitBounds = null;
+
     geoLayer = L.geoJSON(geoData, {
       className: 'state-shape',
+      filter: function (feature) {
+        // skip regions with no data to keep the overlay light on a world-sized dataset
+        return !!dataByState[regionKey(feature.properties)];
+      },
       style: function (feature) {
-        var entry = dataByState[normKey(feature.properties.name)] || dataByState[normKey(feature.properties.sigla)];
-        if (entry) {
-          var t = maxVal > minVal ? (entry.value - minVal) / (maxVal - minVal) : 1;
-          return { fillColor: lerpColor(t), fillOpacity: 0.85, weight: 1, color: '#FFFFFF' };
-        }
-        return { fillColor: '#E5E7EB', fillOpacity: 0.6, weight: 1, color: '#FFFFFF' };
+        var entry = dataByState[regionKey(feature.properties)];
+        var t = maxVal > minVal ? (entry.value - minVal) / (maxVal - minVal) : 1;
+        return { fillColor: lerpColor(t), fillOpacity: 0.85, weight: 1, color: '#FFFFFF' };
       },
       onEachFeature: function (feature, layer) {
-        var entry = dataByState[normKey(feature.properties.name)] || dataByState[normKey(feature.properties.sigla)];
-        var valueHtml = entry ? entry.formattedValue : 'Sem dados';
+        var entry = dataByState[regionKey(feature.properties)];
+        var title = feature.properties.name + ', ' + feature.properties.country;
         layer.bindTooltip(
-          '<div class="tt-title">' + feature.properties.name + '</div><div class="tt-value">' + valueHtml + '</div>',
+          '<div class="tt-title">' + title + '</div><div class="tt-value">' + entry.formattedValue + '</div>',
           { className: 'projedata-tooltip', sticky: true, direction: 'top' }
         );
+        pendingFitBounds = pendingFitBounds ? pendingFitBounds.extend(layer.getBounds()) : L.latLngBounds(layer.getBounds());
       }
     }).addTo(map);
 
@@ -257,33 +272,42 @@
     worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
       clearTimeout(loadTimeoutId);
 
-      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
-        statusEl.textContent = 'Arraste um campo de UF (Detalhe) e uma medida (Cor)';
+      if (!sumData || !sumData.columns || sumData.columns.length < 3) {
+        statusEl.textContent = 'Arraste País, UF/Província (Detalhe) e uma medida (Cor)';
         return;
       }
 
       var cols = sumData.columns;
-      var valueColIdx = -1, dimColIdx = -1;
+      var stringColIdxs = [], valueColIdx = -1;
       cols.forEach(function (c, i) {
-        if (valueColIdx === -1 && (c.dataType === 'float' || c.dataType === 'int')) valueColIdx = i;
-        else if (dimColIdx === -1) dimColIdx = i;
+        if (c.dataType === 'float' || c.dataType === 'int') {
+          if (valueColIdx === -1) valueColIdx = i;
+        } else {
+          stringColIdxs.push(i);
+        }
       });
-      if (dimColIdx === -1) dimColIdx = 0;
-      if (valueColIdx === -1) valueColIdx = cols.length - 1;
+      if (stringColIdxs.length < 2 || valueColIdx === -1) {
+        statusEl.textContent = 'Arraste País, UF/Província (Detalhe) e uma medida (Cor)';
+        return;
+      }
+      var countryColIdx = stringColIdxs[0], regionColIdx = stringColIdxs[1];
 
       var dataByState = {};
       var minVal = Infinity, maxVal = -Infinity;
       var unknownCount = 0;
 
       sumData.data.forEach(function (row) {
-        var name = row[dimColIdx].value;
+        var countryVal = row[countryColIdx].value;
+        var regionVal = row[regionColIdx].value;
         var value = row[valueColIdx].value;
         var formattedValue = row[valueColIdx].formattedValue;
         if (value == null || isNaN(value)) return;
 
-        var key = normKey(name);
-        if (!geoByKey[key]) { unknownCount++; return; }
+        var lookupKey = normKey(countryVal) + '|' + normKey(regionVal);
+        var feature = geoIndex[lookupKey];
+        if (!feature) { unknownCount++; return; }
 
+        var key = regionKey(feature.properties);
         dataByState[key] = { value: value, formattedValue: formattedValue };
         if (value < minVal) minVal = value;
         if (value > maxVal) maxVal = value;
