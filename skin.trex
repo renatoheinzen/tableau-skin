@@ -11,10 +11,7 @@
       <url>https://renatoheinzen.github.io/tableau-skin/skin.html</url>
     </source-location>
 
-    <!--
-      Ícone opcional: um PNG 26x26 em base64 dentro de <icon>...</icon>.
-      Deixado em branco no protótipo; o Tableau usa um ícone padrão se omitido.
-    -->
+    <icon>iVBORw0KGgoAAAANSUhEUgAAABoAAAAaCAIAAAAmKNuZAAAAN0lEQVR4nGPk4bdloB5goqJZg944FmSOmvkhMoy4ddIOzh7cnh01btS4UeNGjRu0xjGO1mRkAwDhywPl9FMd7wAAAABJRU5ErkJggg==</icon>
 
     <!--
       Sem <permissions>: a extensão não precisa ler dados do workbook,
