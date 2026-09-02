@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata KPI Card</title>
+<script src="https://extensions.tableauusercontent.com/tableau.extensions.1.latest.js"></script>
+<style>
+  :root {
+    --azul-escuro: #0C0F3D;
+    --azul: #3246FF;
+    --laranja: #FE5000;
+    --amarelo: #FFB400;
+    --cinza-claro: #EBF0F5;
+    --cinza: #F6F6F6;
+    --preto: #161616;
+    --branco: #FFFFFF;
+  }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: 'Montserrat', Arial, sans-serif;
+    overflow: hidden;
+  }
+  #kpi-root {
+    width: 100%; height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    padding: 12px 16px;
+    background: var(--cinza);
+    border-left: 5px solid var(--azul);
+    position: relative;
+  }
+  #kpi-root.accent-laranja { border-left-color: var(--laranja); }
+  #kpi-root.accent-amarelo { border-left-color: var(--amarelo); }
+  #kpi-root.accent-azul-escuro { border-left-color: var(--azul-escuro); }
+
+  #kpi-label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 4px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #kpi-value {
+    font-size: clamp(20px, 8vw, 40px);
+    font-weight: 700;
+    color: var(--azul-escuro);
+    line-height: 1.1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  #kpi-value.accent-color { color: var(--azul); }
+  #kpi-root.accent-laranja #kpi-value.accent-color { color: var(--laranja); }
+  #kpi-root.accent-amarelo #kpi-value.accent-color { color: var(--amarelo); }
+  #kpi-root.accent-azul-escuro #kpi-value.accent-color { color: var(--azul-escuro); }
+
+  #gear {
+    position: absolute;
+    top: 6px; right: 6px;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.85);
+    color: var(--azul-escuro);
+    border: 1px solid rgba(0,0,0,0.1);
+    font-size: 11px;
+    line-height: 18px;
+    text-align: center;
+    cursor: pointer;
+    z-index: 20;
+  }
+  #config-panel {
+    position: absolute;
+    inset: 0;
+    background: var(--branco);
+    z-index: 10;
+    padding: 14px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    font-size: 12px;
+    color: var(--preto);
+  }
+  #config-panel h3 { margin: 0 0 10px 0; font-size: 13px; color: var(--azul-escuro); }
+  .accent-row { display: flex; gap: 8px; margin: 8px 0 14px 0; }
+  .accent-swatch {
+    width: 20px; height: 20px; border-radius: 50%;
+    cursor: pointer; border: 2px solid transparent;
+  }
+  .accent-swatch.selected { border-color: var(--preto); }
+  label.field { display: block; margin-top: 10px; font-weight: 600; color: var(--azul-escuro); }
+  input[type="text"] {
+    width: 100%; padding: 4px 6px; box-sizing: border-box; margin-top: 4px;
+    border: 1px solid #ccc; border-radius: 4px;
+  }
+  select {
+    width: 100%; padding: 4px 6px; margin-top: 4px;
+    border: 1px solid #ccc; border-radius: 4px;
+  }
+  #save-btn {
+    margin-top: 14px; width: 100%; padding: 8px;
+    background: var(--azul); color: var(--branco);
+    border: none; border-radius: 4px; font-weight: 700; cursor: pointer;
+  }
+  #save-btn:hover { background: var(--azul-escuro); }
+  .hint { color: #888; font-size: 11px; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<div id="kpi-root">
+  <div id="kpi-label">Carregando...</div>
+  <div id="kpi-value" class="accent-color">—</div>
+  <div id="gear" title="Configurar Projedata KPI Card">⚙</div>
+
+  <div id="config-panel" style="display:none;">
+    <h3>Projedata KPI Card</h3>
+
+    <label class="field">Cor de destaque</label>
+    <div class="accent-row" id="accent-row">
+      <div class="accent-swatch selected" data-accent="" style="background:#3246FF" title="Azul"></div>
+      <div class="accent-swatch" data-accent="accent-laranja" style="background:#FE5000" title="Laranja"></div>
+      <div class="accent-swatch" data-accent="accent-amarelo" style="background:#FFB400" title="Amarelo"></div>
+      <div class="accent-swatch" data-accent="accent-azul-escuro" style="background:#0C0F3D" title="Azul escuro"></div>
+    </div>
+
+    <label class="field">
+      Rótulo customizado (opcional)
+      <input type="text" id="custom-label-input" placeholder="Deixe em branco para usar o nome do campo">
+    </label>
+    <div class="hint">Se vazio, usa o nome do campo colocado nas Marcas.</div>
+
+    <button id="save-btn">Salvar</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('kpi-root');
+  var labelEl = document.getElementById('kpi-label');
+  var valueEl = document.getElementById('kpi-value');
+  var gear = document.getElementById('gear');
+  var panel = document.getElementById('config-panel');
+  var saveBtn = document.getElementById('save-btn');
+  var customLabelInput = document.getElementById('custom-label-input');
+
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var state = {
+    accent: '',
+    customLabel: ''
+  };
+
+  function applyAccent() {
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    if (state.accent) root.classList.add(state.accent);
+    document.querySelectorAll('.accent-swatch').forEach(function (el) {
+      el.classList.toggle('selected', el.dataset.accent === state.accent);
+    });
+  }
+
+  document.querySelectorAll('.accent-swatch').forEach(function (el) {
+    el.addEventListener('click', function () {
+      state.accent = el.dataset.accent;
+      applyAccent();
+    });
+  });
+
+  gear.addEventListener('click', function () {
+    panel.style.display = (panel.style.display === 'none') ? 'block' : 'none';
+  });
+
+  function loadSettings() {
+    try {
+      var saved = tableau.extensions.settings.get('projedataKpiState');
+      if (saved) {
+        state = Object.assign(state, JSON.parse(saved));
+      }
+    } catch (e) { /* sem config salva ainda */ }
+    customLabelInput.value = state.customLabel || '';
+    applyAccent();
+  }
+
+  function saveSettings() {
+    state.customLabel = customLabelInput.value;
+    tableau.extensions.settings.set('projedataKpiState', JSON.stringify(state));
+    tableau.extensions.settings.saveAsync().then(function () {
+      panel.style.display = 'none';
+      updateKpi();
+    });
+  }
+  saveBtn.addEventListener('click', saveSettings);
+
+  // --- Leitura do dado colocado nas Marcas da planilha ---
+  function updateKpi() {
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataReaderAsync(undefined, { ignoreSelection: true }).then(function (reader) {
+      return reader.getAllPagesAsync().then(function (dataTable) {
+        reader.releaseAsync();
+        return dataTable;
+      });
+    }).then(function (dataTable) {
+      if (!dataTable || !dataTable.columns || dataTable.columns.length === 0) {
+        labelEl.textContent = 'Arraste um campo para as Marcas';
+        valueEl.textContent = '—';
+        return;
+      }
+      var columnName = dataTable.columns[0].fieldName;
+      var displayLabel = state.customLabel && state.customLabel.trim() !== ''
+        ? state.customLabel
+        : columnName;
+      labelEl.textContent = displayLabel;
+
+      if (dataTable.data.length > 0) {
+        var cell = dataTable.data[0][0];
+        valueEl.textContent = cell.formattedValue;
+      } else {
+        valueEl.textContent = 'Sem dados';
+      }
+    }).catch(function (err) {
+      console.error('Erro ao ler dados da planilha:', err);
+      labelEl.textContent = 'Erro ao carregar dado';
+      valueEl.textContent = '—';
+    });
+  }
+
+  tableau.extensions.initializeAsync().then(function () {
+    loadSettings();
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateKpi);
+    updateKpi();
+
+    if (!tableau.extensions.settings.get('projedataKpiState')) {
+      panel.style.display = 'block';
+    }
+  }).catch(function (err) {
+    labelEl.textContent = 'Pré-visualização (fora do Tableau)';
+    valueEl.textContent = '708.139.030';
+    applyAccent();
+    console.warn('Extensions API não inicializou (normal se aberto fora do Tableau):', err);
+  });
+})();
+</script>
+
+</body>
+</html>
