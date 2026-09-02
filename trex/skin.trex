@@ -3,7 +3,7 @@
   <dashboard-extension id="com.projedata.inifexbi.skin" extension-version="1.0.0">
     <default-locale>pt_BR</default-locale>
     <name>Projedata Skin</name>
-    <description>Painéis de fundo com o padrão visual da marca Projedata (cores, blocos, faixas).</description>
+    <description>Fundo do painel na cor azul da marca Projedata.</description>
     <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
     <min-api-version>1.9</min-api-version>
 
