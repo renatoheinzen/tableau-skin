@@ -25,6 +25,11 @@
   .subtitle { font-size: 11px; color: #888; margin-bottom: 16px; }
 
   label.field { display: block; margin-top: 12px; font-weight: 600; font-size: 12px; color: var(--azul-escuro); }
+  select {
+    width: 100%; padding: 6px 8px; margin-top: 4px;
+    border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+  }
+  .hint { color: #999; font-size: 10px; margin-top: 3px; }
 
   .accent-row { display: flex; gap: 10px; margin: 8px 0 4px 0; }
   .accent-swatch {
@@ -56,6 +61,13 @@
 <h2>Projedata Map Card</h2>
 <div class="subtitle">Formatar extensão</div>
 
+<label class="field">Campo de País</label>
+<select id="country-field-input"><option value="">Carregando campos...</option></select>
+<div class="hint">Idealmente código ISO (BR, AR, US) ou nome em inglês.</div>
+
+<label class="field">Campo de UF/Província</label>
+<select id="region-field-input"><option value="">Carregando campos...</option></select>
+
 <label class="field">Gradiente de cor</label>
 <div class="accent-row" id="accent-row">
   <div class="accent-swatch selected" data-accent="" style="background:#3246FF" title="Azul"></div>
@@ -77,10 +89,39 @@
 (function () {
   var accentRow = document.getElementById('accent-row');
   var showLegendInput = document.getElementById('show-legend-input');
+  var countryFieldInput = document.getElementById('country-field-input');
+  var regionFieldInput = document.getElementById('region-field-input');
   var saveBtn = document.getElementById('save-btn');
   var cancelBtn = document.getElementById('cancel-btn');
 
-  var state = { accent: '', showLegend: true };
+  var state = { accent: '', showLegend: true, countryField: '', regionField: '' };
+
+  function populateFieldOptions(stringFieldNames) {
+    [countryFieldInput, regionFieldInput].forEach(function (select) {
+      select.innerHTML = '';
+      stringFieldNames.forEach(function (name) {
+        var opt = document.createElement('option');
+        opt.value = name;
+        opt.textContent = name;
+        select.appendChild(opt);
+      });
+    });
+    countryFieldInput.value = state.countryField || stringFieldNames[0] || '';
+    regionFieldInput.value = state.regionField || stringFieldNames[1] || '';
+  }
+
+  function loadFieldNames() {
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    return worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      var stringFieldNames = sumData.columns
+        .filter(function (c) { return c.dataType !== 'float' && c.dataType !== 'int'; })
+        .map(function (c) { return c.fieldName; });
+      populateFieldOptions(stringFieldNames);
+    }).catch(function (err) {
+      console.error('[Projedata Map config] erro ao ler campos da planilha:', err);
+      populateFieldOptions([]);
+    });
+  }
 
   function selectAccent(accent) {
     state.accent = accent;
@@ -106,6 +147,8 @@
 
   function save() {
     state.showLegend = showLegendInput.checked;
+    state.countryField = countryFieldInput.value;
+    state.regionField = regionFieldInput.value;
 
     tableau.extensions.settings.set('projedataMapState', JSON.stringify(state));
     tableau.extensions.settings.saveAsync().then(function () {
@@ -123,6 +166,7 @@
       if (saved) state = Object.assign(state, JSON.parse(saved));
     } catch (e) { /* sem config salva ainda */ }
     populateForm();
+    loadFieldNames();
   }).catch(function (err) {
     console.error('[Projedata Map config] erro ao inicializar dialog:', err);
     populateForm();

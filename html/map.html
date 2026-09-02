@@ -114,7 +114,7 @@
   };
   var LOW_COLOR = [235, 240, 245]; // --cinza-claro
 
-  var state = { accent: '', showLegend: true };
+  var state = { accent: '', showLegend: true, countryField: '', regionField: '' };
   var geoData = null;
   var geoIndex = null;  // "normCountry|normRegion" -> feature
   var map = null;
@@ -291,6 +291,14 @@
         return;
       }
       var countryColIdx = stringColIdxs[0], regionColIdx = stringColIdxs[1];
+      if (state.countryField) {
+        var byName = cols.findIndex(function (c) { return c.fieldName === state.countryField; });
+        if (byName !== -1) countryColIdx = byName;
+      }
+      if (state.regionField) {
+        var byName2 = cols.findIndex(function (c) { return c.fieldName === state.regionField; });
+        if (byName2 !== -1) regionColIdx = byName2;
+      }
 
       var dataByState = {};
       var minVal = Infinity, maxVal = -Infinity;
