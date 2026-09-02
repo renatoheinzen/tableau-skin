@@ -47,7 +47,10 @@
   }
 
   loadFresh('../assets/background.jpg').then(function (objectUrl) {
-    root.style.backgroundImage = 'url(' + objectUrl + ')';
+    // tonaliza levemente a imagem pra ela nunca ficar branco puro,
+    // senão os cards brancos dos KPIs/gráficos perdem a borda
+    root.style.backgroundImage =
+      'linear-gradient(rgba(209,216,237,0.55), rgba(209,216,237,0.55)), url(' + objectUrl + ')';
   }).catch(function () {
     // sem imagem de fundo definida ainda, mantém a cor sólida
   });
