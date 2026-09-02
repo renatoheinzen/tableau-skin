@@ -155,24 +155,38 @@
       });
   }
 
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    labelEl.textContent = 'Falha ao carregar script da API do Tableau';
+    valueEl.textContent = '—';
+    console.error('[Projedata KPI] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
+    return;
+  }
+
   var initTimeoutId = setTimeout(function () {
-    labelEl.textContent = 'Sem conexão com o Tableau';
+    labelEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
     valueEl.textContent = '—';
     console.warn('[Projedata KPI] initializeAsync não respondeu — normal se aberto fora do Tableau.');
   }, 15000);
 
-  tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      var worksheet = tableau.extensions.worksheetContent.worksheet;
+      worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateKpi);
+      updateKpi();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      labelEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+      valueEl.textContent = '—';
+      console.warn('Extensions API não inicializou:', err);
+    });
+  } catch (syncErr) {
     clearTimeout(initTimeoutId);
-    loadState();
-    var worksheet = tableau.extensions.worksheetContent.worksheet;
-    worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateKpi);
-    updateKpi();
-  }).catch(function (err) {
-    clearTimeout(initTimeoutId);
-    labelEl.textContent = 'Sem conexão com o Tableau';
+    labelEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
     valueEl.textContent = '—';
-    console.warn('Extensions API não inicializou (normal se aberto fora do Tableau):', err);
-  });
+    console.error('[Projedata KPI] erro síncrono ao chamar initializeAsync:', syncErr);
+  }
 })();
 </script>
 
