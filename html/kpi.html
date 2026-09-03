@@ -74,7 +74,7 @@
   var state = {
     accent: '', customLabel: '', showLabel: true,
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
-    numberFormat: '', decimalPlaces: '1', compareField: '',
+    compareField: '',
     fontSize: 'size-medium', align: 'align-left',
     lastRawValue: ''
   };
@@ -96,23 +96,6 @@
     if (idx === -1 || !sumData.data[0] || !sumData.data[0][idx]) return null;
     var raw = sumData.data[0][idx].value;
     return (typeof raw === 'number' && !isNaN(raw)) ? raw : null;
-  }
-
-  function abbreviateNumber(value, decimals) {
-    var abs = Math.abs(value);
-    var sign = value < 0 ? '-' : '';
-    var divided = abs, suffix = '';
-    if (abs >= 1e9) { divided = abs / 1e9; suffix = ' bi'; }
-    else if (abs >= 1e6) { divided = abs / 1e6; suffix = ' mi'; }
-    else if (abs >= 1e3) { divided = abs / 1e3; suffix = ' mil'; }
-    return sign + divided.toFixed(decimals).replace('.', ',') + suffix;
-  }
-
-  function formatDisplayValue() {
-    if (state.numberFormat === 'abbreviated' && lastRawNumber != null) {
-      return abbreviateNumber(lastRawNumber, parseInt(state.decimalPlaces, 10) || 0);
-    }
-    return state.lastRawValue;
   }
 
   function renderVariation() {
@@ -140,7 +123,7 @@
     if (state.lastRawValue === '' || state.lastRawValue == null) return;
     var prefix = state.prefixField ? lastPrefixValue : (state.prefix || '');
     var suffix = state.suffixField ? lastSuffixValue : (state.suffix || '');
-    valueEl.textContent = prefix + formatDisplayValue() + suffix;
+    valueEl.textContent = prefix + state.lastRawValue + suffix;
     renderVariation();
   }
 
