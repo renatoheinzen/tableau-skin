@@ -4,7 +4,6 @@
 <meta charset="UTF-8">
 <title>Projedata Gráfico de Barras</title>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
-<script src="../assets/theme.js"></script>
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
   html, body {
@@ -28,12 +27,6 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #chart-title.hidden { display: none !important; }
-
-  /* Tema escuro (via parâmetro "Projedata Tema"): --preto é quase invisível sobre o
-     fundo escuro da skin, então troca por variantes com contraste WCAG AA. */
-  #chart-root.theme-escuro #chart-title,
-  #chart-root.theme-escuro .bar-label { color: var(--cinza-claro); }
-  #chart-root.theme-escuro .bar-value { color: var(--branco); }
 
   #chart-body {
     flex: 1;
@@ -325,9 +318,6 @@
       var worksheet = tableau.extensions.worksheetContent.worksheet;
       worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
       updateChart();
-      ProjedataTheme.watchTheme(function (theme) {
-        root.classList.toggle('theme-escuro', theme === 'escuro');
-      });
     }).catch(function (err) {
       clearTimeout(initTimeoutId);
       titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
