@@ -138,14 +138,26 @@
   </select>
 </label>
 
-<div class="checkbox-row">
-  <input type="checkbox" id="bg-transparent-input" checked>
-  <label for="bg-transparent-input">Fundo transparente</label>
-</div>
+<label class="field">
+  Cor de fundo
+</label>
 <div class="bg-row">
-  <input type="color" id="bg-color-input" value="#ffffff" disabled>
-  <span class="hint">Cor de fundo do card (desmarque acima para usar)</span>
+  <input type="color" id="bg-color-input" value="#ffffff">
 </div>
+
+<label class="field">Borda</label>
+<div class="bg-row">
+  <input type="color" id="border-color-input" value="#0c0f3d">
+  <span class="hint">Cor</span>
+</div>
+<label class="field">
+  Espessura da borda (px)
+  <input type="number" id="border-width-input" min="0" value="0">
+</label>
+<label class="field">
+  Raio do canto (px)
+  <input type="number" id="border-radius-input" min="0" value="0">
+</label>
 
 <div class="actions">
   <button id="cancel-btn">Cancelar</button>
@@ -166,8 +178,10 @@
   var compareFieldInput = document.getElementById('compare-field-input');
   var fontSizeInput = document.getElementById('font-size-input');
   var alignInput = document.getElementById('align-input');
-  var bgTransparentInput = document.getElementById('bg-transparent-input');
   var bgColorInput = document.getElementById('bg-color-input');
+  var borderColorInput = document.getElementById('border-color-input');
+  var borderWidthInput = document.getElementById('border-width-input');
+  var borderRadiusInput = document.getElementById('border-radius-input');
   var saveBtn = document.getElementById('save-btn');
   var cancelBtn = document.getElementById('cancel-btn');
 
@@ -177,12 +191,9 @@
     compareField: '', displayUnits: '',
     fontSize: 'size-medium', align: 'align-left',
     bgColor: '',
+    borderColor: '', borderWidth: 0, borderRadius: 0,
     lastRawValue: ''
   };
-
-  bgTransparentInput.addEventListener('change', function () {
-    bgColorInput.disabled = bgTransparentInput.checked;
-  });
 
   function populateFieldOptions(select, columns, placeholder) {
     select.innerHTML = '';
@@ -223,9 +234,10 @@
     compareFieldInput.value = state.compareField || '';
     fontSizeInput.value = state.fontSize || 'size-medium';
     alignInput.value = state.align || 'align-left';
-    bgTransparentInput.checked = !state.bgColor;
     bgColorInput.value = state.bgColor || '#ffffff';
-    bgColorInput.disabled = bgTransparentInput.checked;
+    borderColorInput.value = state.borderColor || '#0c0f3d';
+    borderWidthInput.value = state.borderWidth || 0;
+    borderRadiusInput.value = state.borderRadius || 0;
   }
 
   function closeWithoutSaving() {
@@ -245,7 +257,10 @@
     state.compareField = compareFieldInput.value;
     state.fontSize = fontSizeInput.value;
     state.align = alignInput.value;
-    state.bgColor = bgTransparentInput.checked ? '' : bgColorInput.value;
+    state.bgColor = bgColorInput.value;
+    state.borderColor = borderColorInput.value;
+    state.borderWidth = borderWidthInput.value;
+    state.borderRadius = borderRadiusInput.value;
 
     tableau.extensions.settings.set('projedataKpiState', JSON.stringify(state));
     tableau.extensions.settings.saveAsync().then(function () {

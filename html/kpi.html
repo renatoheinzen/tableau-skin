@@ -78,6 +78,7 @@
     compareField: '', displayUnits: '',
     fontSize: 'size-medium', align: 'align-left',
     bgColor: '',
+    borderColor: '', borderWidth: 0, borderRadius: 0,
     lastRawValue: ''
   };
   var lastPrefixValue = '';
@@ -135,6 +136,9 @@
     root.classList.add(state.align || 'align-left');
     labelEl.classList.toggle('hidden', state.showLabel === false);
     root.style.background = state.bgColor || 'transparent';
+    var borderWidth = parseInt(state.borderWidth, 10) || 0;
+    root.style.border = borderWidth > 0 ? (borderWidth + 'px solid ' + (state.borderColor || '#000000')) : 'none';
+    root.style.borderRadius = (parseInt(state.borderRadius, 10) || 0) + 'px';
     renderValue();
   }
 
