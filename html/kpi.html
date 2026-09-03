@@ -93,7 +93,10 @@
   function formatDisplayValue() {
     var unit = DISPLAY_UNITS[state.displayUnits];
     if (!unit || lastRawNumber == null) return state.lastRawValue;
-    return (lastRawNumber / unit.divisor).toFixed(1).replace('.', ',') + unit.suffix;
+    var divided = (lastRawNumber / unit.divisor).toLocaleString('pt-BR', {
+      minimumFractionDigits: 1, maximumFractionDigits: 1
+    });
+    return divided + unit.suffix;
   }
 
   function fieldValue(sumData, fieldName) {
