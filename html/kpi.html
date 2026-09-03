@@ -41,6 +41,15 @@
   #kpi-root.size-small #kpi-value { font-size: clamp(14px, 5vw, 24px); }
   #kpi-root.size-medium #kpi-value { font-size: clamp(20px, 8vw, 40px); }
   #kpi-root.size-large #kpi-value { font-size: clamp(28px, 11vw, 56px); }
+
+  #kpi-variation {
+    font-size: 13px; font-weight: 700; margin-top: 4px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #kpi-variation.hidden { display: none !important; }
+  #kpi-variation.up { color: #16a34a; }
+  #kpi-variation.down { color: #dc2626; }
+  #kpi-variation.flat { color: #6b7280; }
 </style>
 </head>
 <body>
@@ -48,6 +57,7 @@
 <div id="kpi-root" class="size-medium align-left">
   <div id="kpi-label">Carregando...</div>
   <div id="kpi-value">—</div>
+  <div id="kpi-variation" class="hidden"></div>
 </div>
 
 <script>
@@ -55,6 +65,7 @@
   var root = document.getElementById('kpi-root');
   var labelEl = document.getElementById('kpi-label');
   var valueEl = document.getElementById('kpi-value');
+  var variationEl = document.getElementById('kpi-variation');
 
   var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
   var SIZE_CLASSES = ['size-small', 'size-medium', 'size-large'];
@@ -63,17 +74,57 @@
   var state = {
     accent: '', customLabel: '', showLabel: true,
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
+    numberFormat: '', decimalPlaces: '1', compareField: '',
     fontSize: 'size-medium', align: 'align-left',
     lastRawValue: ''
   };
   var lastPrefixValue = '';
   var lastSuffixValue = '';
+  var lastRawNumber = null;
+  var lastCompareNumber = null;
 
   function fieldValue(sumData, fieldName) {
     if (!fieldName) return '';
     var idx = sumData.columns.findIndex(function (c) { return c.fieldName === fieldName; });
     if (idx === -1 || !sumData.data[0] || !sumData.data[0][idx]) return '';
     return sumData.data[0][idx].formattedValue;
+  }
+
+  function fieldRawValue(sumData, fieldName) {
+    if (!fieldName) return null;
+    var idx = sumData.columns.findIndex(function (c) { return c.fieldName === fieldName; });
+    if (idx === -1 || !sumData.data[0] || !sumData.data[0][idx]) return null;
+    var raw = sumData.data[0][idx].value;
+    return (typeof raw === 'number' && !isNaN(raw)) ? raw : null;
+  }
+
+  function abbreviateNumber(value, decimals) {
+    var abs = Math.abs(value);
+    var sign = value < 0 ? '-' : '';
+    var divided = abs, suffix = '';
+    if (abs >= 1e9) { divided = abs / 1e9; suffix = ' bi'; }
+    else if (abs >= 1e6) { divided = abs / 1e6; suffix = ' mi'; }
+    else if (abs >= 1e3) { divided = abs / 1e3; suffix = ' mil'; }
+    return sign + divided.toFixed(decimals).replace('.', ',') + suffix;
+  }
+
+  function formatDisplayValue() {
+    if (state.numberFormat === 'abbreviated' && lastRawNumber != null) {
+      return abbreviateNumber(lastRawNumber, parseInt(state.decimalPlaces, 10) || 0);
+    }
+    return state.lastRawValue;
+  }
+
+  function renderVariation() {
+    if (!state.compareField || lastRawNumber == null || lastCompareNumber == null || lastCompareNumber === 0) {
+      variationEl.classList.add('hidden');
+      return;
+    }
+    var diffPct = ((lastRawNumber - lastCompareNumber) / Math.abs(lastCompareNumber)) * 100;
+    var arrow = diffPct > 0 ? '▲' : (diffPct < 0 ? '▼' : '—');
+    var cls = diffPct > 0 ? 'up' : (diffPct < 0 ? 'down' : 'flat');
+    variationEl.textContent = arrow + ' ' + Math.abs(diffPct).toFixed(1).replace('.', ',') + '%';
+    variationEl.className = cls;
   }
 
   function applyLayout() {
@@ -89,7 +140,8 @@
     if (state.lastRawValue === '' || state.lastRawValue == null) return;
     var prefix = state.prefixField ? lastPrefixValue : (state.prefix || '');
     var suffix = state.suffixField ? lastSuffixValue : (state.suffix || '');
-    valueEl.textContent = prefix + state.lastRawValue + suffix;
+    valueEl.textContent = prefix + formatDisplayValue() + suffix;
+    renderVariation();
   }
 
   function loadState() {
@@ -133,13 +185,17 @@
       labelEl.classList.toggle('hidden', state.showLabel === false);
 
       if (sumData.data && sumData.data.length > 0) {
-        state.lastRawValue = sumData.data[0][valueIdx].formattedValue;
+        var valueCell = sumData.data[0][valueIdx];
+        state.lastRawValue = valueCell.formattedValue;
+        lastRawNumber = (typeof valueCell.value === 'number' && !isNaN(valueCell.value)) ? valueCell.value : null;
         lastPrefixValue = fieldValue(sumData, state.prefixField);
         lastSuffixValue = fieldValue(sumData, state.suffixField);
+        lastCompareNumber = fieldRawValue(sumData, state.compareField);
         renderValue();
       } else {
         state.lastRawValue = '';
         valueEl.textContent = 'Sem dados';
+        variationEl.classList.add('hidden');
       }
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);

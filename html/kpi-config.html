@@ -98,6 +98,29 @@
 <div class="hint">Se selecionado, usa o valor desse campo em vez do texto fixo acima.</div>
 
 <label class="field">
+  Formato do número
+  <select id="number-format-input">
+    <option value="">Automático (formatação do Tableau)</option>
+    <option value="abbreviated">Abreviado (1,2 mi / 340 mil)</option>
+  </select>
+</label>
+
+<label class="field">
+  Casas decimais (formato abreviado)
+  <select id="decimal-places-input">
+    <option value="0">0</option>
+    <option value="1" selected>1</option>
+    <option value="2">2</option>
+  </select>
+</label>
+
+<label class="field">
+  Campo de comparação (opcional)
+  <select id="compare-field-input"></select>
+</label>
+<div class="hint">Se selecionado, mostra ▲/▼ com a variação % em relação a esse campo (ex: período anterior ou meta).</div>
+
+<label class="field">
   Tamanho da fonte
   <select id="font-size-input">
     <option value="size-small">Pequeno</option>
@@ -129,6 +152,9 @@
   var valueFieldInput = document.getElementById('value-field-input');
   var prefixFieldInput = document.getElementById('prefix-field-input');
   var suffixFieldInput = document.getElementById('suffix-field-input');
+  var numberFormatInput = document.getElementById('number-format-input');
+  var decimalPlacesInput = document.getElementById('decimal-places-input');
+  var compareFieldInput = document.getElementById('compare-field-input');
   var fontSizeInput = document.getElementById('font-size-input');
   var alignInput = document.getElementById('align-input');
   var saveBtn = document.getElementById('save-btn');
@@ -137,6 +163,7 @@
   var state = {
     accent: '', customLabel: '', showLabel: true,
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
+    numberFormat: '', decimalPlaces: '1', compareField: '',
     fontSize: 'size-medium', align: 'align-left',
     lastRawValue: ''
   };
@@ -176,6 +203,9 @@
     valueFieldInput.value = state.valueField || '';
     prefixFieldInput.value = state.prefixField || '';
     suffixFieldInput.value = state.suffixField || '';
+    numberFormatInput.value = state.numberFormat || '';
+    decimalPlacesInput.value = state.decimalPlaces || '1';
+    compareFieldInput.value = state.compareField || '';
     fontSizeInput.value = state.fontSize || 'size-medium';
     alignInput.value = state.align || 'align-left';
   }
@@ -193,6 +223,9 @@
     state.valueField = valueFieldInput.value;
     state.prefixField = prefixFieldInput.value;
     state.suffixField = suffixFieldInput.value;
+    state.numberFormat = numberFormatInput.value;
+    state.decimalPlaces = decimalPlacesInput.value;
+    state.compareField = compareFieldInput.value;
     state.fontSize = fontSizeInput.value;
     state.align = alignInput.value;
 
@@ -216,12 +249,14 @@
     populateFieldOptions(valueFieldInput, sumData.columns, 'Automático (1º campo em Marcas)');
     populateFieldOptions(prefixFieldInput, sumData.columns, 'Nenhum (usar texto fixo)');
     populateFieldOptions(suffixFieldInput, sumData.columns, 'Nenhum (usar texto fixo)');
+    populateFieldOptions(compareFieldInput, sumData.columns, 'Nenhum (sem indicador)');
     populateForm();
   }).catch(function (err) {
     console.error('[Projedata KPI config] erro ao inicializar dialog ou ler campos:', err);
     populateFieldOptions(valueFieldInput, [], 'Automático (1º campo em Marcas)');
     populateFieldOptions(prefixFieldInput, [], 'Nenhum (usar texto fixo)');
     populateFieldOptions(suffixFieldInput, [], 'Nenhum (usar texto fixo)');
+    populateFieldOptions(compareFieldInput, [], 'Nenhum (sem indicador)');
     populateForm();
   });
 })();
