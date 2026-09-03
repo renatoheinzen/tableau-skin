@@ -34,6 +34,13 @@
   .accent-swatch.selected { border-color: var(--preto); }
   .hint { color: #999; font-size: 10px; margin-top: 3px; }
 
+  .bg-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+  .bg-row input[type="color"] {
+    width: 36px; height: 28px; padding: 2px; margin-top: 0;
+    border: 1px solid #ccc; border-radius: 4px; cursor: pointer;
+  }
+  .bg-row input[type="color"]:disabled { opacity: 0.4; cursor: not-allowed; }
+
   .actions {
     display: flex; gap: 8px; margin-top: 22px;
     position: sticky; bottom: 0; background: var(--branco); padding-top: 10px;
@@ -131,6 +138,15 @@
   </select>
 </label>
 
+<div class="checkbox-row">
+  <input type="checkbox" id="bg-transparent-input" checked>
+  <label for="bg-transparent-input">Fundo transparente</label>
+</div>
+<div class="bg-row">
+  <input type="color" id="bg-color-input" value="#ffffff" disabled>
+  <span class="hint">Cor de fundo do card (desmarque acima para usar)</span>
+</div>
+
 <div class="actions">
   <button id="cancel-btn">Cancelar</button>
   <button id="save-btn">Salvar</button>
@@ -150,6 +166,8 @@
   var compareFieldInput = document.getElementById('compare-field-input');
   var fontSizeInput = document.getElementById('font-size-input');
   var alignInput = document.getElementById('align-input');
+  var bgTransparentInput = document.getElementById('bg-transparent-input');
+  var bgColorInput = document.getElementById('bg-color-input');
   var saveBtn = document.getElementById('save-btn');
   var cancelBtn = document.getElementById('cancel-btn');
 
@@ -158,8 +176,13 @@
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
     compareField: '', displayUnits: '',
     fontSize: 'size-medium', align: 'align-left',
+    bgColor: '',
     lastRawValue: ''
   };
+
+  bgTransparentInput.addEventListener('change', function () {
+    bgColorInput.disabled = bgTransparentInput.checked;
+  });
 
   function populateFieldOptions(select, columns, placeholder) {
     select.innerHTML = '';
@@ -200,6 +223,9 @@
     compareFieldInput.value = state.compareField || '';
     fontSizeInput.value = state.fontSize || 'size-medium';
     alignInput.value = state.align || 'align-left';
+    bgTransparentInput.checked = !state.bgColor;
+    bgColorInput.value = state.bgColor || '#ffffff';
+    bgColorInput.disabled = bgTransparentInput.checked;
   }
 
   function closeWithoutSaving() {
@@ -219,6 +245,7 @@
     state.compareField = compareFieldInput.value;
     state.fontSize = fontSizeInput.value;
     state.align = alignInput.value;
+    state.bgColor = bgTransparentInput.checked ? '' : bgColorInput.value;
 
     tableau.extensions.settings.set('projedataKpiState', JSON.stringify(state));
     tableau.extensions.settings.saveAsync().then(function () {

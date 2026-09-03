@@ -76,6 +76,7 @@
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
     compareField: '', displayUnits: '',
     fontSize: 'size-medium', align: 'align-left',
+    bgColor: '',
     lastRawValue: ''
   };
   var lastPrefixValue = '';
@@ -132,6 +133,7 @@
     root.classList.add(state.fontSize || 'size-medium');
     root.classList.add(state.align || 'align-left');
     labelEl.classList.toggle('hidden', state.showLabel === false);
+    root.style.background = state.bgColor || 'transparent';
     renderValue();
   }
 
