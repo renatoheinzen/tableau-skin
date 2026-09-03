@@ -98,6 +98,17 @@
 <div class="hint">Se selecionado, usa o valor desse campo em vez do texto fixo acima.</div>
 
 <label class="field">
+  Exibir unidades
+  <select id="display-units-input">
+    <option value="">Nenhum</option>
+    <option value="K">Milhares (K)</option>
+    <option value="M">Milhões (M)</option>
+    <option value="B">Bilhões (B)</option>
+    <option value="T">Trilhões (T)</option>
+  </select>
+</label>
+
+<label class="field">
   Campo de comparação (opcional)
   <select id="compare-field-input"></select>
 </label>
@@ -135,6 +146,7 @@
   var valueFieldInput = document.getElementById('value-field-input');
   var prefixFieldInput = document.getElementById('prefix-field-input');
   var suffixFieldInput = document.getElementById('suffix-field-input');
+  var displayUnitsInput = document.getElementById('display-units-input');
   var compareFieldInput = document.getElementById('compare-field-input');
   var fontSizeInput = document.getElementById('font-size-input');
   var alignInput = document.getElementById('align-input');
@@ -144,7 +156,7 @@
   var state = {
     accent: '', customLabel: '', showLabel: true,
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
-    compareField: '',
+    compareField: '', displayUnits: '',
     fontSize: 'size-medium', align: 'align-left',
     lastRawValue: ''
   };
@@ -184,6 +196,7 @@
     valueFieldInput.value = state.valueField || '';
     prefixFieldInput.value = state.prefixField || '';
     suffixFieldInput.value = state.suffixField || '';
+    displayUnitsInput.value = state.displayUnits || '';
     compareFieldInput.value = state.compareField || '';
     fontSizeInput.value = state.fontSize || 'size-medium';
     alignInput.value = state.align || 'align-left';
@@ -202,6 +215,7 @@
     state.valueField = valueFieldInput.value;
     state.prefixField = prefixFieldInput.value;
     state.suffixField = suffixFieldInput.value;
+    state.displayUnits = displayUnitsInput.value;
     state.compareField = compareFieldInput.value;
     state.fontSize = fontSizeInput.value;
     state.align = alignInput.value;

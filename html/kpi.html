@@ -74,7 +74,7 @@
   var state = {
     accent: '', customLabel: '', showLabel: true,
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
-    compareField: '',
+    compareField: '', displayUnits: '',
     fontSize: 'size-medium', align: 'align-left',
     lastRawValue: ''
   };
@@ -82,6 +82,19 @@
   var lastSuffixValue = '';
   var lastRawNumber = null;
   var lastCompareNumber = null;
+
+  var DISPLAY_UNITS = {
+    K: { divisor: 1e3, suffix: ' K' },
+    M: { divisor: 1e6, suffix: ' M' },
+    B: { divisor: 1e9, suffix: ' B' },
+    T: { divisor: 1e12, suffix: ' T' }
+  };
+
+  function formatDisplayValue() {
+    var unit = DISPLAY_UNITS[state.displayUnits];
+    if (!unit || lastRawNumber == null) return state.lastRawValue;
+    return (lastRawNumber / unit.divisor).toFixed(1).replace('.', ',') + unit.suffix;
+  }
 
   function fieldValue(sumData, fieldName) {
     if (!fieldName) return '';
@@ -123,7 +136,7 @@
     if (state.lastRawValue === '' || state.lastRawValue == null) return;
     var prefix = state.prefixField ? lastPrefixValue : (state.prefix || '');
     var suffix = state.suffixField ? lastSuffixValue : (state.suffix || '');
-    valueEl.textContent = prefix + state.lastRawValue + suffix;
+    valueEl.textContent = prefix + formatDisplayValue() + suffix;
     renderVariation();
   }
 
