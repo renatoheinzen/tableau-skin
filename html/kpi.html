@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <title>Projedata KPI Card</title>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<script src="../assets/theme.js"></script>
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
   html, body {
@@ -36,8 +37,14 @@
     line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #kpi-root.accent-laranja #kpi-value { color: var(--laranja); }
-  #kpi-root.accent-amarelo #kpi-value { color: var(--amarelo); }
   #kpi-root.accent-azul-escuro #kpi-value { color: var(--azul-escuro); }
+
+  /* Tema escuro (via parâmetro "Projedata Tema"): troca as cores de texto pensadas
+     pra fundo claro por variantes com contraste WCAG AA sobre fundo escuro. */
+  #kpi-root.theme-escuro #kpi-label { color: var(--cinza-claro); }
+  #kpi-root.theme-escuro #kpi-value { color: var(--branco); }
+  #kpi-root.theme-escuro.accent-laranja #kpi-value { color: var(--laranja); }
+  #kpi-root.theme-escuro.accent-azul-escuro #kpi-value { color: var(--branco); }
 
   #kpi-root.size-small #kpi-value { font-size: clamp(14px, 5vw, 24px); }
   #kpi-root.size-medium #kpi-value { font-size: clamp(20px, 8vw, 40px); }
@@ -68,7 +75,7 @@
   var valueEl = document.getElementById('kpi-value');
   var variationEl = document.getElementById('kpi-variation');
 
-  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-azul-escuro'];
   var SIZE_CLASSES = ['size-small', 'size-medium', 'size-large'];
   var ALIGN_CLASSES = ['align-left', 'align-center'];
 
@@ -245,6 +252,9 @@
       var worksheet = tableau.extensions.worksheetContent.worksheet;
       worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateKpi);
       updateKpi();
+      ProjedataTheme.watchTheme(function (theme) {
+        root.classList.toggle('theme-escuro', theme === 'escuro');
+      });
     }).catch(function (err) {
       clearTimeout(initTimeoutId);
       labelEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');

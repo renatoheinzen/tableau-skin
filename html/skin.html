@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Skin</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<script src="../assets/theme.js"></script>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  #skin-root {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: #EBF0F5;
+    background-size: cover;
+    background-position: center;
+  }
+  #logo {
+    position: absolute;
+    top: 32px;
+    left: 16px;
+    max-width: 180px;
+    max-height: 70px;
+  }
+</style>
+</head>
+<body>
+<div id="skin-root">
+  <img id="logo" alt="">
+</div>
+<script>
+  var root = document.getElementById('skin-root');
+  var logo = document.getElementById('logo');
+  var currentTheme = null;
+
+  function loadFresh(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('not found');
+      return r.blob();
+    }).then(function (blob) {
+      return URL.createObjectURL(blob);
+    });
+  }
+
+  // Troca fundo + logo. Idempotente: chamar de novo com o mesmo tema não refaz o fetch.
+  function applyTheme(theme) {
+    if (theme === currentTheme) return;
+    currentTheme = theme;
+
+    if (theme === 'escuro') {
+      root.style.backgroundColor = '#0C0F3D';
+      loadFresh('../assets/background-dark.jpg').then(function (objectUrl) {
+        root.style.backgroundImage = 'url(' + objectUrl + ')';
+      }).catch(function () { root.style.backgroundImage = 'none'; });
+      loadFresh('../assets/logo-dark.png').then(function (objectUrl) {
+        logo.src = objectUrl; logo.style.display = '';
+      }).catch(function () { logo.style.display = 'none'; });
+    } else {
+      root.style.backgroundColor = '#EBF0F5';
+      loadFresh('../assets/background-light.jpg').then(function (objectUrl) {
+        // tonaliza levemente a imagem pra ela nunca ficar branco puro,
+        // senão os cards brancos dos KPIs/gráficos perdem a borda
+        root.style.backgroundImage =
+          'linear-gradient(rgba(209,216,237,0.55), rgba(209,216,237,0.55)), url(' + objectUrl + ')';
+      }).catch(function () { root.style.backgroundImage = 'none'; });
+      loadFresh('../assets/logo.png').then(function (objectUrl) {
+        logo.src = objectUrl; logo.style.display = '';
+      }).catch(function () { logo.style.display = 'none'; });
+    }
+  }
+
+  function fallbackTheme() {
+    var saved = null;
+    try { saved = tableau.extensions.settings.get('projedataSkinTheme'); } catch (e) { /* sem config salva */ }
+    return saved === 'escuro' ? 'escuro' : 'claro';
+  }
+
+  function openConfigDialog() {
+    var popupUrl = 'https://renatoheinzen.github.io/tableau-skin/html/skin-config.html';
+    tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 230, width: 320 })
+      .then(function () {
+        applyTheme(fallbackTheme());
+      })
+      .catch(function (error) {
+        console.log('[Projedata Skin] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau !== 'undefined' && tableau.extensions) {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      // aplica o tema salvo manualmente (ou "claro") de imediato...
+      applyTheme(fallbackTheme());
+      // ...e deixa o parâmetro "Projedata Tema" do workbook sobrescrever, se existir.
+      ProjedataTheme.watchTheme(applyTheme);
+    }).catch(function (err) {
+      console.warn('[Projedata Skin] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
+      applyTheme('claro');
+    });
+  } else {
+    applyTheme('claro');
+  }
+</script>
+</body>
+</html>
