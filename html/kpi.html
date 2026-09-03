@@ -62,9 +62,19 @@
 
   var state = {
     accent: '', customLabel: '', showLabel: true,
-    prefix: '', suffix: '', fontSize: 'size-medium', align: 'align-left',
+    prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
+    fontSize: 'size-medium', align: 'align-left',
     lastRawValue: ''
   };
+  var lastPrefixValue = '';
+  var lastSuffixValue = '';
+
+  function fieldValue(sumData, fieldName) {
+    if (!fieldName) return '';
+    var idx = sumData.columns.findIndex(function (c) { return c.fieldName === fieldName; });
+    if (idx === -1 || !sumData.data[0] || !sumData.data[0][idx]) return '';
+    return sumData.data[0][idx].formattedValue;
+  }
 
   function applyLayout() {
     ACCENT_CLASSES.concat(SIZE_CLASSES, ALIGN_CLASSES).forEach(function (c) { root.classList.remove(c); });
@@ -77,7 +87,9 @@
 
   function renderValue() {
     if (state.lastRawValue === '' || state.lastRawValue == null) return;
-    valueEl.textContent = (state.prefix || '') + state.lastRawValue + (state.suffix || '');
+    var prefix = state.prefixField ? lastPrefixValue : (state.prefix || '');
+    var suffix = state.suffixField ? lastSuffixValue : (state.suffix || '');
+    valueEl.textContent = prefix + state.lastRawValue + suffix;
   }
 
   function loadState() {
@@ -111,12 +123,19 @@
         return;
       }
 
-      var columnName = sumData.columns[0].fieldName;
+      var valueIdx = 0;
+      if (state.valueField) {
+        var foundIdx = sumData.columns.findIndex(function (c) { return c.fieldName === state.valueField; });
+        if (foundIdx !== -1) valueIdx = foundIdx;
+      }
+      var columnName = sumData.columns[valueIdx].fieldName;
       labelEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : columnName;
       labelEl.classList.toggle('hidden', state.showLabel === false);
 
       if (sumData.data && sumData.data.length > 0) {
-        state.lastRawValue = sumData.data[0][0].formattedValue;
+        state.lastRawValue = sumData.data[0][valueIdx].formattedValue;
+        lastPrefixValue = fieldValue(sumData, state.prefixField);
+        lastSuffixValue = fieldValue(sumData, state.suffixField);
         renderValue();
       } else {
         state.lastRawValue = '';

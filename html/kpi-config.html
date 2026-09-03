@@ -72,14 +72,30 @@
 </div>
 
 <label class="field">
+  Campo de valor
+  <select id="value-field-input"></select>
+</label>
+<div class="hint">"Automático" usa o 1º campo colocado em Marcas.</div>
+
+<label class="field">
   Prefixo
   <input type="text" id="prefix-input" placeholder="Ex: R$ ">
 </label>
+<label class="field">
+  ...ou campo de prefixo
+  <select id="prefix-field-input"></select>
+</label>
+<div class="hint">Se selecionado, usa o valor desse campo em vez do texto fixo acima.</div>
 
 <label class="field">
   Sufixo
   <input type="text" id="suffix-input" placeholder="Ex:  un.">
 </label>
+<label class="field">
+  ...ou campo de sufixo
+  <select id="suffix-field-input"></select>
+</label>
+<div class="hint">Se selecionado, usa o valor desse campo em vez do texto fixo acima.</div>
 
 <label class="field">
   Tamanho da fonte
@@ -110,6 +126,9 @@
   var showLabelInput = document.getElementById('show-label-input');
   var prefixInput = document.getElementById('prefix-input');
   var suffixInput = document.getElementById('suffix-input');
+  var valueFieldInput = document.getElementById('value-field-input');
+  var prefixFieldInput = document.getElementById('prefix-field-input');
+  var suffixFieldInput = document.getElementById('suffix-field-input');
   var fontSizeInput = document.getElementById('font-size-input');
   var alignInput = document.getElementById('align-input');
   var saveBtn = document.getElementById('save-btn');
@@ -117,9 +136,24 @@
 
   var state = {
     accent: '', customLabel: '', showLabel: true,
-    prefix: '', suffix: '', fontSize: 'size-medium', align: 'align-left',
+    prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
+    fontSize: 'size-medium', align: 'align-left',
     lastRawValue: ''
   };
+
+  function populateFieldOptions(select, columns, placeholder) {
+    select.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = placeholder;
+    select.appendChild(opt0);
+    (columns || []).forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.fieldName;
+      opt.textContent = c.fieldName;
+      select.appendChild(opt);
+    });
+  }
 
   function selectAccent(accent) {
     state.accent = accent;
@@ -139,6 +173,9 @@
     showLabelInput.checked = state.showLabel !== false;
     prefixInput.value = state.prefix || '';
     suffixInput.value = state.suffix || '';
+    valueFieldInput.value = state.valueField || '';
+    prefixFieldInput.value = state.prefixField || '';
+    suffixFieldInput.value = state.suffixField || '';
     fontSizeInput.value = state.fontSize || 'size-medium';
     alignInput.value = state.align || 'align-left';
   }
@@ -153,6 +190,9 @@
     state.showLabel = showLabelInput.checked;
     state.prefix = prefixInput.value;
     state.suffix = suffixInput.value;
+    state.valueField = valueFieldInput.value;
+    state.prefixField = prefixFieldInput.value;
+    state.suffixField = suffixFieldInput.value;
     state.fontSize = fontSizeInput.value;
     state.align = alignInput.value;
 
@@ -171,9 +211,17 @@
       var saved = tableau.extensions.settings.get('projedataKpiState');
       if (saved) state = Object.assign(state, JSON.parse(saved));
     } catch (e) { /* sem config salva ainda */ }
+    return tableau.extensions.worksheetContent.worksheet.getSummaryDataAsync({ ignoreSelection: true });
+  }).then(function (sumData) {
+    populateFieldOptions(valueFieldInput, sumData.columns, 'Automático (1º campo em Marcas)');
+    populateFieldOptions(prefixFieldInput, sumData.columns, 'Nenhum (usar texto fixo)');
+    populateFieldOptions(suffixFieldInput, sumData.columns, 'Nenhum (usar texto fixo)');
     populateForm();
   }).catch(function (err) {
-    console.error('[Projedata KPI config] erro ao inicializar dialog:', err);
+    console.error('[Projedata KPI config] erro ao inicializar dialog ou ler campos:', err);
+    populateFieldOptions(valueFieldInput, [], 'Automático (1º campo em Marcas)');
+    populateFieldOptions(prefixFieldInput, [], 'Nenhum (usar texto fixo)');
+    populateFieldOptions(suffixFieldInput, [], 'Nenhum (usar texto fixo)');
     populateForm();
   });
 })();
