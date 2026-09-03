@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.barchart" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Gráfico de Barras</name>
+    <description>Gráfico de barras estilizado com as cores da marca Projedata.</description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/bar-chart.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAAEYAAABGCAIAAAD+THXTAAAAjElEQVR4nO3asQ2DAAwAQUApI2WLrEAVhqdjBabJCKEIQof+ahd+ufX4fH2Ge5muXuD/ShKUJChJUJKgJMHjyNB7Xs/e46B9W37O3PBKJQlKEpQkKElQkqAkQUmCkgQlCUoSlCQoSVCSoCRBSYKSBCUJShKUJChJUJKgJMHYNz+gJEFJgpIEJQlKEnwBjzUEPQWyJeYAAAAASUVORK5CYII=</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

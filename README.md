@@ -7,6 +7,7 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Extensão | Tipo | Manifesto | O que faz |
 |---|---|---|---|
 | Projedata KPI Card | worksheet | [`trex/kpi.trex`](trex/kpi.trex) | Card de KPI estilizado (cor de destaque, rótulo, prefixo/sufixo, tamanho, alinhamento configuráveis via clique direito → Formatar extensão) |
+| Projedata Gráfico de Barras | worksheet | [`trex/bar-chart.trex`](trex/bar-chart.trex) | Gráfico de barras estilizado (cor de destaque, campos de categoria/valor, orientação vertical/horizontal, ordenação, limite de barras configuráveis via clique direito → Formatar extensão) |
 | Projedata Skin Claro | dashboard | [`trex/skin-light.trex`](trex/skin-light.trex) | Fundo de dashboard tema claro (Iniflex Smart) + logo |
 | Projedata Skin Escuro | dashboard | [`trex/skin-dark.trex`](trex/skin-dark.trex) | Fundo de dashboard tema escuro (Iniflex Pro) + logo |
 

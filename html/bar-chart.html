@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Gráfico de Barras</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: 'Montserrat', Arial, sans-serif;
+    overflow: hidden;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    padding: 12px 16px;
+    background: transparent;
+  }
+
+  #chart-title {
+    font-size: 12px; font-weight: 600; color: #6b7280;
+    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+
+  #chart-body {
+    flex: 1;
+    min-height: 0;
+  }
+
+  #chart-status {
+    font-size: 13px; color: #6b7280; padding: 8px 0;
+  }
+
+  .bar-fill {
+    background: var(--azul);
+  }
+  #chart-root.accent-laranja .bar-fill { background: var(--laranja); }
+  #chart-root.accent-amarelo .bar-fill { background: var(--amarelo); }
+  #chart-root.accent-azul-escuro .bar-fill { background: var(--azul-escuro); }
+
+  /* Orientação vertical (colunas) */
+  #chart-body.vertical {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    height: 100%;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  #chart-body.vertical .bar-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-end;
+    height: 100%;
+    min-width: 28px;
+    flex: 1 0 auto;
+  }
+  #chart-body.vertical .bar-value {
+    font-size: 11px; font-weight: 700; color: var(--preto);
+    margin-bottom: 3px; white-space: nowrap;
+  }
+  #chart-body.vertical .bar-track {
+    width: 100%;
+    display: flex;
+    align-items: flex-end;
+    flex: 1;
+  }
+  #chart-body.vertical .bar-fill {
+    width: 100%;
+    border-radius: 3px 3px 0 0;
+    min-height: 2px;
+    transition: height 0.2s ease;
+  }
+  #chart-body.vertical .bar-label {
+    font-size: 11px; color: #6b7280; margin-top: 6px;
+    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+    white-space: nowrap; text-align: center;
+  }
+
+  /* Orientação horizontal (barras) */
+  #chart-body.horizontal {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    height: 100%;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  #chart-body.horizontal .bar-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  #chart-body.horizontal .bar-label {
+    font-size: 11px; color: #6b7280;
+    width: 90px; flex: 0 0 90px;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #chart-body.horizontal .bar-track {
+    flex: 1;
+    background: var(--cinza);
+    border-radius: 3px;
+    overflow: hidden;
+  }
+  #chart-body.horizontal .bar-fill {
+    height: 18px;
+    border-radius: 3px;
+    min-width: 2px;
+    transition: width 0.2s ease;
+  }
+  #chart-body.horizontal .bar-value {
+    font-size: 11px; font-weight: 700; color: var(--preto);
+    width: 60px; flex: 0 0 60px; text-align: left;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="align-left">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body" class="vertical"></div>
+</div>
+
+<script>
+(function () {
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    dimensionField: '', measureField: '',
+    orientation: 'vertical', sortOrder: '', maxBars: '',
+    showValues: true
+  };
+
+  function applyLayout() {
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    if (state.accent) root.classList.add(state.accent);
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+    bodyEl.className = state.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get('projedataBarChartState');
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    applyLayout();
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function defaultDimensionIndex(columns) {
+    var idx = columns.findIndex(function (c) { return c.dataType === 'string'; });
+    return idx !== -1 ? idx : 0;
+  }
+
+  function defaultMeasureIndex(columns, dimIdx) {
+    var idx = columns.findIndex(function (c, i) {
+      return i !== dimIdx && (c.dataType === 'int' || c.dataType === 'float');
+    });
+    if (idx !== -1) return idx;
+    return dimIdx === 0 && columns.length > 1 ? 1 : 0;
+  }
+
+  function renderBars(rows) {
+    bodyEl.innerHTML = '';
+
+    if (rows.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+
+    var maxAbs = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.value) || 0; })) || 1;
+
+    rows.forEach(function (r) {
+      var pct = Math.max((Math.abs(r.value) / maxAbs) * 100, 0);
+
+      var item = document.createElement('div');
+      item.className = 'bar-item';
+
+      var label = document.createElement('div');
+      label.className = 'bar-label';
+      label.textContent = r.label;
+      label.title = r.label;
+
+      var value = document.createElement('div');
+      value.className = 'bar-value';
+      value.textContent = r.formatted;
+
+      var track = document.createElement('div');
+      track.className = 'bar-track';
+      var fill = document.createElement('div');
+      fill.className = 'bar-fill';
+
+      if (state.orientation === 'horizontal') {
+        fill.style.width = pct + '%';
+        track.appendChild(fill);
+        item.appendChild(label);
+        item.appendChild(track);
+        if (state.showValues !== false) item.appendChild(value);
+      } else {
+        fill.style.height = pct + '%';
+        track.appendChild(fill);
+        if (state.showValues !== false) item.appendChild(value);
+        item.appendChild(track);
+        item.appendChild(label);
+      }
+
+      bodyEl.appendChild(item);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    console.log('[Projedata Gráfico de Barras] iniciando leitura de dados...');
+
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+      console.warn('[Projedata Gráfico de Barras] getSummaryDataAsync não respondeu em 8s.');
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      console.log('[Projedata Gráfico de Barras] dados recebidos:', sumData);
+
+      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+        titleEl.textContent = 'Arraste campos para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var dimIdx = defaultDimensionIndex(sumData.columns);
+      dimIdx = findColumnIndex(sumData.columns, state.dimensionField, dimIdx);
+      var measIdx = defaultMeasureIndex(sumData.columns, dimIdx);
+      measIdx = findColumnIndex(sumData.columns, state.measureField, measIdx);
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+        ? state.customLabel
+        : sumData.columns[measIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      var rows = (sumData.data || []).map(function (row) {
+        var raw = row[measIdx] ? row[measIdx].value : null;
+        return {
+          label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+          value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
+          formatted: row[measIdx] ? row[measIdx].formattedValue : ''
+        };
+      });
+
+      if (state.sortOrder === 'desc') rows.sort(function (a, b) { return b.value - a.value; });
+      else if (state.sortOrder === 'asc') rows.sort(function (a, b) { return a.value - b.value; });
+
+      var max = parseInt(state.maxBars, 10);
+      if (!isNaN(max) && max > 0) rows = rows.slice(0, max);
+
+      renderBars(rows);
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Gráfico de Barras] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    var popupUrl = 'https://renatoheinzen.github.io/tableau-skin/html/bar-chart-config.html';
+    tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 620, width: 340 })
+      .then(function () {
+        loadState();
+        updateChart();
+      })
+      .catch(function (error) {
+        console.log('[Projedata Gráfico de Barras] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    console.error('[Projedata Gráfico de Barras] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+    console.warn('[Projedata Gráfico de Barras] initializeAsync não respondeu — normal se aberto fora do Tableau.');
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      var worksheet = tableau.extensions.worksheetContent.worksheet;
+      worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+      console.warn('Extensions API não inicializou:', err);
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+    console.error('[Projedata Gráfico de Barras] erro síncrono ao chamar initializeAsync:', syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

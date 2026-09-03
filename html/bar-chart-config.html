@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Format Extension — Projedata Gráfico de Barras</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: 'Montserrat', Arial, sans-serif;
+    color: var(--preto);
+    background: var(--branco);
+  }
+  body { padding: 16px; overflow-y: auto; }
+  h2 { margin: 0 0 4px 0; font-size: 15px; color: var(--azul-escuro); }
+  .subtitle { font-size: 11px; color: #888; margin-bottom: 16px; }
+
+  label.field { display: block; margin-top: 12px; font-weight: 600; font-size: 12px; color: var(--azul-escuro); }
+  input[type="text"], input[type="number"], select {
+    width: 100%; padding: 6px 8px; margin-top: 4px;
+    border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+  }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { font-weight: 600; font-size: 12px; color: var(--azul-escuro); margin: 0; }
+
+  .accent-row { display: flex; gap: 10px; margin: 8px 0 4px 0; }
+  .accent-swatch {
+    width: 24px; height: 24px; border-radius: 50%;
+    cursor: pointer; border: 2px solid transparent;
+  }
+  .accent-swatch.selected { border-color: var(--preto); }
+  .hint { color: #999; font-size: 10px; margin-top: 3px; }
+
+  .actions {
+    display: flex; gap: 8px; margin-top: 22px;
+    position: sticky; bottom: 0; background: var(--branco); padding-top: 10px;
+  }
+  button {
+    flex: 1; padding: 9px; border: none; border-radius: 4px;
+    font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  #save-btn { background: var(--azul); color: var(--branco); }
+  #save-btn:hover { background: var(--azul-escuro); }
+  #cancel-btn { background: var(--cinza); color: var(--preto); }
+  #cancel-btn:hover { background: #e2e2e2; }
+</style>
+</head>
+<body>
+
+<h2>Projedata Gráfico de Barras</h2>
+<div class="subtitle">Formatar extensão</div>
+
+<label class="field">Cor de destaque</label>
+<div class="accent-row" id="accent-row">
+  <div class="accent-swatch selected" data-accent="" style="background:#3246FF" title="Azul"></div>
+  <div class="accent-swatch" data-accent="accent-laranja" style="background:#FE5000" title="Laranja"></div>
+  <div class="accent-swatch" data-accent="accent-amarelo" style="background:#FFB400" title="Amarelo"></div>
+  <div class="accent-swatch" data-accent="accent-azul-escuro" style="background:#0C0F3D" title="Azul escuro"></div>
+</div>
+
+<label class="field">
+  Título customizado (opcional)
+  <input type="text" id="custom-label-input" placeholder="Deixe em branco para usar o nome do campo">
+</label>
+
+<div class="checkbox-row">
+  <input type="checkbox" id="show-label-input" checked>
+  <label for="show-label-input">Mostrar título</label>
+</div>
+
+<label class="field">
+  Campo de categoria (eixo)
+  <select id="dimension-field-input"></select>
+</label>
+<div class="hint">"Automático" usa o 1º campo de texto/data colocado em Marcas.</div>
+
+<label class="field">
+  Campo de valor
+  <select id="measure-field-input"></select>
+</label>
+<div class="hint">"Automático" usa o 1º campo numérico colocado em Marcas.</div>
+
+<label class="field">
+  Orientação
+  <select id="orientation-input">
+    <option value="vertical" selected>Vertical (colunas)</option>
+    <option value="horizontal">Horizontal (barras)</option>
+  </select>
+</label>
+
+<label class="field">
+  Ordenar por valor
+  <select id="sort-order-input">
+    <option value="">Ordem dos dados</option>
+    <option value="desc">Maior → menor</option>
+    <option value="asc">Menor → maior</option>
+  </select>
+</label>
+
+<label class="field">
+  Limitar quantidade de barras (opcional)
+  <input type="number" id="max-bars-input" min="1" placeholder="Ex: 10">
+</label>
+
+<div class="checkbox-row">
+  <input type="checkbox" id="show-values-input" checked>
+  <label for="show-values-input">Mostrar valores nas barras</label>
+</div>
+
+<div class="actions">
+  <button id="cancel-btn">Cancelar</button>
+  <button id="save-btn">Salvar</button>
+</div>
+
+<script>
+(function () {
+  var accentRow = document.getElementById('accent-row');
+  var customLabelInput = document.getElementById('custom-label-input');
+  var showLabelInput = document.getElementById('show-label-input');
+  var dimensionFieldInput = document.getElementById('dimension-field-input');
+  var measureFieldInput = document.getElementById('measure-field-input');
+  var orientationInput = document.getElementById('orientation-input');
+  var sortOrderInput = document.getElementById('sort-order-input');
+  var maxBarsInput = document.getElementById('max-bars-input');
+  var showValuesInput = document.getElementById('show-values-input');
+  var saveBtn = document.getElementById('save-btn');
+  var cancelBtn = document.getElementById('cancel-btn');
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    dimensionField: '', measureField: '',
+    orientation: 'vertical', sortOrder: '', maxBars: '',
+    showValues: true
+  };
+
+  function populateFieldOptions(select, columns, placeholder) {
+    select.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = placeholder;
+    select.appendChild(opt0);
+    (columns || []).forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.fieldName;
+      opt.textContent = c.fieldName;
+      select.appendChild(opt);
+    });
+  }
+
+  function selectAccent(accent) {
+    state.accent = accent;
+    document.querySelectorAll('.accent-swatch').forEach(function (el) {
+      el.classList.toggle('selected', el.dataset.accent === accent);
+    });
+  }
+
+  accentRow.addEventListener('click', function (e) {
+    var swatch = e.target.closest('.accent-swatch');
+    if (swatch) selectAccent(swatch.dataset.accent);
+  });
+
+  function populateForm() {
+    selectAccent(state.accent || '');
+    customLabelInput.value = state.customLabel || '';
+    showLabelInput.checked = state.showLabel !== false;
+    dimensionFieldInput.value = state.dimensionField || '';
+    measureFieldInput.value = state.measureField || '';
+    orientationInput.value = state.orientation || 'vertical';
+    sortOrderInput.value = state.sortOrder || '';
+    maxBarsInput.value = state.maxBars || '';
+    showValuesInput.checked = state.showValues !== false;
+  }
+
+  function closeWithoutSaving() {
+    tableau.extensions.ui.closeDialog('cancelled');
+  }
+  cancelBtn.addEventListener('click', closeWithoutSaving);
+
+  function save() {
+    state.customLabel = customLabelInput.value;
+    state.showLabel = showLabelInput.checked;
+    state.dimensionField = dimensionFieldInput.value;
+    state.measureField = measureFieldInput.value;
+    state.orientation = orientationInput.value;
+    state.sortOrder = sortOrderInput.value;
+    state.maxBars = maxBarsInput.value;
+    state.showValues = showValuesInput.checked;
+
+    tableau.extensions.settings.set('projedataBarChartState', JSON.stringify(state));
+    tableau.extensions.settings.saveAsync().then(function () {
+      tableau.extensions.ui.closeDialog('saved');
+    }).catch(function (err) {
+      console.error('[Projedata Gráfico de Barras config] erro ao salvar:', err);
+      alert('Erro ao salvar configurações. Veja o console (F12).');
+    });
+  }
+  saveBtn.addEventListener('click', save);
+
+  tableau.extensions.initializeDialogAsync().then(function () {
+    try {
+      var saved = tableau.extensions.settings.get('projedataBarChartState');
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    return tableau.extensions.worksheetContent.worksheet.getSummaryDataAsync({ ignoreSelection: true });
+  }).then(function (sumData) {
+    populateFieldOptions(dimensionFieldInput, sumData.columns, 'Automático (1º campo de texto/data)');
+    populateFieldOptions(measureFieldInput, sumData.columns, 'Automático (1º campo numérico)');
+    populateForm();
+  }).catch(function (err) {
+    console.error('[Projedata Gráfico de Barras config] erro ao inicializar dialog ou ler campos:', err);
+    populateFieldOptions(dimensionFieldInput, [], 'Automático (1º campo de texto/data)');
+    populateFieldOptions(measureFieldInput, [], 'Automático (1º campo numérico)');
+    populateForm();
+  });
+})();
+</script>
+
+</body>
+</html>
