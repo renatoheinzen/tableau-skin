@@ -232,18 +232,27 @@
         : cols[valIdx].fieldName;
       titleEl.classList.toggle('hidden', state.showLabel === false);
 
-      var rows = [], colsList = [], cells = {};
+      var rows = [], colsList = [], cells = {}, colKeys = {};
       (sumData.data || []).forEach(function (row) {
         var r = row[rowIdx] ? row[rowIdx].formattedValue : '';
         var c = row[colIdx] ? row[colIdx].formattedValue : '';
         var raw = row[valIdx] ? row[valIdx].value : null;
         if (rows.indexOf(r) === -1) rows.push(r);
-        if (colsList.indexOf(c) === -1) colsList.push(c);
+        if (colsList.indexOf(c) === -1) {
+          colsList.push(c);
+          var cRaw = row[colIdx] ? row[colIdx].value : null;
+          var cType = cols[colIdx].dataType;
+          colKeys[c] = (typeof cRaw === 'number') ? cRaw : ((cType === 'date' || cType === 'date-time') ? Date.parse(cRaw) : NaN);
+        }
         cells[r + '\u0001' + c] = {
           value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
           formatted: fmtCell(row[valIdx])
         };
       });
+      // colunas numéricas/de data (ex.: anos) em ordem crescente; texto mantém a ordem original
+      if (colsList.length && colsList.every(function (c) { return !isNaN(colKeys[c]); })) {
+        colsList.sort(function (a, b) { return colKeys[a] - colKeys[b]; });
+      }
       model = { rows: rows, cols: colsList, cells: cells };
       render();
     }).catch(function (err) {
