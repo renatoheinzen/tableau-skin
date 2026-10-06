@@ -246,14 +246,23 @@
 
       var rows = (sumData.data || []).map(function (row) {
         var raw = row[measIdx] ? row[measIdx].value : null;
+        var dimRaw = row[dimIdx] ? row[dimIdx].value : null;
+        var dt = sumData.columns[dimIdx].dataType;
+        var key = (typeof dimRaw === 'number') ? dimRaw : ((dt === 'date' || dt === 'date-time') ? Date.parse(dimRaw) : NaN);
+        if (isNaN(key) && /^\d+$/.test(row[dimIdx] ? row[dimIdx].formattedValue : '')) key = parseFloat(row[dimIdx].formattedValue);
         return {
           label: row[dimIdx] ? row[dimIdx].formattedValue : '',
           value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
-          formatted: row[measIdx] ? row[measIdx].formattedValue : ''
+          formatted: row[measIdx] ? row[measIdx].formattedValue : '',
+          key: key
         };
       });
 
-      // A ordem dos dados é mantida (série temporal); só limita aos últimos N pontos
+      // Séries temporais/numéricas ficam em ordem cronológica crescente; texto mantém a ordem original
+      if (rows.length && rows.every(function (r) { return !isNaN(r.key); })) {
+        rows.sort(function (a, b) { return a.key - b.key; });
+      }
+      // Limita aos últimos N pontos
       var max = parseInt(state.maxPoints, 10);
       if (!isNaN(max) && max > 0) rows = rows.slice(-max);
 
