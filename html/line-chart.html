@@ -67,7 +67,7 @@
     accent: '', customLabel: '', showLabel: true,
     dimensionField: '', measureField: '',
     area: false, smooth: false, showPoints: true, showValues: false, showGrid: true,
-    maxPoints: ''
+    maxPoints: '', displayUnits: '', decimals: ''
   };
   var lastRows = [];
 
@@ -109,12 +109,25 @@
     return dimIdx === 0 && columns.length > 1 ? 1 : 0;
   }
 
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
   function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
     var abs = Math.abs(v);
-    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' B';
-    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' M';
-    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' K';
-    return v.toLocaleString('pt-BR', { maximumFractionDigits: 1 });
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores nos pontos: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function formatPoint(r) {
+    return (state.displayUnits || state.decimals !== '') ? formatCompact(r.value) : r.formatted;
   }
 
   // Escolhe um passo "redondo" (1, 2, 5 × 10^n) para os ticks do eixo Y
@@ -207,11 +220,11 @@
     rows.forEach(function (r, i) {
       if (state.showPoints !== false) {
         var c = svgEl('circle', { cx: pts[i][0], cy: pts[i][1], r: 3.5, class: 'point' });
-        c.appendChild(svgEl('title', {}, r.label + ': ' + r.formatted));
+        c.appendChild(svgEl('title', {}, r.label + ': ' + formatPoint(r)));
         svg.appendChild(c);
       }
       if (state.showValues && (rows.length <= 12 || i % every === 0)) {
-        svg.appendChild(svgEl('text', { x: pts[i][0], y: pts[i][1] - 8, 'text-anchor': 'middle', class: 'value-text' }, r.formatted));
+        svg.appendChild(svgEl('text', { x: pts[i][0], y: pts[i][1] - 8, 'text-anchor': 'middle', class: 'value-text' }, formatPoint(r)));
       }
     });
 
