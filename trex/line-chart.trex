@@ -4,7 +4,7 @@
     <default-locale>pt_BR</default-locale>
     <name>Projedata Gráfico de Linha</name>
     <description>Gráfico de linha e área estilizado com as cores da marca Projedata.</description>
-    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <author name="Projedata" organization="Projedata" website="https://www.projedata.com.br" />
     <min-api-version>1.9</min-api-version>
 
     <source-location>
