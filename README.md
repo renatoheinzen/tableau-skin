@@ -8,6 +8,16 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 |---|---|---|---|
 | Projedata KPI Card | worksheet | [`trex/kpi.trex`](trex/kpi.trex) | Card de KPI estilizado (cor de destaque, rótulo, prefixo/sufixo, tamanho, alinhamento configuráveis via clique direito → Formatar extensão) |
 | Projedata Gráfico de Barras | worksheet | [`trex/bar-chart.trex`](trex/bar-chart.trex) | Gráfico de barras estilizado (cor de destaque, campos de categoria/valor, orientação vertical/horizontal, ordenação, limite de barras configuráveis via clique direito → Formatar extensão) |
+| Projedata Gráfico de Pizza | worksheet | [`trex/pie-chart.trex`](trex/pie-chart.trex) | Gráfico de pizza/donut com a paleta de série da marca |
+| Projedata Gráfico de Linha | worksheet | [`trex/line-chart.trex`](trex/line-chart.trex) | Gráfico de linha estilizado |
+| Projedata Anel de Proporção | worksheet | [`trex/ring-chart.trex`](trex/ring-chart.trex) | Anéis de proporção por categoria |
+| Projedata Lista Ranqueada | worksheet | [`trex/rank-list.trex`](trex/rank-list.trex) | Lista Top N ranqueada |
+| Projedata Matriz de Calor | worksheet | [`trex/heatmap-matrix.trex`](trex/heatmap-matrix.trex) | Matriz de calor (linha × coluna) |
+| Projedata Lista de Cards | worksheet | [`trex/card-list.trex`](trex/card-list.trex) | Lista de cards |
+| Projedata Faixa Lateral | dashboard | [`trex/sidebar-nav.trex`](trex/sidebar-nav.trex) | Navegação em faixa lateral |
+| Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação |
+| Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção |
+| Projedata Skin Iniflex Pro (escuro) | dashboard | [`trex/skin-pro.trex`](trex/skin-pro.trex) | Fundo de dashboard no tema "Iniflex Pro (escuro)" gerado pelo Skin Builder |
 | Projedata Skin Claro | dashboard | [`trex/skin-light.trex`](trex/skin-light.trex) | Fundo de dashboard tema claro (Iniflex Smart) + logo |
 | Projedata Skin Escuro | dashboard | [`trex/skin-dark.trex`](trex/skin-dark.trex) | Fundo de dashboard tema escuro (Iniflex Pro) + logo |
 

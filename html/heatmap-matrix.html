@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Matriz de Calor</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body { flex: 1; min-height: 0; overflow: auto; }
+  #matrix { display: grid; gap: 3px; min-height: 100%; align-content: stretch; }
+  #chart-root.compact #matrix { gap: 2px; }
+
+  .col-head, .row-head {
+    font-size: 11px; color: var(--pd-text-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .col-head { text-align: center; align-self: end; padding-bottom: 2px; }
+  .row-head { display: flex; align-items: center; padding-right: 8px; max-width: 160px; }
+  .cell {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 26px; padding: 2px 4px; box-sizing: border-box;
+    font-size: 11px; font-weight: 700; white-space: nowrap; overflow: hidden;
+    background: var(--pd-track); color: var(--pd-text-muted);
+  }
+  #chart-root.rounded .cell { border-radius: 6px; }
+  #chart-root.compact .cell { min-height: 20px; font-size: 10px; }
+  .cell.empty { background: transparent; }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="rounded">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"><div id="matrix"></div></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataHeatmapState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var matrixEl = document.getElementById('matrix');
+
+  var state = {
+    customLabel: '', showLabel: true,
+    rowField: '', colField: '', valueField: '',
+    scale: 'accent', scaleBy: 'all', showValues: true, cellShape: 'rounded', compact: false
+  };
+  var model = null; // { rows, cols, cells: { 'r|c': {value, formatted} } }
+
+  var SCALE_BASE = { accent: 'var(--pd-accent-1)', accent2: 'var(--pd-accent-2)', dark: 'var(--pd-text)' };
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    root.classList.toggle('rounded', state.cellShape !== 'square');
+    root.classList.toggle('compact', !!state.compact);
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  // Aceita rgb(), rgba() e color(srgb r g b) (formatos que o navegador devolve para color-mix)
+  function luminanceOf(cssColor) {
+    var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(cssColor);
+    var r, g, b;
+    if (m) { r = +m[1] / 255; g = +m[2] / 255; b = +m[3] / 255; }
+    else {
+      m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(cssColor);
+      if (!m) return null;
+      r = +m[1]; g = +m[2]; b = +m[3];
+    }
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+
+  function render() {
+    matrixEl.innerHTML = '';
+    if (!model || model.rows.length === 0 || model.cols.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      matrixEl.appendChild(empty);
+      return;
+    }
+    matrixEl.style.gridTemplateColumns = 'auto repeat(' + model.cols.length + ', minmax(34px, 1fr))';
+
+    // escala de cor: sobre tudo, por linha ou por coluna
+    function range(keys) {
+      var vals = keys.map(function (k) { return model.cells[k]; }).filter(Boolean).map(function (c) { return c.value; });
+      return vals.length ? [Math.min.apply(null, vals), Math.max.apply(null, vals)] : [0, 1];
+    }
+    var allKeys = Object.keys(model.cells);
+    var globalRange = range(allKeys);
+    var rowRanges = {}, colRanges = {};
+    model.rows.forEach(function (r) { rowRanges[r] = range(model.cols.map(function (c) { return r + '\u0001' + c; })); });
+    model.cols.forEach(function (c) { colRanges[c] = range(model.rows.map(function (r) { return r + '\u0001' + c; })); });
+
+    matrixEl.appendChild(document.createElement('div')); // canto vazio
+    model.cols.forEach(function (c) {
+      var h = document.createElement('div');
+      h.className = 'col-head';
+      h.textContent = c;
+      h.title = c;
+      matrixEl.appendChild(h);
+    });
+
+    var base = SCALE_BASE[state.scale] || SCALE_BASE.accent;
+    var toStyle = [];
+    model.rows.forEach(function (r) {
+      var rh = document.createElement('div');
+      rh.className = 'row-head';
+      rh.textContent = r;
+      rh.title = r;
+      matrixEl.appendChild(rh);
+
+      model.cols.forEach(function (c) {
+        var cell = document.createElement('div');
+        var data = model.cells[r + '\u0001' + c];
+        if (!data) {
+          cell.className = 'cell empty';
+        } else {
+          cell.className = 'cell';
+          if (state.showValues !== false) cell.textContent = data.formatted;
+          cell.title = r + ' · ' + c + ': ' + data.formatted;
+          var rg = state.scaleBy === 'row' ? rowRanges[r] : (state.scaleBy === 'column' ? colRanges[c] : globalRange);
+          var t = rg[1] === rg[0] ? 1 : (data.value - rg[0]) / (rg[1] - rg[0]);
+          cell.style.background = 'color-mix(in srgb, ' + base + ' ' + Math.round(12 + 88 * t) + '%, var(--pd-track))';
+          toStyle.push(cell);
+        }
+        matrixEl.appendChild(cell);
+      });
+    });
+
+    // texto claro/escuro conforme a cor final da célula
+    toStyle.forEach(function (cell) {
+      var lum = luminanceOf(getComputedStyle(cell).backgroundColor);
+      cell.style.color = lum != null && lum < 0.55 ? '#ffffff' : '#161616';
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      matrixEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste 2 campos de texto e 1 medida para as Marcas';
+        matrixEl.innerHTML = '';
+        return;
+      }
+
+      var cols = sumData.columns;
+      var strings = [];
+      cols.forEach(function (c, i) { if (c.dataType === 'string' || c.dataType === 'date' || c.dataType === 'date-time') strings.push(i); });
+      var rowIdx = findColumnIndex(cols, state.rowField, strings.length ? strings[0] : 0);
+      var colIdx = findColumnIndex(cols, state.colField, strings.filter(function (i) { return i !== rowIdx; })[0]);
+      if (colIdx === undefined) colIdx = rowIdx === 0 ? 1 : 0;
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) {
+        valIdx = cols.findIndex(function (c, i) { return i !== rowIdx && i !== colIdx && (c.dataType === 'int' || c.dataType === 'float'); });
+        if (valIdx === -1) valIdx = cols.length - 1;
+      }
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+        ? state.customLabel
+        : cols[valIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      var rows = [], colsList = [], cells = {};
+      (sumData.data || []).forEach(function (row) {
+        var r = row[rowIdx] ? row[rowIdx].formattedValue : '';
+        var c = row[colIdx] ? row[colIdx].formattedValue : '';
+        var raw = row[valIdx] ? row[valIdx].value : null;
+        if (rows.indexOf(r) === -1) rows.push(r);
+        if (colsList.indexOf(c) === -1) colsList.push(c);
+        cells[r + '\u0001' + c] = {
+          value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
+          formatted: row[valIdx] ? row[valIdx].formattedValue : ''
+        };
+      });
+      model = { rows: rows, cols: colsList, cells: cells };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Matriz de Calor] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      matrixEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/heatmap-matrix-config.html', '', { height: 640, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Matriz de Calor] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

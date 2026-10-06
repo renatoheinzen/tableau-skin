@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.ranklist" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Lista Ranqueada</name>
+    <description>Lista Top N com posição e selos de valor, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/rank-list.html</url>
+    </source-location>
+
+    <icon>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</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

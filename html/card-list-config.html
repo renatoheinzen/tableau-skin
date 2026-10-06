@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Format Extension — Projedata Gráfico de Barras</title>
+<title>Format Extension — Projedata Lista de Cards</title>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
@@ -64,7 +64,7 @@
 </head>
 <body>
 
-<h2>Projedata Gráfico de Barras</h2>
+<h2>Projedata Lista de Cards</h2>
 <div class="subtitle">Formatar extensão</div>
 <div id="form"></div>
 
@@ -75,7 +75,7 @@
 
 <script>
 (function () {
-  var STATE_KEY = 'projedataBarChartState';
+  var STATE_KEY = 'projedataCardListState';
   // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color
   // Campos com hidden:true não aparecem na janela (mantêm o valor padrão).
   var SCHEMA = [
@@ -98,37 +98,81 @@
       "default": true
     },
     {
-      "key": "dimensionField",
+      "key": "titleField",
       "type": "dimension",
-      "label": "Campo de categoria (eixo)",
-      "hint": "\"Automático\" usa o 1º campo de texto/data colocado em Marcas."
+      "label": "Campo do título do card",
+      "emptyLabel": "Automático (1º campo)",
+      "hint": "Ex.: identificação do colaborador."
     },
     {
-      "key": "measureField",
-      "type": "measure",
-      "label": "Campo de valor",
-      "hint": "\"Automático\" usa o 1º campo numérico colocado em Marcas."
+      "key": "subtitleField",
+      "type": "field",
+      "label": "Campo do subtítulo",
+      "emptyLabel": "Nenhum"
     },
     {
-      "key": "orientation",
+      "key": "valueField",
+      "type": "field",
+      "label": "Campo do valor em destaque",
+      "emptyLabel": "Nenhum",
+      "hint": "Aparece grande à direita; também define a ordenação."
+    },
+    {
+      "key": "detail1Field",
+      "type": "field",
+      "label": "Detalhe 1",
+      "emptyLabel": "Nenhum"
+    },
+    {
+      "key": "detail2Field",
+      "type": "field",
+      "label": "Detalhe 2",
+      "emptyLabel": "Nenhum"
+    },
+    {
+      "key": "detail3Field",
+      "type": "field",
+      "label": "Detalhe 3",
+      "emptyLabel": "Nenhum"
+    },
+    {
+      "key": "detail4Field",
+      "type": "field",
+      "label": "Detalhe 4",
+      "emptyLabel": "Nenhum"
+    },
+    {
+      "key": "showDetailLabels",
+      "type": "checkbox",
+      "label": "Mostrar o nome do campo nos detalhes",
+      "default": true
+    },
+    {
+      "key": "accentBar",
+      "type": "checkbox",
+      "label": "Barra de destaque na lateral do card",
+      "default": true
+    },
+    {
+      "key": "columns",
       "type": "select",
-      "label": "Orientação",
-      "default": "vertical",
+      "label": "Colunas",
+      "default": "1",
       "options": [
         [
-          "vertical",
-          "Vertical (colunas)"
+          "1",
+          "1 coluna"
         ],
         [
-          "horizontal",
-          "Horizontal (barras)"
+          "2",
+          "2 colunas"
         ]
       ]
     },
     {
       "key": "sortOrder",
       "type": "select",
-      "label": "Ordenar por valor",
+      "label": "Ordenar pelo valor em destaque",
       "default": "",
       "options": [
         [
@@ -146,74 +190,11 @@
       ]
     },
     {
-      "key": "maxBars",
+      "key": "maxItems",
       "type": "number",
-      "label": "Limitar quantidade de barras (opcional)",
-      "placeholder": "Ex: 10"
-    },
-    {
-      "key": "showValues",
-      "type": "checkbox",
-      "label": "Mostrar valores nas barras",
-      "default": true
-    },
-    {
-      "key": "heatmap",
-      "type": "checkbox",
-      "label": "Mapa de calor (cor mais forte nos maiores valores)",
-      "default": false
-    },
-    {
-      "key": "highlight",
-      "type": "select",
-      "label": "Destacar uma barra",
-      "default": "",
-      "options": [
-        [
-          "",
-          "Nenhuma"
-        ],
-        [
-          "last",
-          "A última (ex.: mês atual)"
-        ],
-        [
-          "max",
-          "A de maior valor"
-        ],
-        [
-          "min",
-          "A de menor valor"
-        ]
-      ],
-      "hint": "As demais ficam mais claras."
-    },
-    {
-      "key": "highlightOnly",
-      "type": "checkbox",
-      "label": "Mostrar valor só na barra destacada",
-      "default": false
-    },
-    {
-      "key": "overlayField",
-      "type": "field",
-      "label": "Campo de sobreposição (2ª medida)",
-      "emptyLabel": "Nenhum (barra simples)",
-      "hint": "Desenha, dentro da barra, a parte que esta medida representa (ex.: desligamentos dentro do total)."
-    },
-    {
-      "key": "baseColor",
-      "type": "color",
-      "label": "Cor da barra base (com sobreposição)",
-      "default": "",
-      "themeLabel": "Usar destaque 2 do tema"
-    },
-    {
-      "key": "overlayColor",
-      "type": "color",
-      "label": "Cor da sobreposição",
-      "default": "",
-      "themeLabel": "Usar destaque 1 do tema"
+      "label": "Quantidade de cards",
+      "default": 5,
+      "placeholder": "Ex: 5"
     }
   ];
 
@@ -421,7 +402,7 @@
     tableau.extensions.settings.saveAsync().then(function () {
       tableau.extensions.ui.closeDialog('saved');
     }).catch(function (err) {
-      console.error('[Projedata Gráfico de Barras config] erro ao salvar:', err);
+      console.error('[Projedata Lista de Cards config] erro ao salvar:', err);
       alert('Erro ao salvar configurações. Veja o console (F12).');
     });
   });
@@ -438,7 +419,7 @@
     populateFields(sumData.columns);
     populateForm();
   }).catch(function (err) {
-    console.error('[Projedata Gráfico de Barras config] erro ao inicializar dialog ou ler campos:', err);
+    console.error('[Projedata Lista de Cards config] erro ao inicializar dialog ou ler campos:', err);
     populateFields([]);
     populateForm();
   });

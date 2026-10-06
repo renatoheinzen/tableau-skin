@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.heatmapmatrix" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Matriz de Calor</name>
+    <description>Tabela cruzada (linhas × colunas) com células coloridas pela intensidade do valor, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/heatmap-matrix.html</url>
+    </source-location>
+
+    <icon>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</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

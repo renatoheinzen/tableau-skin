@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Skin Iniflex Pro (escuro)</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<style>
+  html, body {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+  #skin-root {
+    width: 100%;
+    height: 100%;
+    position: relative;
+    background-color: #0C0F3D;
+    background-image: none;
+    background-size: cover;
+    background-position: center;
+  }
+  #logo {
+    position: absolute;
+    top: 32px;
+    left: 16px;
+    max-width: 180px;
+    max-height: 70px;
+  }
+</style>
+</head>
+<body>
+<div id="skin-root">
+  <img id="logo" alt="">
+</div>
+<script>
+  var BG_URL = '../assets/background-dark.jpg';
+  var OVERLAY = '';
+  var LOGO_URL = '../assets/logo-dark.png';
+
+  var root = document.getElementById('skin-root');
+  var logo = document.getElementById('logo');
+
+  function loadFresh(url) {
+    return fetch(url, { cache: 'no-store' }).then(function (r) {
+      if (!r.ok) throw new Error('not found');
+      return r.blob();
+    }).then(function (blob) {
+      return URL.createObjectURL(blob);
+    });
+  }
+
+  if (BG_URL) {
+    loadFresh(BG_URL).then(function (objectUrl) {
+      // o overlay tonaliza a imagem pra ela nunca ficar branco puro,
+      // senão os cards brancos dos KPIs/gráficos perdem a borda
+      var layers = 'url(' + objectUrl + ')';
+      if (OVERLAY) layers = 'linear-gradient(' + OVERLAY + ', ' + OVERLAY + '), ' + layers;
+      // a imagem fica por cima do degradê/manchas definidos no CSS
+      var base = getComputedStyle(root).backgroundImage;
+      root.style.backgroundImage = layers + (base && base !== 'none' ? ', ' + base : '');
+    }).catch(function () {
+      // sem imagem de fundo definida ainda, mantém a cor sólida
+    });
+  }
+
+  if (LOGO_URL) {
+    loadFresh(LOGO_URL).then(function (objectUrl) {
+      logo.src = objectUrl;
+    }).catch(function () {
+      logo.style.display = 'none';
+    });
+  } else {
+    logo.style.display = 'none';
+  }
+
+  if (typeof tableau !== 'undefined' && tableau.extensions) {
+    tableau.extensions.initializeAsync().catch(function (err) {
+      console.warn('[Projedata Skin Iniflex Pro (escuro)] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
+    });
+  }
+</script>
+</body>
+</html>

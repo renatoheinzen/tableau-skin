@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Lista de Cards</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body {
+    flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+    display: grid; gap: 8px; align-content: start;
+    grid-template-columns: 1fr;
+  }
+  #chart-root.cols-2 #chart-body { grid-template-columns: 1fr 1fr; }
+
+  .card {
+    position: relative; display: flex; align-items: flex-start; gap: 10px; min-width: 0;
+    box-sizing: border-box; padding: 10px 12px;
+    background: var(--pd-surface); border: 1px solid var(--pd-track); border-radius: 10px;
+  }
+  #chart-root.accent-bar .card { padding-left: 16px; }
+  #chart-root.accent-bar .card::before {
+    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0;
+    background: var(--pd-accent-1);
+  }
+  #chart-root.accent-laranja.accent-bar .card::before { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo.accent-bar .card::before { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro.accent-bar .card::before { background: var(--pd-accent-4); }
+
+  .card-main { flex: 1 1 0; min-width: 0; }
+  .card-title { font-size: 13px; font-weight: 700; color: var(--pd-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-sub { font-size: 11px; color: var(--pd-text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .card-details { margin-top: 6px; display: grid; gap: 2px; }
+  .detail { font-size: 11px; color: var(--pd-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .detail b { color: var(--pd-text); font-weight: 600; }
+
+  .card-value { flex: 0 0 auto; text-align: right; }
+  .card-value .num { font-size: 18px; font-weight: 700; color: var(--pd-accent-1); line-height: 1.1; white-space: nowrap; }
+  .card-value .cap { font-size: 10px; color: var(--pd-text-muted); margin-top: 2px; white-space: nowrap; text-transform: var(--pd-title-transform); letter-spacing: 0.5px; }
+  #chart-root.accent-laranja .card-value .num { color: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .card-value .num { color: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .card-value .num { color: var(--pd-accent-4); }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="accent-bar">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataCardListState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    titleField: '', subtitleField: '', valueField: '',
+    detail1Field: '', detail2Field: '', detail3Field: '', detail4Field: '',
+    showDetailLabels: true, accentBar: true, columns: '1', maxItems: 5, sortOrder: ''
+  };
+  var lastCards = [];
+
+  function applyLayout() {
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.toggle('accent-bar', state.accentBar !== false);
+    root.classList.toggle('cols-2', String(state.columns) === '2');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    applyLayout();
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (lastCards.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    lastCards.forEach(function (c) {
+      var card = document.createElement('div');
+      card.className = 'card';
+
+      var main = document.createElement('div');
+      main.className = 'card-main';
+      var title = document.createElement('div');
+      title.className = 'card-title';
+      title.textContent = c.title;
+      title.title = c.title;
+      main.appendChild(title);
+      if (c.subtitle) {
+        var sub = document.createElement('div');
+        sub.className = 'card-sub';
+        sub.textContent = c.subtitle;
+        main.appendChild(sub);
+      }
+      if (c.details.length) {
+        var det = document.createElement('div');
+        det.className = 'card-details';
+        c.details.forEach(function (d) {
+          var line = document.createElement('div');
+          line.className = 'detail';
+          if (state.showDetailLabels !== false) {
+            var b = document.createElement('b');
+            b.textContent = d.label + ': ';
+            line.appendChild(b);
+          }
+          line.appendChild(document.createTextNode(d.value));
+          line.title = d.label + ': ' + d.value;
+          det.appendChild(line);
+        });
+        main.appendChild(det);
+      }
+      card.appendChild(main);
+
+      if (c.value !== null) {
+        var val = document.createElement('div');
+        val.className = 'card-value';
+        var num = document.createElement('div');
+        num.className = 'num';
+        num.textContent = c.value;
+        val.appendChild(num);
+        if (c.valueLabel) {
+          var cap = document.createElement('div');
+          cap.className = 'cap';
+          cap.textContent = c.valueLabel;
+          val.appendChild(cap);
+        }
+        card.appendChild(val);
+      }
+      bodyEl.appendChild(card);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+        titleEl.textContent = 'Arraste campos para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var cols = sumData.columns;
+      var titleIdx = findColumnIndex(cols, state.titleField, 0);
+      var subIdx = state.subtitleField ? findColumnIndex(cols, state.subtitleField, -1) : -1;
+      var valIdx = state.valueField ? findColumnIndex(cols, state.valueField, -1) : -1;
+      var detailIdxs = [state.detail1Field, state.detail2Field, state.detail3Field, state.detail4Field]
+        .map(function (f) { return f ? findColumnIndex(cols, f, -1) : -1; })
+        .filter(function (i) { return i !== -1; });
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || titleEl.textContent === '');
+
+      var cards = (sumData.data || []).map(function (row) {
+        var raw = valIdx !== -1 && row[valIdx] ? row[valIdx].value : null;
+        return {
+          title: row[titleIdx] ? row[titleIdx].formattedValue : '',
+          subtitle: subIdx !== -1 && row[subIdx] ? row[subIdx].formattedValue : '',
+          value: valIdx !== -1 ? (row[valIdx] ? row[valIdx].formattedValue : '') : null,
+          valueLabel: valIdx !== -1 ? cols[valIdx].fieldName : '',
+          sortValue: typeof raw === 'number' && !isNaN(raw) ? raw : 0,
+          details: detailIdxs.map(function (i) {
+            return { label: cols[i].fieldName, value: row[i] ? row[i].formattedValue : '' };
+          })
+        };
+      });
+
+      if (state.sortOrder === 'desc') cards.sort(function (a, b) { return b.sortValue - a.sortValue; });
+      else if (state.sortOrder === 'asc') cards.sort(function (a, b) { return a.sortValue - b.sortValue; });
+
+      var max = parseInt(state.maxItems, 10);
+      if (!isNaN(max) && max > 0) cards = cards.slice(0, max);
+
+      lastCards = cards;
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Lista de Cards] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/card-list-config.html', '', { height: 800, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Lista de Cards] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

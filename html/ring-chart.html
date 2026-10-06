@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Anel de Proporção</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column; justify-content: space-around; gap: 10px;
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .ring-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .ring-label {
+    flex: 1 1 0; min-width: 0;
+    font-size: 11px; color: var(--pd-text-muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .ring-svg { flex: 0 0 auto; display: block; }
+  #chart-root.size-small .ring-svg { width: 44px; height: 44px; }
+  #chart-root.size-medium .ring-svg { width: 64px; height: 64px; }
+  #chart-root.size-large .ring-svg { width: 92px; height: 92px; }
+
+  .ring-track { fill: none; stroke: var(--pd-track); stroke-width: 4; }
+  #chart-root.track-dark .ring-track { stroke: var(--pd-text); }
+  .ring-arc { fill: none; stroke: var(--pd-accent-1); stroke-width: 4; stroke-linecap: butt; transition: stroke-dasharray 0.3s ease; }
+  #chart-root.accent-laranja .ring-arc { stroke: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .ring-arc { stroke: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .ring-arc { stroke: var(--pd-accent-4); }
+  .ring-center { font-family: var(--pd-font); font-weight: 700; fill: var(--pd-text); }
+
+  .ring-values { flex: 0 0 auto; text-align: right; line-height: 1.25; min-width: 0; }
+  .ring-part { font-size: 13px; font-weight: 700; color: var(--pd-accent-1); white-space: nowrap; }
+  #chart-root.accent-laranja .ring-part { color: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .ring-part { color: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .ring-part { color: var(--pd-accent-4); }
+  .ring-total { font-size: 11px; color: var(--pd-text-muted); white-space: nowrap; }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="size-medium">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataRingState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+  var SIZE_CLASSES = ['size-small', 'size-medium', 'size-large'];
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    dimensionField: '', valueField: '', totalField: '',
+    trackStyle: 'light', size: 'medium', showCenter: true, showValues: true,
+    sortOrder: '', maxItems: ''
+  };
+  var lastRows = [];
+
+  function applyLayout() {
+    ACCENT_CLASSES.concat(SIZE_CLASSES).forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.add('size-' + (state.size || 'medium'));
+    root.classList.toggle('track-dark', state.trackStyle === 'dark');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    applyLayout();
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+  function defaultDimensionIndex(columns) {
+    var idx = columns.findIndex(function (c) { return c.dataType === 'string'; });
+    return idx !== -1 ? idx : -1;
+  }
+  function defaultMeasureIndex(columns, dimIdx) {
+    var idx = columns.findIndex(function (c, i) {
+      return i !== dimIdx && (c.dataType === 'int' || c.dataType === 'float');
+    });
+    return idx !== -1 ? idx : 0;
+  }
+
+  function formatPct(v) { return v.toFixed(v >= 10 ? 0 : 1).replace('.', ',') + '%'; }
+
+  function svgEl(name, attrs) {
+    var el = document.createElementNS('http://www.w3.org/2000/svg', name);
+    Object.keys(attrs || {}).forEach(function (k) { el.setAttribute(k, attrs[k]); });
+    return el;
+  }
+
+  function buildRing(pct) {
+    // círculo de raio 15.9155 → circunferência 100, então o dasharray é direto em %
+    var svg = svgEl('svg', { viewBox: '0 0 36 36', class: 'ring-svg' });
+    svg.appendChild(svgEl('circle', { class: 'ring-track', cx: 18, cy: 18, r: 15.9155 }));
+    svg.appendChild(svgEl('circle', {
+      class: 'ring-arc', cx: 18, cy: 18, r: 15.9155,
+      'stroke-dasharray': Math.max(0, Math.min(100, pct)) + ' 100',
+      transform: 'rotate(-90 18 18)'
+    }));
+    if (state.showCenter !== false) {
+      var t = svgEl('text', { class: 'ring-center', x: 18, y: 20.4, 'text-anchor': 'middle', 'font-size': 7 });
+      t.textContent = formatPct(pct);
+      svg.appendChild(t);
+    }
+    return svg;
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (lastRows.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    lastRows.forEach(function (r) {
+      var row = document.createElement('div');
+      row.className = 'ring-row';
+
+      if (r.label) {
+        var label = document.createElement('div');
+        label.className = 'ring-label';
+        label.textContent = r.label;
+        label.title = r.label;
+        row.appendChild(label);
+      }
+
+      row.appendChild(buildRing(r.pct));
+
+      if (state.showValues !== false) {
+        var vals = document.createElement('div');
+        vals.className = 'ring-values';
+        var part = document.createElement('div');
+        part.className = 'ring-part';
+        part.textContent = r.partFormatted;
+        vals.appendChild(part);
+        if (r.totalFormatted) {
+          var total = document.createElement('div');
+          total.className = 'ring-total';
+          total.textContent = r.totalFormatted;
+          vals.appendChild(total);
+        }
+        row.appendChild(vals);
+      }
+      bodyEl.appendChild(row);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+        titleEl.textContent = 'Arraste campos para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var dimIdx = findColumnIndex(sumData.columns, state.dimensionField, defaultDimensionIndex(sumData.columns));
+      var partIdx = findColumnIndex(sumData.columns, state.valueField, defaultMeasureIndex(sumData.columns, dimIdx));
+      var totalIdx = state.totalField ? findColumnIndex(sumData.columns, state.totalField, -1) : -1;
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+        ? state.customLabel
+        : sumData.columns[partIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
+      var rows = (sumData.data || []).map(function (row) {
+        return {
+          label: dimIdx !== -1 && row[dimIdx] ? row[dimIdx].formattedValue : '',
+          part: num(row[partIdx]),
+          partFormatted: row[partIdx] ? row[partIdx].formattedValue : '',
+          total: totalIdx !== -1 ? num(row[totalIdx]) : null,
+          totalFormatted: totalIdx !== -1 && row[totalIdx] ? row[totalIdx].formattedValue : ''
+        };
+      });
+
+      // sem campo de total: cada anel mostra a fatia da linha no total das linhas
+      var sumParts = rows.reduce(function (s, r) { return s + Math.max(r.part, 0); }, 0) || 1;
+      rows.forEach(function (r) {
+        r.pct = (r.total != null ? (r.total ? r.part / r.total : 0) : r.part / sumParts) * 100;
+      });
+
+      if (state.sortOrder === 'desc') rows.sort(function (a, b) { return b.part - a.part; });
+      else if (state.sortOrder === 'asc') rows.sort(function (a, b) { return a.part - b.part; });
+
+      var max = parseInt(state.maxItems, 10);
+      if (!isNaN(max) && max > 0) rows = rows.slice(0, max);
+
+      lastRows = rows;
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Anel de Proporção] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/ring-chart-config.html', '', { height: 640, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Anel de Proporção] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

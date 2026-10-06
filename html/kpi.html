@@ -8,36 +8,62 @@
 <style>
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
-    font-family: 'Montserrat', Arial, sans-serif;
+    font-family: var(--pd-font);
     overflow: hidden;
     background: transparent;
   }
   #kpi-root {
     width: 100%; height: 100%;
-    box-sizing: border-box;
     display: flex;
     flex-direction: column;
     justify-content: center;
-    padding: 12px 16px;
-    background: transparent;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
   }
   #kpi-root.align-center { align-items: center; text-align: center; }
   #kpi-root.align-left { align-items: flex-start; text-align: left; }
 
+  #kpi-body { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
+  #kpi-root.align-center #kpi-body { align-items: center; }
+  #kpi-root.align-left #kpi-body { align-items: flex-start; }
+
+  /* ícone opcional (tile arredondado ou solto), à esquerda ou acima do valor */
+  #kpi-icon { display: none; flex: 0 0 auto; align-items: center; justify-content: center; color: var(--pd-accent-1); }
+  #kpi-root.has-icon #kpi-icon { display: flex; }
+  #kpi-icon svg { width: 55%; height: 55%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #kpi-icon.tile { border-radius: 12px; background: rgba(128, 128, 128, 0.12); background: color-mix(in srgb, currentColor 14%, transparent); }
+  #kpi-icon.plain svg { width: 100%; height: 100%; }
+  #kpi-root.size-small #kpi-icon { width: 30px; height: 30px; }
+  #kpi-root.size-medium #kpi-icon { width: 42px; height: 42px; }
+  #kpi-root.size-large #kpi-icon { width: 56px; height: 56px; }
+  #kpi-root.has-icon.icon-left { flex-direction: row; align-items: center; gap: 14px; }
+  #kpi-root.has-icon.icon-left.align-center { justify-content: center; }
+  #kpi-root.has-icon.icon-top #kpi-icon { margin-bottom: 8px; }
+
+  /* legenda embaixo do valor em vez de em cima */
+  #kpi-root.label-bottom #kpi-label { order: 2; margin-bottom: 0; margin-top: 4px; }
+
   #kpi-label {
-    font-size: 12px; font-weight: 600; color: #6b7280;
-    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 4px;
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing); margin-bottom: 4px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #kpi-label.hidden { display: none !important; }
 
   #kpi-value {
-    font-weight: 700; color: var(--azul);
+    font-weight: 700; color: var(--pd-accent-1);
     line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #kpi-root.accent-laranja #kpi-value { color: var(--laranja); }
-  #kpi-root.accent-amarelo #kpi-value { color: var(--amarelo); }
-  #kpi-root.accent-azul-escuro #kpi-value { color: var(--azul-escuro); }
+  #kpi-root.accent-laranja #kpi-value { color: var(--pd-accent-2); }
+  #kpi-root.accent-amarelo #kpi-value { color: var(--pd-accent-3); }
+  #kpi-root.accent-azul-escuro #kpi-value { color: var(--pd-accent-4); }
+  #kpi-root.accent-laranja #kpi-icon { color: var(--pd-accent-2); }
+  #kpi-root.accent-amarelo #kpi-icon { color: var(--pd-accent-3); }
+  #kpi-root.accent-azul-escuro #kpi-icon { color: var(--pd-accent-4); }
 
   #kpi-root.size-small #kpi-value { font-size: clamp(14px, 5vw, 24px); }
   #kpi-root.size-medium #kpi-value { font-size: clamp(20px, 8vw, 40px); }
@@ -48,17 +74,20 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #kpi-variation.hidden { display: none !important; }
-  #kpi-variation.up { color: #16a34a; }
-  #kpi-variation.down { color: #dc2626; }
-  #kpi-variation.flat { color: #6b7280; }
+  #kpi-variation.up { color: var(--pd-positive); }
+  #kpi-variation.down { color: var(--pd-negative); }
+  #kpi-variation.flat { color: var(--pd-text-muted); }
 </style>
 </head>
 <body>
 
 <div id="kpi-root" class="size-medium align-left">
-  <div id="kpi-label">Carregando...</div>
-  <div id="kpi-value">—</div>
-  <div id="kpi-variation" class="hidden"></div>
+  <div id="kpi-icon"></div>
+  <div id="kpi-body">
+    <div id="kpi-label">Carregando...</div>
+    <div id="kpi-value">—</div>
+    <div id="kpi-variation" class="hidden"></div>
+  </div>
 </div>
 
 <script>
@@ -67,13 +96,38 @@
   var labelEl = document.getElementById('kpi-label');
   var valueEl = document.getElementById('kpi-value');
   var variationEl = document.getElementById('kpi-variation');
+  var iconEl = document.getElementById('kpi-icon');
 
   var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
   var SIZE_CLASSES = ['size-small', 'size-medium', 'size-large'];
   var ALIGN_CLASSES = ['align-left', 'align-center'];
+  var LAYOUT_CLASSES = ['icon-left', 'icon-top', 'label-bottom'];
+
+  // Ícones de traço (24×24)
+  var ICONS = {
+    'trend-down': '<polyline points="23 18 13.5 8.5 8.5 13.5 1 6"/><polyline points="17 18 23 18 23 12"/>',
+    'trend-up': '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+    'exit': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>',
+    'users': '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    'user': '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
+    'dollar': '<line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>',
+    'cart': '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+    'bars': '<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>',
+    'percent': '<line x1="19" y1="5" x2="5" y2="19"/><circle cx="6.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="17.5" r="2.5"/>',
+    'target': '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+    'package': '<line x1="16.5" y1="9.4" x2="7.5" y2="4.21"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><polyline points="3.27 6.96 12 12.01 20.73 6.96"/><line x1="12" y1="22.08" x2="12" y2="12"/>',
+    'truck': '<rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>',
+    'star': '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
+    'alert': '<path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    'heart': '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+    'briefcase': '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+    'activity': '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>'
+  };
 
   var state = {
     accent: '', customLabel: '', showLabel: true,
+    icon: '', iconStyle: 'tile', iconPosition: 'left', labelPosition: 'top', iconColor: '',
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
     compareField: '', displayUnits: '',
     fontSize: 'size-medium', align: 'align-left',
@@ -131,14 +185,32 @@
 
   function applyLayout() {
     ACCENT_CLASSES.concat(SIZE_CLASSES, ALIGN_CLASSES).forEach(function (c) { root.classList.remove(c); });
-    if (state.accent) root.classList.add(state.accent);
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
     root.classList.add(state.fontSize || 'size-medium');
     root.classList.add(state.align || 'align-left');
     labelEl.classList.toggle('hidden', state.showLabel === false);
-    root.style.background = state.bgColor || 'transparent';
+
+    LAYOUT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    var iconPath = ICONS[state.icon];
+    root.classList.toggle('has-icon', !!iconPath);
+    if (iconPath) {
+      iconEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + iconPath + '</svg>';
+      iconEl.className = state.iconStyle === 'plain' ? 'plain' : 'tile';
+      iconEl.style.color = state.iconColor || '';
+      root.classList.add(state.iconPosition === 'top' ? 'icon-top' : 'icon-left');
+    } else {
+      iconEl.innerHTML = '';
+    }
+    if (state.labelPosition === 'bottom') root.classList.add('label-bottom');
+    root.style.background = state.bgColor || '';
     var borderWidth = parseInt(state.borderWidth, 10) || 0;
-    root.style.border = borderWidth > 0 ? (borderWidth + 'px solid ' + (state.borderColor || '#000000')) : 'none';
-    root.style.borderRadius = (parseInt(state.borderRadius, 10) || 0) + 'px';
+    root.style.border = borderWidth > 0 ? (borderWidth + 'px solid ' + (state.borderColor || '#000000')) : '';
+    var borderRadius = parseInt(state.borderRadius, 10) || 0;
+    root.style.borderRadius = borderRadius > 0 ? (borderRadius + 'px') : '';
     renderValue();
   }
 
@@ -213,7 +285,7 @@
 
   function openConfigDialog() {
     var popupUrl = 'https://renatoheinzen.github.io/tableau-skin/html/kpi-config.html';
-    tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 560, width: 340 })
+    tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 680, width: 340 })
       .then(function () {
         // Dialog fechou normalmente (salvou) — recarrega estado e dado
         loadState();

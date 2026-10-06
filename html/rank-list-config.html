@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Format Extension — Projedata Gráfico de Barras</title>
+<title>Format Extension — Projedata Lista Ranqueada</title>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
@@ -64,7 +64,7 @@
 </head>
 <body>
 
-<h2>Projedata Gráfico de Barras</h2>
+<h2>Projedata Lista Ranqueada</h2>
 <div class="subtitle">Formatar extensão</div>
 <div id="form"></div>
 
@@ -75,14 +75,14 @@
 
 <script>
 (function () {
-  var STATE_KEY = 'projedataBarChartState';
+  var STATE_KEY = 'projedataRankState';
   // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color
   // Campos com hidden:true não aparecem na janela (mantêm o valor padrão).
   var SCHEMA = [
     {
       "key": "accent",
       "type": "accent",
-      "label": "Cor de destaque",
+      "label": "Cor do selo principal",
       "default": ""
     },
     {
@@ -100,41 +100,34 @@
     {
       "key": "dimensionField",
       "type": "dimension",
-      "label": "Campo de categoria (eixo)",
-      "hint": "\"Automático\" usa o 1º campo de texto/data colocado em Marcas."
+      "label": "Campo de categoria",
+      "hint": "\"Automático\" usa o 1º campo de texto colocado em Marcas."
     },
     {
-      "key": "measureField",
+      "key": "valueField",
       "type": "measure",
-      "label": "Campo de valor",
-      "hint": "\"Automático\" usa o 1º campo numérico colocado em Marcas."
+      "label": "Campo do selo principal",
+      "hint": "Define também a ordenação do ranking."
     },
     {
-      "key": "orientation",
-      "type": "select",
-      "label": "Orientação",
-      "default": "vertical",
-      "options": [
-        [
-          "vertical",
-          "Vertical (colunas)"
-        ],
-        [
-          "horizontal",
-          "Horizontal (barras)"
-        ]
-      ]
+      "key": "value2Field",
+      "type": "field",
+      "label": "Campo do 2º selo (opcional)",
+      "emptyLabel": "Nenhum (só um selo)"
+    },
+    {
+      "key": "topN",
+      "type": "number",
+      "label": "Quantidade de itens (Top N)",
+      "default": 5,
+      "placeholder": "Ex: 5"
     },
     {
       "key": "sortOrder",
       "type": "select",
-      "label": "Ordenar por valor",
-      "default": "",
+      "label": "Ordenação",
+      "default": "desc",
       "options": [
-        [
-          "",
-          "Ordem dos dados"
-        ],
         [
           "desc",
           "Maior → menor"
@@ -142,78 +135,38 @@
         [
           "asc",
           "Menor → maior"
+        ],
+        [
+          "",
+          "Ordem dos dados"
         ]
       ]
     },
     {
-      "key": "maxBars",
-      "type": "number",
-      "label": "Limitar quantidade de barras (opcional)",
-      "placeholder": "Ex: 10"
-    },
-    {
-      "key": "showValues",
+      "key": "showRank",
       "type": "checkbox",
-      "label": "Mostrar valores nas barras",
+      "label": "Mostrar posição (1, 2, 3…)",
       "default": true
     },
     {
-      "key": "heatmap",
-      "type": "checkbox",
-      "label": "Mapa de calor (cor mais forte nos maiores valores)",
-      "default": false
-    },
-    {
-      "key": "highlight",
+      "key": "badge2Style",
       "type": "select",
-      "label": "Destacar uma barra",
-      "default": "",
+      "label": "Estilo do 2º selo",
+      "default": "dark",
       "options": [
         [
-          "",
-          "Nenhuma"
+          "dark",
+          "Escuro"
         ],
         [
-          "last",
-          "A última (ex.: mês atual)"
+          "outline",
+          "Contorno"
         ],
         [
-          "max",
-          "A de maior valor"
-        ],
-        [
-          "min",
-          "A de menor valor"
+          "light",
+          "Claro"
         ]
-      ],
-      "hint": "As demais ficam mais claras."
-    },
-    {
-      "key": "highlightOnly",
-      "type": "checkbox",
-      "label": "Mostrar valor só na barra destacada",
-      "default": false
-    },
-    {
-      "key": "overlayField",
-      "type": "field",
-      "label": "Campo de sobreposição (2ª medida)",
-      "emptyLabel": "Nenhum (barra simples)",
-      "hint": "Desenha, dentro da barra, a parte que esta medida representa (ex.: desligamentos dentro do total)."
-    },
-    {
-      "key": "baseColor",
-      "type": "color",
-      "label": "Cor da barra base (com sobreposição)",
-      "default": "",
-      "themeLabel": "Usar destaque 2 do tema"
-    },
-    {
-      "key": "overlayColor",
-      "type": "color",
-      "label": "Cor da sobreposição",
-      "default": "",
-      "themeLabel": "Usar destaque 1 do tema"
+      ]
     }
   ];
 
@@ -421,7 +374,7 @@
     tableau.extensions.settings.saveAsync().then(function () {
       tableau.extensions.ui.closeDialog('saved');
     }).catch(function (err) {
-      console.error('[Projedata Gráfico de Barras config] erro ao salvar:', err);
+      console.error('[Projedata Lista Ranqueada config] erro ao salvar:', err);
       alert('Erro ao salvar configurações. Veja o console (F12).');
     });
   });
@@ -438,7 +391,7 @@
     populateFields(sumData.columns);
     populateForm();
   }).catch(function (err) {
-    console.error('[Projedata Gráfico de Barras config] erro ao inicializar dialog ou ler campos:', err);
+    console.error('[Projedata Lista Ranqueada config] erro ao inicializar dialog ou ler campos:', err);
     populateFields([]);
     populateForm();
   });

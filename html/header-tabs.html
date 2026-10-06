@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Cabeçalho com Abas</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #bar {
+    width: 100%; height: 100%; box-sizing: border-box;
+    display: flex; align-items: center; gap: 16px;
+    padding: 0 18px;
+    background: var(--pd-nav-bg); color: var(--pd-nav-text);
+    border: 1px solid var(--pd-nav-border);
+    border-radius: var(--pd-panel-radius);
+    box-shadow: var(--pd-panel-shadow);
+  }
+  #left { min-width: 0; flex: 1 1 0; }
+  #title { font-size: 16px; font-weight: 700; letter-spacing: var(--pd-panel-title-spacing); text-transform: var(--pd-title-transform); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #title:empty { display: none; }
+  #subtitle { font-size: 11px; color: var(--pd-nav-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #subtitle:empty { display: none; }
+  #right { font-size: 11px; color: var(--pd-nav-muted); white-space: nowrap; }
+  #right:empty { display: none; }
+
+  #tabs { display: flex; gap: 6px; flex: 0 0 auto; }
+  .tab {
+    padding: 7px 14px; font-size: 12px; font-weight: 600; letter-spacing: 0.6px; text-transform: uppercase;
+    color: var(--pd-nav-muted); border-radius: var(--pd-nav-radius);
+    cursor: pointer; user-select: none; white-space: nowrap;
+  }
+  .tab:hover { color: var(--pd-nav-text); }
+  .tab.active { background: var(--pd-nav-active-bg); color: var(--pd-nav-active-text); }
+
+  /* sublinhado */
+  #bar.style-underline #tabs { gap: 14px; }
+  #bar.style-underline .tab { border-radius: 0; padding: 8px 2px; border-bottom: 2px solid transparent; }
+  #bar.style-underline .tab.active { background: transparent; color: var(--pd-nav-text); border-bottom-color: var(--pd-nav-active-bg); }
+  /* segmentado */
+  #bar.style-segmented #tabs { gap: 0; border: 1px solid var(--pd-nav-border); border-radius: var(--pd-nav-radius); overflow: hidden; }
+  #bar.style-segmented .tab { border-radius: 0; }
+
+  /* alinhamento das abas: direita (padrão), centro ou junto ao título */
+  #bar.align-right #right { order: 2; }
+  #bar.align-right #tabs { order: 3; }
+  #bar.align-center #tabs { order: 2; }
+  #bar.align-center #right { order: 3; flex: 1 1 0; text-align: right; }
+  #bar.align-left #tabs { order: 2; margin-left: 12px; }
+  #bar.align-left #right { order: 3; flex: 1 1 0; text-align: right; }
+</style>
+</head>
+<body>
+
+<div id="bar" class="style-pill align-right">
+  <div id="left"><div id="title"></div><div id="subtitle"></div></div>
+  <div id="right"></div>
+  <div id="tabs"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataHeaderState';
+  var bar = document.getElementById('bar');
+  var titleEl = document.getElementById('title');
+  var subtitleEl = document.getElementById('subtitle');
+  var rightEl = document.getElementById('right');
+  var tabsEl = document.getElementById('tabs');
+
+  var state = {
+    title: '', subtitle: '', tabs: 'Visão geral\nDesempenho\nVendas', activeTab: 1,
+    tabStyle: 'pill', tabsAlign: 'right', rightText: '', parameterName: '', bgColor: ''
+  };
+  var tabs = [];
+  var active = 0;
+
+  // Linha: Rótulo | valor (parâmetro ou link http/https)
+  function parseTabs(text) {
+    return String(text || '').split(/\r?\n/).map(function (line) { return line.trim(); }).filter(Boolean).map(function (line) {
+      var p = line.split('|');
+      return { label: p[0].trim(), value: p.slice(1).join('|').trim() };
+    });
+  }
+
+  function dashboard() {
+    try { return tableau.extensions.dashboardContent.dashboard; } catch (e) { return null; }
+  }
+
+  function render() {
+    titleEl.textContent = state.title || '';
+    subtitleEl.textContent = state.subtitle || '';
+    rightEl.textContent = state.rightText || '';
+    bar.className = 'style-' + (state.tabStyle || 'pill') + ' align-' + (state.tabsAlign || 'right');
+    bar.style.background = state.bgColor || '';
+
+    tabsEl.innerHTML = '';
+    tabs.forEach(function (t, i) {
+      var el = document.createElement('div');
+      el.className = 'tab' + (i === active ? ' active' : '');
+      el.textContent = t.label;
+      el.addEventListener('click', function () { activate(i); });
+      tabsEl.appendChild(el);
+    });
+  }
+
+  function setParameter(value) {
+    var d = dashboard();
+    if (!d || !state.parameterName) return;
+    d.getParametersAsync().then(function (params) {
+      var p = params.filter(function (x) { return x.name === state.parameterName; })[0];
+      if (p) return p.changeValueAsync(value);
+      console.warn('[Projedata Cabeçalho] parâmetro não encontrado:', state.parameterName);
+    }).catch(function (err) { console.warn('[Projedata Cabeçalho] erro ao alterar o parâmetro:', err); });
+  }
+
+  function activate(i) {
+    active = i;
+    render();
+    var v = tabs[i] && tabs[i].value;
+    if (!v) return;
+    if (/^https?:\/\//i.test(v)) window.open(v, '_blank', 'noopener');
+    else setParameter(v);
+  }
+
+  // Mantém a aba ativa igual ao valor atual do parâmetro (inclusive quando ele muda por fora)
+  function syncFromParameter() {
+    var d = dashboard();
+    if (!d || !state.parameterName) return;
+    d.getParametersAsync().then(function (params) {
+      var p = params.filter(function (x) { return x.name === state.parameterName; })[0];
+      if (!p) return;
+      function pick() {
+        var cur = String(p.currentValue && (p.currentValue.formattedValue != null ? p.currentValue.formattedValue : p.currentValue.value));
+        var idx = tabs.findIndex(function (t) { return t.value === cur; });
+        if (idx !== -1) { active = idx; render(); }
+      }
+      pick();
+      if (typeof tableau !== 'undefined' && tableau.TableauEventType && tableau.TableauEventType.ParameterChanged) {
+        p.addEventListener(tableau.TableauEventType.ParameterChanged, function (e) {
+          e.getParameterAsync().then(function (np) { p = np; pick(); });
+        });
+      }
+    }).catch(function () { /* sem parâmetros (ex.: fora do Tableau) */ });
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    tabs = parseTabs(state.tabs);
+    var n = parseInt(state.activeTab, 10);
+    active = !isNaN(n) && n >= 1 && n <= tabs.length ? n - 1 : 0;
+    render();
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/header-tabs-config.html', '', { height: 700, width: 340 })
+      .then(function () { loadState(); syncFromParameter(); })
+      .catch(function (error) {
+        console.log('[Projedata Cabeçalho] dialog fechado:', error && error.message);
+      });
+  }
+
+  render();
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    console.error('[Projedata Cabeçalho] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
+    return;
+  }
+
+  tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+    loadState();
+    syncFromParameter();
+  }).catch(function (err) {
+    console.warn('[Projedata Cabeçalho] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
+  });
+})();
+</script>
+
+</body>
+</html>

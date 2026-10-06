@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Format Extension — Projedata Gráfico de Barras</title>
+<title>Format Extension — Projedata Cabeçalho com Abas</title>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
@@ -64,7 +64,7 @@
 </head>
 <body>
 
-<h2>Projedata Gráfico de Barras</h2>
+<h2>Projedata Cabeçalho com Abas</h2>
 <div class="subtitle">Formatar extensão</div>
 <div id="form"></div>
 
@@ -75,145 +75,96 @@
 
 <script>
 (function () {
-  var STATE_KEY = 'projedataBarChartState';
+  var STATE_KEY = 'projedataHeaderState';
   // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color
   // Campos com hidden:true não aparecem na janela (mantêm o valor padrão).
   var SCHEMA = [
     {
-      "key": "accent",
-      "type": "accent",
-      "label": "Cor de destaque",
-      "default": ""
-    },
-    {
-      "key": "customLabel",
+      "key": "title",
       "type": "text",
-      "label": "Título customizado (opcional)",
-      "placeholder": "Deixe em branco para usar o nome do campo"
+      "label": "Título",
+      "placeholder": "Ex: HR Analytics Dashboard"
     },
     {
-      "key": "showLabel",
-      "type": "checkbox",
-      "label": "Mostrar título",
-      "default": true
+      "key": "subtitle",
+      "type": "text",
+      "label": "Subtítulo (opcional)",
+      "placeholder": "Ex: Painel de pessoas e desempenho"
     },
     {
-      "key": "dimensionField",
-      "type": "dimension",
-      "label": "Campo de categoria (eixo)",
-      "hint": "\"Automático\" usa o 1º campo de texto/data colocado em Marcas."
+      "key": "tabs",
+      "type": "textarea",
+      "rows": 5,
+      "label": "Abas",
+      "default": "Visão geral\nDesempenho\nVendas",
+      "hint": "Uma linha por aba: Rótulo | valor (opcional). O valor pode ser um link (http/https, abre em nova aba) ou o valor que será gravado no parâmetro abaixo."
     },
     {
-      "key": "measureField",
-      "type": "measure",
-      "label": "Campo de valor",
-      "hint": "\"Automático\" usa o 1º campo numérico colocado em Marcas."
-    },
-    {
-      "key": "orientation",
-      "type": "select",
-      "label": "Orientação",
-      "default": "vertical",
-      "options": [
-        [
-          "vertical",
-          "Vertical (colunas)"
-        ],
-        [
-          "horizontal",
-          "Horizontal (barras)"
-        ]
-      ]
-    },
-    {
-      "key": "sortOrder",
-      "type": "select",
-      "label": "Ordenar por valor",
-      "default": "",
-      "options": [
-        [
-          "",
-          "Ordem dos dados"
-        ],
-        [
-          "desc",
-          "Maior → menor"
-        ],
-        [
-          "asc",
-          "Menor → maior"
-        ]
-      ]
-    },
-    {
-      "key": "maxBars",
+      "key": "activeTab",
       "type": "number",
-      "label": "Limitar quantidade de barras (opcional)",
-      "placeholder": "Ex: 10"
+      "label": "Aba ativa (número da linha)",
+      "default": 1,
+      "placeholder": "Ex: 1"
     },
     {
-      "key": "showValues",
-      "type": "checkbox",
-      "label": "Mostrar valores nas barras",
-      "default": true
-    },
-    {
-      "key": "heatmap",
-      "type": "checkbox",
-      "label": "Mapa de calor (cor mais forte nos maiores valores)",
-      "default": false
-    },
-    {
-      "key": "highlight",
+      "key": "tabStyle",
       "type": "select",
-      "label": "Destacar uma barra",
-      "default": "",
+      "label": "Estilo das abas",
+      "default": "pill",
       "options": [
         [
-          "",
-          "Nenhuma"
+          "pill",
+          "Pílula"
         ],
         [
-          "last",
-          "A última (ex.: mês atual)"
+          "underline",
+          "Sublinhado"
         ],
         [
-          "max",
-          "A de maior valor"
-        ],
-        [
-          "min",
-          "A de menor valor"
+          "segmented",
+          "Segmentado"
         ]
-      ],
-      "hint": "As demais ficam mais claras."
+      ]
     },
     {
-      "key": "highlightOnly",
-      "type": "checkbox",
-      "label": "Mostrar valor só na barra destacada",
-      "default": false
+      "key": "tabsAlign",
+      "type": "select",
+      "label": "Posição das abas",
+      "default": "right",
+      "options": [
+        [
+          "right",
+          "À direita"
+        ],
+        [
+          "center",
+          "Centralizadas"
+        ],
+        [
+          "left",
+          "Junto ao título"
+        ]
+      ]
     },
     {
-      "key": "overlayField",
-      "type": "field",
-      "label": "Campo de sobreposição (2ª medida)",
-      "emptyLabel": "Nenhum (barra simples)",
-      "hint": "Desenha, dentro da barra, a parte que esta medida representa (ex.: desligamentos dentro do total)."
+      "key": "rightText",
+      "type": "text",
+      "label": "Texto à direita (opcional)",
+      "placeholder": "Ex: Atualizado em 08/05/2022"
     },
     {
-      "key": "baseColor",
+      "key": "parameterName",
+      "type": "text",
+      "label": "Parâmetro do dashboard (opcional)",
+      "placeholder": "Ex: Aba",
+      "hint": "Ao clicar numa aba, o parâmetro recebe o valor da linha. Use-o em filtros/cálculos para trocar o conteúdo."
+    },
+    {
+      "key": "bgColor",
       "type": "color",
-      "label": "Cor da barra base (com sobreposição)",
+      "label": "Cor de fundo",
       "default": "",
-      "themeLabel": "Usar destaque 2 do tema"
-    },
-    {
-      "key": "overlayColor",
-      "type": "color",
-      "label": "Cor da sobreposição",
-      "default": "",
-      "themeLabel": "Usar destaque 1 do tema"
+      "themeLabel": "Usar fundo da navegação do tema"
     }
   ];
 
@@ -421,7 +372,7 @@
     tableau.extensions.settings.saveAsync().then(function () {
       tableau.extensions.ui.closeDialog('saved');
     }).catch(function (err) {
-      console.error('[Projedata Gráfico de Barras config] erro ao salvar:', err);
+      console.error('[Projedata Cabeçalho com Abas config] erro ao salvar:', err);
       alert('Erro ao salvar configurações. Veja o console (F12).');
     });
   });
@@ -438,7 +389,7 @@
     populateFields(sumData.columns);
     populateForm();
   }).catch(function (err) {
-    console.error('[Projedata Gráfico de Barras config] erro ao inicializar dialog ou ler campos:', err);
+    console.error('[Projedata Cabeçalho com Abas config] erro ao inicializar dialog ou ler campos:', err);
     populateFields([]);
     populateForm();
   });

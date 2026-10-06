@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.projedata.inifexbi.sidebarnav" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Faixa Lateral</name>
+    <description>Faixa lateral de navegação (itens com ícone, item ativo, links ou parâmetro) no estilo da marca Projedata.</description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/sidebar-nav.html</url>
+    </source-location>
+
+    <icon>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</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </dashboard-extension>
+</manifest>

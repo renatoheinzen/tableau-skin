@@ -9,155 +9,64 @@
   * { box-sizing: border-box; }
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
-    font-family: 'Montserrat', Arial, sans-serif;
-    color: var(--preto);
-    background: var(--branco);
+    font-family: var(--pd-font);
+    color: var(--pd-dlg-text);
+    background: var(--pd-dlg-bg);
   }
   body { padding: 16px; overflow-y: auto; }
-  h2 { margin: 0 0 4px 0; font-size: 15px; color: var(--azul-escuro); }
-  .subtitle { font-size: 11px; color: #888; margin-bottom: 16px; }
+  h2 { margin: 0 0 4px 0; font-size: 15px; color: var(--pd-dlg-label); }
+  .subtitle { font-size: 11px; color: var(--pd-dlg-muted); margin-bottom: 16px; }
 
-  label.field { display: block; margin-top: 12px; font-weight: 600; font-size: 12px; color: var(--azul-escuro); }
-  input[type="text"], select {
+  label.field { display: block; margin-top: 12px; font-weight: 600; font-size: 12px; color: var(--pd-dlg-label); }
+  input[type="text"], input[type="number"], select, textarea {
     width: 100%; padding: 6px 8px; margin-top: 4px;
-    border: 1px solid #ccc; border-radius: 4px; font-size: 13px;
+    border: 1px solid var(--pd-dlg-input-border); border-radius: var(--pd-dlg-radius);
+    background: var(--pd-dlg-input-bg); color: var(--pd-dlg-text);
+    font-family: inherit; font-size: 13px;
   }
+  textarea { resize: vertical; line-height: 1.4; }
   .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
   .checkbox-row input { width: auto; }
-  .checkbox-row label { font-weight: 600; font-size: 12px; color: var(--azul-escuro); margin: 0; }
+  .checkbox-row label { font-weight: 600; font-size: 12px; color: var(--pd-dlg-label); margin: 0; }
+  .hint { color: var(--pd-dlg-muted); font-size: 10px; margin-top: 3px; }
 
   .accent-row { display: flex; gap: 10px; margin: 8px 0 4px 0; }
-  .accent-swatch {
-    width: 24px; height: 24px; border-radius: 50%;
-    cursor: pointer; border: 2px solid transparent;
+  .accent-swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .accent-swatch.selected { border-color: var(--pd-dlg-text); }
+  .accent-custom {
+    position: relative; overflow: hidden;
+    background: conic-gradient(#ff3b3b, #ffd23b, #3bff6a, #3bd9ff, #3b4bff, #d93bff, #ff3b3b);
   }
-  .accent-swatch.selected { border-color: var(--preto); }
-  .hint { color: #999; font-size: 10px; margin-top: 3px; }
+  .accent-custom input { position: absolute; inset: -6px; width: 40px; height: 40px; opacity: 0; cursor: pointer; border: 0; padding: 0; }
 
-  .bg-row { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-  .bg-row input[type="color"] {
-    width: 36px; height: 28px; padding: 2px; margin-top: 0;
-    border: 1px solid #ccc; border-radius: 4px; cursor: pointer;
+  .color-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .color-row input[type="color"] {
+    width: 36px; height: 28px; padding: 2px; margin: 0;
+    border: 1px solid var(--pd-dlg-input-border); border-radius: var(--pd-dlg-radius);
+    background: var(--pd-dlg-input-bg); cursor: pointer;
   }
-  .bg-row input[type="color"]:disabled { opacity: 0.4; cursor: not-allowed; }
+  .color-row input[type="color"]:disabled { opacity: 0.4; cursor: not-allowed; }
+  .color-row label { font-size: 11px; color: var(--pd-dlg-muted); display: flex; align-items: center; gap: 4px; }
 
   .actions {
     display: flex; gap: 8px; margin-top: 22px;
-    position: sticky; bottom: 0; background: var(--branco); padding-top: 10px;
+    position: sticky; bottom: 0; background: var(--pd-dlg-bg); padding-top: 10px;
   }
   button {
-    flex: 1; padding: 9px; border: none; border-radius: 4px;
-    font-weight: 700; font-size: 13px; cursor: pointer;
+    flex: 1; padding: 9px; border: none; border-radius: var(--pd-dlg-radius);
+    font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer;
   }
-  #save-btn { background: var(--azul); color: var(--branco); }
-  #save-btn:hover { background: var(--azul-escuro); }
-  #cancel-btn { background: var(--cinza); color: var(--preto); }
-  #cancel-btn:hover { background: #e2e2e2; }
+  #save-btn { background: var(--pd-dlg-primary); color: var(--pd-dlg-primary-text); }
+  #save-btn:hover { filter: brightness(0.85); }
+  #cancel-btn { background: var(--pd-dlg-secondary); color: var(--pd-dlg-secondary-text); }
+  #cancel-btn:hover { filter: brightness(0.93); }
 </style>
 </head>
 <body>
 
 <h2>Projedata KPI Card</h2>
 <div class="subtitle">Formatar extensão</div>
-
-<label class="field">Cor de destaque</label>
-<div class="accent-row" id="accent-row">
-  <div class="accent-swatch selected" data-accent="" style="background:#3246FF" title="Azul"></div>
-  <div class="accent-swatch" data-accent="accent-laranja" style="background:#FE5000" title="Laranja"></div>
-  <div class="accent-swatch" data-accent="accent-amarelo" style="background:#FFB400" title="Amarelo"></div>
-  <div class="accent-swatch" data-accent="accent-azul-escuro" style="background:#0C0F3D" title="Azul escuro"></div>
-</div>
-
-<label class="field">
-  Rótulo customizado (opcional)
-  <input type="text" id="custom-label-input" placeholder="Deixe em branco para usar o nome do campo">
-</label>
-
-<div class="checkbox-row">
-  <input type="checkbox" id="show-label-input" checked>
-  <label for="show-label-input">Mostrar rótulo</label>
-</div>
-
-<label class="field">
-  Campo de valor
-  <select id="value-field-input"></select>
-</label>
-<div class="hint">"Automático" usa o 1º campo colocado em Marcas.</div>
-
-<label class="field">
-  Prefixo
-  <input type="text" id="prefix-input" placeholder="Ex: R$ ">
-</label>
-<label class="field">
-  ...ou campo de prefixo
-  <select id="prefix-field-input"></select>
-</label>
-<div class="hint">Se selecionado, usa o valor desse campo em vez do texto fixo acima.</div>
-
-<label class="field">
-  Sufixo
-  <input type="text" id="suffix-input" placeholder="Ex:  un.">
-</label>
-<label class="field">
-  ...ou campo de sufixo
-  <select id="suffix-field-input"></select>
-</label>
-<div class="hint">Se selecionado, usa o valor desse campo em vez do texto fixo acima.</div>
-
-<label class="field">
-  Exibir unidades
-  <select id="display-units-input">
-    <option value="">Nenhum</option>
-    <option value="K">Milhares (K)</option>
-    <option value="M">Milhões (M)</option>
-    <option value="B">Bilhões (B)</option>
-    <option value="T">Trilhões (T)</option>
-  </select>
-</label>
-
-<label class="field">
-  Campo de comparação (opcional)
-  <select id="compare-field-input"></select>
-</label>
-<div class="hint">Se selecionado, mostra ▲/▼ com a variação % em relação a esse campo (ex: período anterior ou meta).</div>
-
-<label class="field">
-  Tamanho da fonte
-  <select id="font-size-input">
-    <option value="size-small">Pequeno</option>
-    <option value="size-medium" selected>Médio</option>
-    <option value="size-large">Grande</option>
-  </select>
-</label>
-
-<label class="field">
-  Alinhamento
-  <select id="align-input">
-    <option value="align-left" selected>Esquerda</option>
-    <option value="align-center">Centro</option>
-  </select>
-</label>
-
-<label class="field">
-  Cor de fundo
-</label>
-<div class="bg-row">
-  <input type="color" id="bg-color-input" value="#ffffff">
-</div>
-
-<label class="field">Borda</label>
-<div class="bg-row">
-  <input type="color" id="border-color-input" value="#0c0f3d">
-  <span class="hint">Cor</span>
-</div>
-<label class="field">
-  Espessura da borda (px)
-  <input type="number" id="border-width-input" min="0" value="0">
-</label>
-<label class="field">
-  Raio do canto (px)
-  <input type="number" id="border-radius-input" min="0" value="0">
-</label>
+<div id="form"></div>
 
 <div class="actions">
   <button id="cancel-btn">Cancelar</button>
@@ -166,34 +75,451 @@
 
 <script>
 (function () {
-  var accentRow = document.getElementById('accent-row');
-  var customLabelInput = document.getElementById('custom-label-input');
-  var showLabelInput = document.getElementById('show-label-input');
-  var prefixInput = document.getElementById('prefix-input');
-  var suffixInput = document.getElementById('suffix-input');
-  var valueFieldInput = document.getElementById('value-field-input');
-  var prefixFieldInput = document.getElementById('prefix-field-input');
-  var suffixFieldInput = document.getElementById('suffix-field-input');
-  var displayUnitsInput = document.getElementById('display-units-input');
-  var compareFieldInput = document.getElementById('compare-field-input');
-  var fontSizeInput = document.getElementById('font-size-input');
-  var alignInput = document.getElementById('align-input');
-  var bgColorInput = document.getElementById('bg-color-input');
-  var borderColorInput = document.getElementById('border-color-input');
-  var borderWidthInput = document.getElementById('border-width-input');
-  var borderRadiusInput = document.getElementById('border-radius-input');
-  var saveBtn = document.getElementById('save-btn');
-  var cancelBtn = document.getElementById('cancel-btn');
+  var STATE_KEY = 'projedataKpiState';
+  // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color
+  // Campos com hidden:true não aparecem na janela (mantêm o valor padrão).
+  var SCHEMA = [
+    {
+      "key": "accent",
+      "type": "accent",
+      "label": "Cor de destaque",
+      "default": ""
+    },
+    {
+      "key": "customLabel",
+      "type": "text",
+      "label": "Rótulo customizado (opcional)",
+      "placeholder": "Deixe em branco para usar o nome do campo"
+    },
+    {
+      "key": "showLabel",
+      "type": "checkbox",
+      "label": "Mostrar rótulo",
+      "default": true
+    },
+    {
+      "key": "labelPosition",
+      "type": "select",
+      "label": "Posição do rótulo",
+      "default": "top",
+      "options": [
+        [
+          "top",
+          "Acima do valor"
+        ],
+        [
+          "bottom",
+          "Abaixo do valor (legenda)"
+        ]
+      ]
+    },
+    {
+      "key": "icon",
+      "type": "select",
+      "label": "Ícone",
+      "default": "",
+      "options": [
+        [
+          "",
+          "Nenhum"
+        ],
+        [
+          "trend-down",
+          "Tendência de queda"
+        ],
+        [
+          "trend-up",
+          "Tendência de alta"
+        ],
+        [
+          "exit",
+          "Saída / atrito"
+        ],
+        [
+          "users",
+          "Pessoas (grupo)"
+        ],
+        [
+          "user",
+          "Pessoa"
+        ],
+        [
+          "dollar",
+          "Dinheiro"
+        ],
+        [
+          "cart",
+          "Carrinho / vendas"
+        ],
+        [
+          "bars",
+          "Gráfico de barras"
+        ],
+        [
+          "percent",
+          "Percentual"
+        ],
+        [
+          "target",
+          "Meta"
+        ],
+        [
+          "clock",
+          "Tempo"
+        ],
+        [
+          "package",
+          "Pedidos / pacote"
+        ],
+        [
+          "truck",
+          "Entrega"
+        ],
+        [
+          "star",
+          "Destaque"
+        ],
+        [
+          "alert",
+          "Alerta"
+        ],
+        [
+          "heart",
+          "Saúde / satisfação"
+        ],
+        [
+          "briefcase",
+          "Negócios"
+        ],
+        [
+          "activity",
+          "Atividade"
+        ]
+      ]
+    },
+    {
+      "key": "iconPosition",
+      "type": "select",
+      "label": "Posição do ícone",
+      "default": "left",
+      "options": [
+        [
+          "left",
+          "À esquerda do valor"
+        ],
+        [
+          "top",
+          "Acima do valor"
+        ]
+      ]
+    },
+    {
+      "key": "iconStyle",
+      "type": "select",
+      "label": "Estilo do ícone",
+      "default": "tile",
+      "options": [
+        [
+          "tile",
+          "Em quadro arredondado"
+        ],
+        [
+          "plain",
+          "Solto"
+        ]
+      ]
+    },
+    {
+      "key": "iconColor",
+      "type": "color",
+      "label": "Cor do ícone",
+      "default": "",
+      "themeLabel": "Usar cor de destaque"
+    },
+    {
+      "key": "valueField",
+      "type": "field",
+      "label": "Campo de valor",
+      "emptyLabel": "Automático (1º campo em Marcas)",
+      "hint": "\"Automático\" usa o 1º campo colocado em Marcas."
+    },
+    {
+      "key": "prefix",
+      "type": "text",
+      "label": "Prefixo",
+      "placeholder": "Ex: R$ "
+    },
+    {
+      "key": "prefixField",
+      "type": "field",
+      "label": "...ou campo de prefixo",
+      "emptyLabel": "Nenhum (usar texto fixo)",
+      "hint": "Se selecionado, usa o valor desse campo em vez do texto fixo acima."
+    },
+    {
+      "key": "suffix",
+      "type": "text",
+      "label": "Sufixo",
+      "placeholder": "Ex:  un."
+    },
+    {
+      "key": "suffixField",
+      "type": "field",
+      "label": "...ou campo de sufixo",
+      "emptyLabel": "Nenhum (usar texto fixo)",
+      "hint": "Se selecionado, usa o valor desse campo em vez do texto fixo acima."
+    },
+    {
+      "key": "displayUnits",
+      "type": "select",
+      "label": "Exibir unidades",
+      "default": "",
+      "options": [
+        [
+          "",
+          "Nenhum"
+        ],
+        [
+          "K",
+          "Milhares (K)"
+        ],
+        [
+          "M",
+          "Milhões (M)"
+        ],
+        [
+          "B",
+          "Bilhões (B)"
+        ],
+        [
+          "T",
+          "Trilhões (T)"
+        ]
+      ]
+    },
+    {
+      "key": "compareField",
+      "type": "field",
+      "label": "Campo de comparação (opcional)",
+      "emptyLabel": "Nenhum (sem indicador)",
+      "hint": "Se selecionado, mostra ▲/▼ com a variação % em relação a esse campo (ex: período anterior ou meta)."
+    },
+    {
+      "key": "fontSize",
+      "type": "select",
+      "label": "Tamanho da fonte",
+      "default": "size-medium",
+      "options": [
+        [
+          "size-small",
+          "Pequeno"
+        ],
+        [
+          "size-medium",
+          "Médio"
+        ],
+        [
+          "size-large",
+          "Grande"
+        ]
+      ]
+    },
+    {
+      "key": "align",
+      "type": "select",
+      "label": "Alinhamento",
+      "default": "align-left",
+      "options": [
+        [
+          "align-left",
+          "Esquerda"
+        ],
+        [
+          "align-center",
+          "Centro"
+        ]
+      ]
+    },
+    {
+      "key": "bgColor",
+      "type": "color",
+      "label": "Cor de fundo",
+      "default": ""
+    },
+    {
+      "key": "borderColor",
+      "type": "color",
+      "label": "Cor da borda",
+      "default": ""
+    },
+    {
+      "key": "borderWidth",
+      "type": "number",
+      "label": "Espessura da borda (px)",
+      "min": 0,
+      "default": 0,
+      "hint": "0 usa a borda do tema."
+    },
+    {
+      "key": "borderRadius",
+      "type": "number",
+      "label": "Raio do canto (px)",
+      "min": 0,
+      "default": 0,
+      "hint": "0 usa o raio do tema."
+    }
+  ];
 
-  var state = {
-    accent: '', customLabel: '', showLabel: true,
-    prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
-    compareField: '', displayUnits: '',
-    fontSize: 'size-medium', align: 'align-left',
-    bgColor: '',
-    borderColor: '', borderWidth: 0, borderRadius: 0,
-    lastRawValue: ''
+  var FIELD_TYPES = ['dimension', 'measure', 'field'];
+  var DEFAULT_EMPTY = {
+    dimension: 'Automático (1º campo de texto/data)',
+    measure: 'Automático (1º campo numérico)',
+    field: 'Nenhum'
   };
+
+  var formEl = document.getElementById('form');
+  var state = {};
+  var inputs = {};
+
+  var visible = SCHEMA.filter(function (f) { return !f.hidden; });
+  SCHEMA.forEach(function (f) { state[f.key] = f.default !== undefined ? f.default : ''; });
+
+  function addHint(parent, text) {
+    if (!text) return;
+    var h = document.createElement('div');
+    h.className = 'hint';
+    h.textContent = text;
+    parent.appendChild(h);
+  }
+
+  function buildForm() {
+    visible.forEach(function (f) {
+      // cada campo fica num bloco próprio (o builder usa para arrastar e reordenar)
+      var block = document.createElement('div');
+      block.className = 'fld-block';
+      block.dataset.key = f.key;
+      formEl.appendChild(block);
+
+      if (f.type === 'accent') {
+        var lbl = document.createElement('label');
+        lbl.className = 'field';
+        lbl.textContent = f.label;
+        block.appendChild(lbl);
+        var row = document.createElement('div');
+        row.className = 'accent-row';
+        [['', 1, 'Destaque 1'], ['accent-laranja', 2, 'Destaque 2'], ['accent-amarelo', 3, 'Destaque 3'], ['accent-azul-escuro', 4, 'Destaque 4']].forEach(function (a) {
+          var sw = document.createElement('div');
+          sw.className = 'accent-swatch';
+          sw.dataset.accent = a[0];
+          sw.title = a[2];
+          sw.style.background = 'var(--pd-accent-' + a[1] + ')';
+          row.appendChild(sw);
+        });
+        // Última opção: cor personalizada (abre o seletor de cores do navegador)
+        var custom = document.createElement('div');
+        custom.className = 'accent-swatch accent-custom';
+        custom.dataset.accent = 'custom';
+        custom.title = 'Outra cor…';
+        var picker = document.createElement('input');
+        picker.type = 'color';
+        picker.value = '#3246ff';
+        picker.addEventListener('input', function () { selectAccent(f.key, picker.value); });
+        custom.appendChild(picker);
+        row.appendChild(custom);
+        row.addEventListener('click', function (e) {
+          var sw = e.target.closest('.accent-swatch');
+          if (sw && sw.dataset.accent !== 'custom') selectAccent(f.key, sw.dataset.accent);
+        });
+        block.appendChild(row);
+        addHint(block, f.hint);
+        inputs[f.key] = row;
+        return;
+      }
+
+      if (f.type === 'checkbox') {
+        var wrap = document.createElement('div');
+        wrap.className = 'checkbox-row';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = 'in-' + f.key;
+        var cl = document.createElement('label');
+        cl.htmlFor = cb.id;
+        cl.textContent = f.label;
+        wrap.appendChild(cb);
+        wrap.appendChild(cl);
+        block.appendChild(wrap);
+        addHint(block, f.hint);
+        inputs[f.key] = cb;
+        return;
+      }
+
+      if (f.type === 'color') {
+        var clbl = document.createElement('label');
+        clbl.className = 'field';
+        clbl.textContent = f.label;
+        block.appendChild(clbl);
+        var crow = document.createElement('div');
+        crow.className = 'color-row';
+        var picker = document.createElement('input');
+        picker.type = 'color';
+        picker.value = '#ffffff';
+        var useTheme = document.createElement('input');
+        useTheme.type = 'checkbox';
+        var ul = document.createElement('label');
+        ul.appendChild(useTheme);
+        ul.appendChild(document.createTextNode(f.themeLabel || 'Usar cor do tema'));
+        useTheme.addEventListener('change', function () { picker.disabled = useTheme.checked; });
+        crow.appendChild(picker);
+        crow.appendChild(ul);
+        block.appendChild(crow);
+        addHint(block, f.hint);
+        inputs[f.key] = { picker: picker, useTheme: useTheme };
+        return;
+      }
+
+      var label = document.createElement('label');
+      label.className = 'field';
+      label.appendChild(document.createTextNode(f.label));
+      var input;
+      if (f.type === 'select') {
+        input = document.createElement('select');
+        f.options.forEach(function (o) {
+          var opt = document.createElement('option');
+          opt.value = o[0];
+          opt.textContent = o[1];
+          input.appendChild(opt);
+        });
+      } else if (f.type === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = f.rows || 5;
+        if (f.placeholder) input.placeholder = f.placeholder;
+      } else if (FIELD_TYPES.indexOf(f.type) !== -1) {
+        input = document.createElement('select');
+      } else {
+        input = document.createElement('input');
+        input.type = f.type === 'number' ? 'number' : 'text';
+        if (f.type === 'number') input.min = f.min !== undefined ? f.min : 1;
+        if (f.placeholder) input.placeholder = f.placeholder;
+      }
+      label.appendChild(input);
+      block.appendChild(label);
+      addHint(block, f.hint);
+      inputs[f.key] = input;
+    });
+  }
+
+  function selectAccent(key, accent) {
+    state[key] = accent;
+    var isCustom = typeof accent === 'string' && accent.charAt(0) === '#';
+    inputs[key].querySelectorAll('.accent-swatch').forEach(function (el) {
+      var selected = isCustom ? el.dataset.accent === 'custom' : el.dataset.accent === accent;
+      el.classList.toggle('selected', selected);
+      if (el.dataset.accent === 'custom' && isCustom) {
+        el.style.background = accent;
+        el.querySelector('input').value = accent;
+      }
+    });
+  }
 
   function populateFieldOptions(select, columns, placeholder) {
     select.innerHTML = '';
@@ -209,87 +535,64 @@
     });
   }
 
-  function selectAccent(accent) {
-    state.accent = accent;
-    document.querySelectorAll('.accent-swatch').forEach(function (el) {
-      el.classList.toggle('selected', el.dataset.accent === accent);
+  function populateFields(columns) {
+    visible.forEach(function (f) {
+      if (FIELD_TYPES.indexOf(f.type) !== -1) populateFieldOptions(inputs[f.key], columns, f.emptyLabel || DEFAULT_EMPTY[f.type]);
     });
   }
 
-  accentRow.addEventListener('click', function (e) {
-    var swatch = e.target.closest('.accent-swatch');
-    if (swatch) selectAccent(swatch.dataset.accent);
+  function populateForm() {
+    visible.forEach(function (f) {
+      var v = state[f.key];
+      if (f.type === 'accent') selectAccent(f.key, v || '');
+      else if (f.type === 'checkbox') inputs[f.key].checked = !!v;
+      else if (f.type === 'color') {
+        inputs[f.key].useTheme.checked = !v;
+        inputs[f.key].picker.disabled = !v;
+        if (v) inputs[f.key].picker.value = v;
+      }
+      else inputs[f.key].value = v == null ? '' : v;
+    });
+  }
+
+  function readForm() {
+    visible.forEach(function (f) {
+      if (f.type === 'accent') return;
+      if (f.type === 'checkbox') state[f.key] = inputs[f.key].checked;
+      else if (f.type === 'color') state[f.key] = inputs[f.key].useTheme.checked ? '' : inputs[f.key].picker.value;
+      else state[f.key] = inputs[f.key].value;
+    });
+  }
+
+  document.getElementById('cancel-btn').addEventListener('click', function () {
+    tableau.extensions.ui.closeDialog('cancelled');
   });
 
-  function populateForm() {
-    selectAccent(state.accent || '');
-    customLabelInput.value = state.customLabel || '';
-    showLabelInput.checked = state.showLabel !== false;
-    prefixInput.value = state.prefix || '';
-    suffixInput.value = state.suffix || '';
-    valueFieldInput.value = state.valueField || '';
-    prefixFieldInput.value = state.prefixField || '';
-    suffixFieldInput.value = state.suffixField || '';
-    displayUnitsInput.value = state.displayUnits || '';
-    compareFieldInput.value = state.compareField || '';
-    fontSizeInput.value = state.fontSize || 'size-medium';
-    alignInput.value = state.align || 'align-left';
-    bgColorInput.value = state.bgColor || '#ffffff';
-    borderColorInput.value = state.borderColor || '#0c0f3d';
-    borderWidthInput.value = state.borderWidth || 0;
-    borderRadiusInput.value = state.borderRadius || 0;
-  }
-
-  function closeWithoutSaving() {
-    tableau.extensions.ui.closeDialog('cancelled');
-  }
-  cancelBtn.addEventListener('click', closeWithoutSaving);
-
-  function save() {
-    state.customLabel = customLabelInput.value;
-    state.showLabel = showLabelInput.checked;
-    state.prefix = prefixInput.value;
-    state.suffix = suffixInput.value;
-    state.valueField = valueFieldInput.value;
-    state.prefixField = prefixFieldInput.value;
-    state.suffixField = suffixFieldInput.value;
-    state.displayUnits = displayUnitsInput.value;
-    state.compareField = compareFieldInput.value;
-    state.fontSize = fontSizeInput.value;
-    state.align = alignInput.value;
-    state.bgColor = bgColorInput.value;
-    state.borderColor = borderColorInput.value;
-    state.borderWidth = borderWidthInput.value;
-    state.borderRadius = borderRadiusInput.value;
-
-    tableau.extensions.settings.set('projedataKpiState', JSON.stringify(state));
+  document.getElementById('save-btn').addEventListener('click', function () {
+    readForm();
+    tableau.extensions.settings.set(STATE_KEY, JSON.stringify(state));
     tableau.extensions.settings.saveAsync().then(function () {
       tableau.extensions.ui.closeDialog('saved');
     }).catch(function (err) {
-      console.error('[Projedata KPI config] erro ao salvar:', err);
+      console.error('[Projedata KPI Card config] erro ao salvar:', err);
       alert('Erro ao salvar configurações. Veja o console (F12).');
     });
-  }
-  saveBtn.addEventListener('click', save);
+  });
+
+  buildForm();
 
   tableau.extensions.initializeDialogAsync().then(function () {
     try {
-      var saved = tableau.extensions.settings.get('projedataKpiState');
+      var saved = tableau.extensions.settings.get(STATE_KEY);
       if (saved) state = Object.assign(state, JSON.parse(saved));
     } catch (e) { /* sem config salva ainda */ }
     return tableau.extensions.worksheetContent.worksheet.getSummaryDataAsync({ ignoreSelection: true });
   }).then(function (sumData) {
-    populateFieldOptions(valueFieldInput, sumData.columns, 'Automático (1º campo em Marcas)');
-    populateFieldOptions(prefixFieldInput, sumData.columns, 'Nenhum (usar texto fixo)');
-    populateFieldOptions(suffixFieldInput, sumData.columns, 'Nenhum (usar texto fixo)');
-    populateFieldOptions(compareFieldInput, sumData.columns, 'Nenhum (sem indicador)');
+    populateFields(sumData.columns);
     populateForm();
   }).catch(function (err) {
-    console.error('[Projedata KPI config] erro ao inicializar dialog ou ler campos:', err);
-    populateFieldOptions(valueFieldInput, [], 'Automático (1º campo em Marcas)');
-    populateFieldOptions(prefixFieldInput, [], 'Nenhum (usar texto fixo)');
-    populateFieldOptions(suffixFieldInput, [], 'Nenhum (usar texto fixo)');
-    populateFieldOptions(compareFieldInput, [], 'Nenhum (sem indicador)');
+    console.error('[Projedata KPI Card config] erro ao inicializar dialog ou ler campos:', err);
+    populateFields([]);
     populateForm();
   });
 })();

@@ -1,0 +1,16 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.projedata.inifexbi.skinpro" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Skin Iniflex Pro (escuro)</name>
+    <description>Fundo do painel no tema &quot;Iniflex Pro (escuro)&quot; da marca Projedata.</description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/skin-pro.html</url>
+    </source-location>
+
+    <icon>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</icon>
+  </dashboard-extension>
+</manifest>

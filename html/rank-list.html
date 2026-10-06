@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Lista Ranqueada</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column; justify-content: space-around; gap: 6px;
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .rk-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+  .rk-pos { flex: 0 0 18px; font-size: 12px; color: var(--pd-text-muted); text-align: left; }
+  .rk-label {
+    flex: 1 1 0; min-width: 0;
+    font-size: 12px; color: var(--pd-text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rk-badge {
+    flex: 0 0 auto; min-width: 38px; box-sizing: border-box;
+    padding: 5px 9px; border-radius: 8px; border: 1px solid transparent;
+    font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap;
+  }
+  .rk-badge.a { background: var(--pd-accent-1); color: #fff; }
+  #chart-root.accent-laranja .rk-badge.a { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .rk-badge.a { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .rk-badge.a { background: var(--pd-accent-4); }
+  /* o selo 2 usa texto/superfície do tema: contraste garantido em temas claros e escuros */
+  .rk-badge.b-dark { background: var(--pd-text); color: var(--pd-surface); }
+  .rk-badge.b-outline { background: transparent; color: var(--pd-text); border-color: var(--pd-text-muted); }
+  .rk-badge.b-light { background: var(--pd-track); color: var(--pd-text); }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataRankState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    dimensionField: '', valueField: '', value2Field: '',
+    topN: 5, sortOrder: 'desc', showRank: true, badge2Style: 'dark'
+  };
+  var lastRows = [];
+
+  function applyLayout() {
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    applyLayout();
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+  function defaultDimensionIndex(columns) {
+    var idx = columns.findIndex(function (c) { return c.dataType === 'string'; });
+    return idx !== -1 ? idx : 0;
+  }
+  function defaultMeasureIndex(columns, dimIdx) {
+    var idx = columns.findIndex(function (c, i) {
+      return i !== dimIdx && (c.dataType === 'int' || c.dataType === 'float');
+    });
+    if (idx !== -1) return idx;
+    return dimIdx === 0 && columns.length > 1 ? 1 : 0;
+  }
+
+  // Escolhe texto claro/escuro conforme a luminância da cor do selo principal
+  function readableOn(el) {
+    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).backgroundColor);
+    if (!m) return '';
+    var lum = (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) / 255;
+    return lum > 0.62 ? '#161616' : '#ffffff';
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (lastRows.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var badge2Cls = 'b-' + (state.badge2Style || 'dark');
+    lastRows.forEach(function (r, i) {
+      var row = document.createElement('div');
+      row.className = 'rk-row';
+
+      if (state.showRank !== false) {
+        var pos = document.createElement('div');
+        pos.className = 'rk-pos';
+        pos.textContent = String(i + 1);
+        row.appendChild(pos);
+      }
+
+      var label = document.createElement('div');
+      label.className = 'rk-label';
+      label.textContent = r.label;
+      label.title = r.label;
+      row.appendChild(label);
+
+      var a = document.createElement('div');
+      a.className = 'rk-badge a';
+      a.textContent = r.aFormatted;
+      row.appendChild(a);
+
+      if (r.bFormatted !== null) {
+        var b = document.createElement('div');
+        b.className = 'rk-badge ' + badge2Cls;
+        b.textContent = r.bFormatted;
+        row.appendChild(b);
+      }
+      bodyEl.appendChild(row);
+      a.style.color = readableOn(a);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+        titleEl.textContent = 'Arraste campos para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var dimIdx = findColumnIndex(sumData.columns, state.dimensionField, defaultDimensionIndex(sumData.columns));
+      var aIdx = findColumnIndex(sumData.columns, state.valueField, defaultMeasureIndex(sumData.columns, dimIdx));
+      var bIdx = state.value2Field ? findColumnIndex(sumData.columns, state.value2Field, -1) : -1;
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+        ? state.customLabel
+        : sumData.columns[aIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
+      var rows = (sumData.data || []).map(function (row) {
+        return {
+          label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+          a: num(row[aIdx]),
+          aFormatted: row[aIdx] ? row[aIdx].formattedValue : '',
+          bFormatted: bIdx !== -1 ? (row[bIdx] ? row[bIdx].formattedValue : '') : null
+        };
+      });
+
+      if (state.sortOrder === 'desc') rows.sort(function (x, y) { return y.a - x.a; });
+      else if (state.sortOrder === 'asc') rows.sort(function (x, y) { return x.a - y.a; });
+
+      var n = parseInt(state.topN, 10);
+      if (!isNaN(n) && n > 0) rows = rows.slice(0, n);
+
+      lastRows = rows;
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Lista Ranqueada] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/rank-list-config.html', '', { height: 640, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Lista Ranqueada] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

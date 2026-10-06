@@ -2,7 +2,7 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Format Extension — Projedata Gráfico de Barras</title>
+<title>Format Extension — Projedata Gráfico de Pizza</title>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
@@ -64,7 +64,7 @@
 </head>
 <body>
 
-<h2>Projedata Gráfico de Barras</h2>
+<h2>Projedata Gráfico de Pizza</h2>
 <div class="subtitle">Formatar extensão</div>
 <div id="form"></div>
 
@@ -75,16 +75,10 @@
 
 <script>
 (function () {
-  var STATE_KEY = 'projedataBarChartState';
+  var STATE_KEY = 'projedataPieState';
   // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color
   // Campos com hidden:true não aparecem na janela (mantêm o valor padrão).
   var SCHEMA = [
-    {
-      "key": "accent",
-      "type": "accent",
-      "label": "Cor de destaque",
-      "default": ""
-    },
     {
       "key": "customLabel",
       "type": "text",
@@ -100,7 +94,7 @@
     {
       "key": "dimensionField",
       "type": "dimension",
-      "label": "Campo de categoria (eixo)",
+      "label": "Campo de categoria",
       "hint": "\"Automático\" usa o 1º campo de texto/data colocado em Marcas."
     },
     {
@@ -110,20 +104,36 @@
       "hint": "\"Automático\" usa o 1º campo numérico colocado em Marcas."
     },
     {
-      "key": "orientation",
+      "key": "donut",
+      "type": "checkbox",
+      "label": "Exibir como donut (com total no centro)",
+      "default": false
+    },
+    {
+      "key": "legend",
       "type": "select",
-      "label": "Orientação",
-      "default": "vertical",
+      "label": "Legenda",
+      "default": "right",
       "options": [
         [
-          "vertical",
-          "Vertical (colunas)"
+          "right",
+          "À direita"
         ],
         [
-          "horizontal",
-          "Horizontal (barras)"
+          "bottom",
+          "Embaixo"
+        ],
+        [
+          "none",
+          "Sem legenda"
         ]
       ]
+    },
+    {
+      "key": "showPercent",
+      "type": "checkbox",
+      "label": "Mostrar percentual na legenda",
+      "default": true
     },
     {
       "key": "sortOrder",
@@ -146,74 +156,10 @@
       ]
     },
     {
-      "key": "maxBars",
+      "key": "maxItems",
       "type": "number",
-      "label": "Limitar quantidade de barras (opcional)",
-      "placeholder": "Ex: 10"
-    },
-    {
-      "key": "showValues",
-      "type": "checkbox",
-      "label": "Mostrar valores nas barras",
-      "default": true
-    },
-    {
-      "key": "heatmap",
-      "type": "checkbox",
-      "label": "Mapa de calor (cor mais forte nos maiores valores)",
-      "default": false
-    },
-    {
-      "key": "highlight",
-      "type": "select",
-      "label": "Destacar uma barra",
-      "default": "",
-      "options": [
-        [
-          "",
-          "Nenhuma"
-        ],
-        [
-          "last",
-          "A última (ex.: mês atual)"
-        ],
-        [
-          "max",
-          "A de maior valor"
-        ],
-        [
-          "min",
-          "A de menor valor"
-        ]
-      ],
-      "hint": "As demais ficam mais claras."
-    },
-    {
-      "key": "highlightOnly",
-      "type": "checkbox",
-      "label": "Mostrar valor só na barra destacada",
-      "default": false
-    },
-    {
-      "key": "overlayField",
-      "type": "field",
-      "label": "Campo de sobreposição (2ª medida)",
-      "emptyLabel": "Nenhum (barra simples)",
-      "hint": "Desenha, dentro da barra, a parte que esta medida representa (ex.: desligamentos dentro do total)."
-    },
-    {
-      "key": "baseColor",
-      "type": "color",
-      "label": "Cor da barra base (com sobreposição)",
-      "default": "",
-      "themeLabel": "Usar destaque 2 do tema"
-    },
-    {
-      "key": "overlayColor",
-      "type": "color",
-      "label": "Cor da sobreposição",
-      "default": "",
-      "themeLabel": "Usar destaque 1 do tema"
+      "label": "Limitar quantidade de fatias (opcional)",
+      "placeholder": "Ex: 6"
     }
   ];
 
@@ -421,7 +367,7 @@
     tableau.extensions.settings.saveAsync().then(function () {
       tableau.extensions.ui.closeDialog('saved');
     }).catch(function (err) {
-      console.error('[Projedata Gráfico de Barras config] erro ao salvar:', err);
+      console.error('[Projedata Gráfico de Pizza config] erro ao salvar:', err);
       alert('Erro ao salvar configurações. Veja o console (F12).');
     });
   });
@@ -438,7 +384,7 @@
     populateFields(sumData.columns);
     populateForm();
   }).catch(function (err) {
-    console.error('[Projedata Gráfico de Barras config] erro ao inicializar dialog ou ler campos:', err);
+    console.error('[Projedata Gráfico de Pizza config] erro ao inicializar dialog ou ler campos:', err);
     populateFields([]);
     populateForm();
   });

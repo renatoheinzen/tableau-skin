@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Painel de Seção</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #panel {
+    width: 100%; height: 100%;
+    box-sizing: border-box;
+    padding: var(--pd-panel-padding);
+    background: var(--pd-panel-bg);
+    border: var(--pd-panel-border-width) solid var(--pd-panel-border-color);
+    border-radius: var(--pd-panel-radius);
+    box-shadow: var(--pd-panel-shadow);
+  }
+  #panel.align-center { text-align: center; }
+  #panel.align-right { text-align: right; }
+
+  #title {
+    font-size: var(--pd-panel-title-size); font-weight: var(--pd-title-weight);
+    letter-spacing: var(--pd-panel-title-spacing); text-transform: var(--pd-title-transform);
+    color: var(--pd-text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #title:empty { display: none; }
+  #subtitle {
+    margin-top: 4px; font-size: 11px; color: var(--pd-text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #subtitle:empty { display: none; }
+  #divider { margin-top: 12px; height: 1px; background: var(--pd-track); display: none; }
+  #panel.divider #divider { display: block; }
+</style>
+</head>
+<body>
+
+<div id="panel">
+  <div id="title"></div>
+  <div id="subtitle"></div>
+  <div id="divider"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataPanelState';
+  var panel = document.getElementById('panel');
+  var titleEl = document.getElementById('title');
+  var subtitleEl = document.getElementById('subtitle');
+
+  var state = { title: '', subtitle: '', showDivider: false, align: 'left', bgColor: '', radius: '' };
+
+  function render() {
+    titleEl.textContent = state.title || '';
+    subtitleEl.textContent = state.subtitle || '';
+    panel.className = 'align-' + (state.align || 'left') + (state.showDivider ? ' divider' : '');
+    // por instância: só sobrescreve o tema quando preenchido
+    panel.style.background = state.bgColor || '';
+    var radius = parseInt(state.radius, 10);
+    panel.style.borderRadius = !isNaN(radius) && radius >= 0 && state.radius !== '' ? radius + 'px' : '';
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    render();
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/panel-config.html', '', { height: 460, width: 340 })
+      .then(function () { loadState(); })
+      .catch(function (error) {
+        console.log('[Projedata Painel] dialog fechado:', error && error.message);
+      });
+  }
+
+  render();
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    console.error('[Projedata Painel] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
+    return;
+  }
+
+  tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+    loadState();
+  }).catch(function (err) {
+    console.warn('[Projedata Painel] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
+  });
+})();
+</script>
+
+</body>
+</html>

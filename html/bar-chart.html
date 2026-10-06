@@ -8,22 +8,25 @@
 <style>
   html, body {
     margin: 0; padding: 0; width: 100%; height: 100%;
-    font-family: 'Montserrat', Arial, sans-serif;
+    font-family: var(--pd-font);
     overflow: hidden;
     background: transparent;
   }
   #chart-root {
     width: 100%; height: 100%;
-    box-sizing: border-box;
     display: flex;
     flex-direction: column;
-    padding: 12px 16px;
-    background: transparent;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
   }
 
   #chart-title {
-    font-size: 12px; font-weight: 600; color: #6b7280;
-    text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 8px;
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing); margin-bottom: 8px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   #chart-title.hidden { display: none !important; }
@@ -34,15 +37,15 @@
   }
 
   #chart-status {
-    font-size: 13px; color: #6b7280; padding: 8px 0;
+    font-size: 13px; color: var(--pd-text-muted); padding: 8px 0;
   }
 
   .bar-fill {
-    background: var(--azul);
+    background: var(--pd-accent-1);
   }
-  #chart-root.accent-laranja .bar-fill { background: var(--laranja); }
-  #chart-root.accent-amarelo .bar-fill { background: var(--amarelo); }
-  #chart-root.accent-azul-escuro .bar-fill { background: var(--azul-escuro); }
+  #chart-root.accent-laranja .bar-fill { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .bar-fill { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .bar-fill { background: var(--pd-accent-4); }
 
   /* Orientação vertical (colunas) */
   #chart-body.vertical {
@@ -63,7 +66,7 @@
     flex: 1 0 auto;
   }
   #chart-body.vertical .bar-value {
-    font-size: 11px; font-weight: 700; color: var(--preto);
+    font-size: 11px; font-weight: 700; color: var(--pd-text);
     margin-bottom: 3px; white-space: nowrap;
   }
   #chart-body.vertical .bar-track {
@@ -79,7 +82,7 @@
     transition: height 0.2s ease;
   }
   #chart-body.vertical .bar-label {
-    font-size: 11px; color: #6b7280; margin-top: 6px;
+    font-size: 11px; color: var(--pd-text-muted); margin-top: 6px;
     max-width: 100%; overflow: hidden; text-overflow: ellipsis;
     white-space: nowrap; text-align: center;
   }
@@ -99,13 +102,13 @@
     gap: 8px;
   }
   #chart-body.horizontal .bar-label {
-    font-size: 11px; color: #6b7280;
+    font-size: 11px; color: var(--pd-text-muted);
     width: 90px; flex: 0 0 90px;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
   #chart-body.horizontal .bar-track {
     flex: 1;
-    background: var(--cinza);
+    background: var(--pd-track);
     border-radius: 3px;
     overflow: hidden;
   }
@@ -116,10 +119,19 @@
     transition: width 0.2s ease;
   }
   #chart-body.horizontal .bar-value {
-    font-size: 11px; font-weight: 700; color: var(--preto);
+    font-size: 11px; font-weight: 700; color: var(--pd-text);
     width: 60px; flex: 0 0 60px; text-align: left;
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+
+  /* Sobreposição de 2 medidas: a 2ª aparece dentro da barra da 1ª */
+  .bar-fill { position: relative; overflow: hidden; }
+  .bar-overlay { position: absolute; background: var(--pd-accent-1); transition: all 0.2s ease; }
+  #chart-body.vertical .bar-overlay { left: 0; right: 0; bottom: 0; }
+  #chart-body.horizontal .bar-overlay { left: 0; top: 0; bottom: 0; }
+  .bar-value .ov { display: block; color: var(--pd-accent-1); }
+  #chart-body.horizontal .bar-value.has-ov { width: 100px; flex-basis: 100px; }
+  #chart-body.horizontal .bar-value .ov { display: inline; margin-left: 4px; }
 </style>
 </head>
 <body>
@@ -141,12 +153,18 @@
     accent: '', customLabel: '', showLabel: true,
     dimensionField: '', measureField: '',
     orientation: 'vertical', sortOrder: '', maxBars: '',
-    showValues: true
+    showValues: true, heatmap: false,
+    highlight: '', highlightOnly: false,
+    overlayField: '', baseColor: '', overlayColor: ''
   };
 
   function applyLayout() {
     ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
-    if (state.accent) root.classList.add(state.accent);
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
     titleEl.classList.toggle('hidden', state.showLabel === false);
     bodyEl.className = state.orientation === 'horizontal' ? 'horizontal' : 'vertical';
   }
@@ -191,9 +209,21 @@
       return;
     }
 
-    var maxAbs = Math.max.apply(null, rows.map(function (r) { return Math.abs(r.value) || 0; })) || 1;
+    var maxAbs = Math.max.apply(null, rows.map(function (r) {
+      return Math.max(Math.abs(r.value) || 0, Math.abs(r.overlay) || 0);
+    })) || 1;
 
-    rows.forEach(function (r) {
+    // Mapa de calor: a cor de destaque fica mais forte nos valores maiores
+    var minVal = Math.min.apply(null, rows.map(function (r) { return r.value; }));
+    var maxVal = Math.max.apply(null, rows.map(function (r) { return r.value; }));
+
+    // Destaque: uma barra em cor cheia, as demais mais claras
+    var hlIdx = -1;
+    if (state.highlight === 'last') hlIdx = rows.length - 1;
+    else if (state.highlight === 'max') hlIdx = rows.map(function (r) { return r.value; }).indexOf(maxVal);
+    else if (state.highlight === 'min') hlIdx = rows.map(function (r) { return r.value; }).indexOf(minVal);
+
+    rows.forEach(function (r, idx) {
       var pct = Math.max((Math.abs(r.value) / maxAbs) * 100, 0);
 
       var item = document.createElement('div');
@@ -207,11 +237,37 @@
       var value = document.createElement('div');
       value.className = 'bar-value';
       value.textContent = r.formatted;
+      if (state.highlightOnly && hlIdx >= 0 && idx !== hlIdx) value.style.visibility = 'hidden';
 
       var track = document.createElement('div');
       track.className = 'bar-track';
       var fill = document.createElement('div');
       fill.className = 'bar-fill';
+      if (hlIdx >= 0) {
+        fill.style.opacity = idx === hlIdx ? '1' : '0.4';
+      } else if (state.heatmap) {
+        var t = maxVal === minVal ? 1 : (r.value - minVal) / (maxVal - minVal);
+        fill.style.opacity = (0.2 + 0.8 * t).toFixed(2);
+      }
+
+      // sobreposição: a 2ª medida desenhada dentro da barra da 1ª
+      if (r.overlay != null) {
+        var baseColor = state.baseColor || 'var(--pd-accent-2)';
+        var overlayColor = state.overlayColor || 'var(--pd-accent-1)';
+        fill.style.background = baseColor;
+        var ov = document.createElement('div');
+        ov.className = 'bar-overlay';
+        ov.style.background = overlayColor;
+        var share = r.value ? Math.min(100, Math.abs(r.overlay) / Math.abs(r.value) * 100) : 0;
+        if (state.orientation === 'horizontal') ov.style.width = share + '%'; else ov.style.height = share + '%';
+        fill.appendChild(ov);
+        value.classList.add('has-ov');
+        var ovText = document.createElement('span');
+        ovText.className = 'ov';
+        ovText.style.color = overlayColor;
+        ovText.textContent = r.overlayFormatted;
+        value.appendChild(ovText);
+      }
 
       if (state.orientation === 'horizontal') {
         fill.style.width = pct + '%';
@@ -264,13 +320,22 @@
         : sumData.columns[measIdx].fieldName;
       titleEl.classList.toggle('hidden', state.showLabel === false);
 
+      var ovIdx = state.overlayField ? findColumnIndex(sumData.columns, state.overlayField, -1) : -1;
+      if (ovIdx === measIdx) ovIdx = -1;
+
       var rows = (sumData.data || []).map(function (row) {
         var raw = row[measIdx] ? row[measIdx].value : null;
-        return {
+        var out = {
           label: row[dimIdx] ? row[dimIdx].formattedValue : '',
           value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
           formatted: row[measIdx] ? row[measIdx].formattedValue : ''
         };
+        if (ovIdx !== -1) {
+          var ovRaw = row[ovIdx] ? row[ovIdx].value : null;
+          out.overlay = (typeof ovRaw === 'number' && !isNaN(ovRaw)) ? ovRaw : 0;
+          out.overlayFormatted = row[ovIdx] ? row[ovIdx].formattedValue : '';
+        }
+        return out;
       });
 
       if (state.sortOrder === 'desc') rows.sort(function (a, b) { return b.value - a.value; });
@@ -290,7 +355,7 @@
 
   function openConfigDialog() {
     var popupUrl = 'https://renatoheinzen.github.io/tableau-skin/html/bar-chart-config.html';
-    tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 620, width: 340 })
+    tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 800, width: 340 })
       .then(function () {
         loadState();
         updateChart();

@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.projedata.inifexbi.panel" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Painel de Seção</name>
+    <description>Cartão de seção com título e subtítulo no estilo da marca Projedata. Coloque atrás dos gráficos (flutuante, enviar para trás).</description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/panel.html</url>
+    </source-location>
+
+    <icon>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</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </dashboard-extension>
+</manifest>

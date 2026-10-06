@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <dashboard-extension id="com.projedata.inifexbi.headertabs" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Cabeçalho com Abas</name>
+    <description>Barra de cabeçalho com título e abas (links ou parâmetro) no estilo da marca Projedata.</description>
+    <author name="Projedata" email="ti@projedata.com.br" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/header-tabs.html</url>
+    </source-location>
+
+    <icon>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</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </dashboard-extension>
+</manifest>

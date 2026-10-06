@@ -1,4 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap');
+
+/* Gerado pelo Projedata Skin Builder — tema "Iniflex Pro (escuro)". Edite pelo builder, não à mão. */
 :root {
+  /* Marca */
   --azul-escuro: #0C0F3D;
   --azul: #3246FF;
   --laranja: #FE5000;
@@ -7,4 +11,75 @@
   --cinza: #F6F6F6;
   --preto: #161616;
   --branco: #FFFFFF;
+
+  /* Destaques */
+  --pd-accent-1: #6B7BFF;
+  --pd-accent-2: #FE5000;
+  --pd-accent-3: #FFB400;
+  --pd-accent-4: #FFFFFF;
+
+  /* Série (pizza / donut) */
+  --pd-series-1: #6B7BFF;
+  --pd-series-2: #FE5000;
+  --pd-series-3: #FFB400;
+  --pd-series-4: #FFFFFF;
+  --pd-series-5: #A9B3FF;
+  --pd-series-6: #FF9A66;
+  --pd-series-7: #FFD36B;
+  --pd-series-8: #8A93B8;
+
+  /* Texto e estados */
+  --pd-text: #FFFFFF;
+  --pd-text-muted: #AEB4D6;
+  --pd-positive: #16A34A;
+  --pd-negative: #DC2626;
+  --pd-track: #1B1F5C;
+  --pd-surface: #0C0F3D;
+
+  /* Tipografia */
+  --pd-font: 'Montserrat', Arial, sans-serif;
+  --pd-title-size: 12px;
+  --pd-title-weight: 600;
+  --pd-title-transform: uppercase;
+  --pd-title-spacing: 0.5px;
+
+  /* Cards */
+  --pd-card-bg: transparent;
+  --pd-card-border-width: 0px;
+  --pd-card-border-color: #2A2F7A;
+  --pd-card-radius: 0px;
+  --pd-card-shadow: none;
+  --pd-card-padding: 12px 16px;
+
+  /* Navegação (faixa lateral e cabeçalho com abas) */
+  --pd-nav-bg: #14185A;
+  --pd-nav-text: #FFFFFF;
+  --pd-nav-muted: #AEB4D6;
+  --pd-nav-active-bg: #FE5000;
+  --pd-nav-active-text: #FFFFFF;
+  --pd-nav-border: #2A2F7A;
+  --pd-nav-radius: 8px;
+
+  /* Painéis de seção */
+  --pd-panel-bg: #14185A;
+  --pd-panel-border-width: 0px;
+  --pd-panel-border-color: #2A2F7A;
+  --pd-panel-radius: 14px;
+  --pd-panel-shadow: 0 1px 3px rgba(12, 15, 61, 0.12);
+  --pd-panel-padding: 18px 22px;
+  --pd-panel-title-size: 13px;
+  --pd-panel-title-spacing: 2px;
+
+  /* Janela de propriedades (Formatar extensão) */
+  --pd-dlg-bg: #0C0F3D;
+  --pd-dlg-text: #FFFFFF;
+  --pd-dlg-label: #FFFFFF;
+  --pd-dlg-muted: #AEB4D6;
+  --pd-dlg-primary: #FE5000;
+  --pd-dlg-primary-text: #FFFFFF;
+  --pd-dlg-secondary: #1B1F5C;
+  --pd-dlg-secondary-text: #FFFFFF;
+  --pd-dlg-input-bg: #1B1F5C;
+  --pd-dlg-input-border: #2A2F7A;
+  --pd-dlg-radius: 4px;
 }
