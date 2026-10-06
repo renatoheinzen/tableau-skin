@@ -4,7 +4,7 @@
     <default-locale>pt_BR</default-locale>
     <name>Projedata Faixa Lateral</name>
     <description>Faixa lateral de navegação (itens com ícone, item ativo, links ou parâmetro) no estilo da marca Projedata.</description>
-    <author name="Projedata" organization="Projedata" website="https://www.projedata.com.br" />
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
     <min-api-version>1.9</min-api-version>
 
     <source-location>

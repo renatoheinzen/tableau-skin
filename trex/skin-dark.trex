@@ -4,7 +4,7 @@
     <default-locale>pt_BR</default-locale>
     <name>Projedata Skin Escuro</name>
     <description>Fundo do painel no tema escuro da marca Projedata (Iniflex Pro).</description>
-    <author name="Projedata" organization="Projedata" website="https://www.projedata.com.br" />
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
     <min-api-version>1.9</min-api-version>
 
     <source-location>
