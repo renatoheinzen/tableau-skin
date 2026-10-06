@@ -149,7 +149,31 @@
 
   var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
 
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
   var state = {
+    displayUnits: '', decimals: '',
     accent: '', customLabel: '', showLabel: true,
     dimensionField: '', measureField: '',
     orientation: 'vertical', sortOrder: '', maxBars: '',
@@ -328,12 +352,12 @@
         var out = {
           label: row[dimIdx] ? row[dimIdx].formattedValue : '',
           value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
-          formatted: row[measIdx] ? row[measIdx].formattedValue : ''
+          formatted: fmtCell(row[measIdx])
         };
         if (ovIdx !== -1) {
           var ovRaw = row[ovIdx] ? row[ovIdx].value : null;
           out.overlay = (typeof ovRaw === 'number' && !isNaN(ovRaw)) ? ovRaw : 0;
-          out.overlayFormatted = row[ovIdx] ? row[ovIdx].formattedValue : '';
+          out.overlayFormatted = fmtCell(row[ovIdx]);
         }
         return out;
       });

@@ -71,7 +71,31 @@
   var bodyEl = document.getElementById('chart-body');
   var SERIES_COUNT = 8;
 
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
   var state = {
+    displayUnits: '', decimals: '',
     customLabel: '', showLabel: true,
     dimensionField: '', measureField: '',
     donut: false, legend: 'right', showPercent: true,
@@ -107,13 +131,6 @@
   }
 
   function formatPct(v) { return v.toFixed(1).replace('.', ',') + '%'; }
-  function formatCompact(v) {
-    var abs = Math.abs(v);
-    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' B';
-    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' M';
-    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' K';
-    return v.toLocaleString('pt-BR', { maximumFractionDigits: 0 });
-  }
 
   function polar(cx, cy, r, a) { return [cx + r * Math.cos(a), cy + r * Math.sin(a)]; }
 
@@ -245,7 +262,7 @@
         return {
           label: row[dimIdx] ? row[dimIdx].formattedValue : '',
           value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
-          formatted: row[measIdx] ? row[measIdx].formattedValue : ''
+          formatted: fmtCell(row[measIdx])
         };
       });
 

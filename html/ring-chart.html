@@ -80,7 +80,31 @@
   var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
   var SIZE_CLASSES = ['size-small', 'size-medium', 'size-large'];
 
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
   var state = {
+    displayUnits: '', decimals: '',
     accent: '', customLabel: '', showLabel: true,
     dimensionField: '', valueField: '', totalField: '',
     trackStyle: 'light', size: 'medium', showCenter: true, showValues: true,
@@ -225,9 +249,9 @@
         return {
           label: dimIdx !== -1 && row[dimIdx] ? row[dimIdx].formattedValue : '',
           part: num(row[partIdx]),
-          partFormatted: row[partIdx] ? row[partIdx].formattedValue : '',
+          partFormatted: fmtCell(row[partIdx]),
           total: totalIdx !== -1 ? num(row[totalIdx]) : null,
-          totalFormatted: totalIdx !== -1 && row[totalIdx] ? row[totalIdx].formattedValue : ''
+          totalFormatted: totalIdx !== -1 && row[totalIdx] ? fmtCell(row[totalIdx]) : ''
         };
       });
 
