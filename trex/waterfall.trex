@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.waterfall" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Cascata</name>
+    <description>Gráfico em cascata (waterfall/bridge): valor inicial, variações positivas e negativas e total final, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/waterfall.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACEklEQVR4AeyaT04CMRTGvzbxArpwYTwEcgIXiIncQk000XgAXeoBjCYu1FOAicSFJ0AOoSxc6AVMqO8rSAoyaEIbWiiZx3T6583vex/T2aAx5lMum6VSxRxsbJm6xJuEiSTIUicbGceg45egctXsdVfwqhRuZEFNYk0iloMsNbKRkayjYEOCNirmyhjcKmB1dGJs12QkK5ldtoEgO6Bw5A4m0RZmy96HtYKsdTLQ70vvJOxWg5BrPlxdg3NpJ31QA7Xo7jJ2+XtMWo3AUwO1aNkxduR6Lg5q4TNUmgs1PRElCuLe3rtM/3uNgtKX4SjIgpxiDDVPT4BJ4U7e3gQmhTu31QTGhTvHbWeH3GrE2M4OxeiKy5QdcqsRY3smDj0+A4yimKZQMxE0DfBfaxdL0Lg3tNvnVuviEpgU7tyQ7cVyKGQlQ+XODoWqrK+82SFflQyVJzsUqrK+8maHfFUyVJ7sUKjK+sqbHfJVyVB5skOhKusr778d8nXD0HmyoNAVnjb/XDrUmbYqEa3v0KF2EVC5CkyKonU++4vuX3CPtjYGDwWDyXVTi9afuDfAe3L0I8DUQC261VJfWuFsZDy5S2qwWkjeaqo7GFyznWQIu9Ug8NwU5AS8PKnjJEWJGMtuVWD4D4AcUAr7/D32x6M9kZGsZHYhBw79dNI6/YF12TEOpa8hEdN7iiwNspGRrMI3dHwDAAD//y0vK5wAAAAGSURBVAMAWDwDvHxQ/LMAAAAASUVORK5CYII=</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Cascata</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body { flex: 1; min-height: 0; display: flex; gap: 6px; }
+  .col { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .col-plot { flex: 1; min-height: 0; position: relative; margin-top: 18px; }
+  .col-label {
+    height: 30px; padding-top: 5px; box-sizing: border-box;
+    font-size: 11px; color: var(--pd-text-muted); text-align: center; line-height: 1.2;
+    overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  }
+  .bar { position: absolute; left: 20%; width: 60%; background: var(--pd-accent-1); }
+  #chart-root.rounded .bar { border-radius: 4px; }
+  .bar.total { background: var(--pd-accent-1); }
+  .bar.up { background: var(--pd-accent-2); }
+  .bar.down { background: var(--pd-accent-3); }
+  #chart-root.posneg .bar.up { background: var(--pd-positive); }
+  #chart-root.posneg .bar.down { background: var(--pd-negative); }
+  #chart-root.accent-laranja .bar.total { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .bar.total { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .bar.total { background: var(--pd-accent-4); }
+  .val {
+    position: absolute; left: -10%; width: 120%; text-align: center; transform: translateY(-100%);
+    padding-bottom: 3px; box-sizing: border-box;
+    font-size: 11px; font-weight: 700; color: var(--pd-text); white-space: nowrap;
+  }
+  .conn { position: absolute; left: 80%; width: 40%; height: 0; border-top: 1px dashed var(--pd-text-muted); opacity: 0.7; }
+  .zero { position: absolute; left: 0; right: 0; height: 0; border-top: 1px solid var(--pd-text-muted); opacity: 0.5; }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="rounded">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataWaterfallState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    dimensionField: '', valueField: '',
+    firstIsTotal: true, endMode: 'calc', totalLabel: 'Total', totalNames: '',
+    colorMode: 'accent', axisMode: 'zero', showValues: true, showConnectors: true, barShape: 'rounded'
+  };
+  var model = null; // { steps: [{ name, kind, lo, hi, text }] }
+
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.toggle('rounded', state.barShape !== 'square');
+    root.classList.toggle('posneg', state.colorMode === 'posneg');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function signed(v, text) {
+    if (typeof v !== 'number') return text;
+    return v > 0 && String(text).charAt(0) !== '+' ? '+' + text : text;
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (!model || model.steps.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var steps = model.steps;
+    var min = 0, max = 0;
+    steps.forEach(function (s) { min = Math.min(min, s.lo); max = Math.max(max, s.hi); });
+    if (state.axisMode === 'fit') {
+      // eixo ajustado: começa perto do menor nível atingido (totais ficam "cortados")
+      var lo = Infinity, hi = -Infinity;
+      steps.forEach(function (s) {
+        var l = s.kind === 'total' ? s.end : s.lo, h = s.kind === 'total' ? s.end : s.hi;
+        lo = Math.min(lo, l); hi = Math.max(hi, h);
+      });
+      var pad = (hi - lo) * 0.25 || Math.abs(hi) * 0.1 || 1;
+      min = lo - pad; max = hi;
+    }
+    if (max === min) max = min + 1;
+    var span = max - min;
+    function pct(y) { return (max - y) / span * 100; } // 0% = topo da área
+
+    steps.forEach(function (s, i) {
+      var col = document.createElement('div');
+      col.className = 'col';
+      var plot = document.createElement('div');
+      plot.className = 'col-plot';
+
+      if (min < 0) {
+        var z = document.createElement('div');
+        z.className = 'zero';
+        z.style.top = pct(0) + '%';
+        plot.appendChild(z);
+      }
+      var bar = document.createElement('div');
+      bar.className = 'bar ' + s.kind;
+      var top = pct(s.hi), h = Math.max(pct(Math.max(s.lo, min)) - top, 0.4);
+      bar.style.top = top + '%';
+      bar.style.height = h + '%';
+      bar.title = s.name + ': ' + s.text;
+      plot.appendChild(bar);
+
+      if (state.showValues !== false) {
+        var v = document.createElement('div');
+        v.className = 'val';
+        v.style.top = top + '%';
+        v.textContent = s.text;
+        plot.appendChild(v);
+      }
+      if (state.showConnectors !== false && i < steps.length - 1) {
+        var c = document.createElement('div');
+        c.className = 'conn';
+        c.style.top = pct(s.end) + '%';
+        plot.appendChild(c);
+      }
+
+      var lab = document.createElement('div');
+      lab.className = 'col-label';
+      lab.textContent = s.name;
+      lab.title = s.name;
+      col.appendChild(plot);
+      col.appendChild(lab);
+      bodyEl.appendChild(col);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste 1 campo de texto e 1 medida para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var dimIdx = findColumnIndex(cols, state.dimensionField, cols.findIndex(function (c) { return !isNum(c); }));
+      if (dimIdx === -1) dimIdx = 0;
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) {
+        valIdx = cols.findIndex(function (c, i) { return i !== dimIdx && isNum(c); });
+        if (valIdx === -1) valIdx = cols.length - 1;
+      }
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+        ? state.customLabel
+        : cols[valIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      var totalNames = String(state.totalNames || '').split('\n').map(function (s) { return s.trim().toLowerCase(); }).filter(Boolean);
+      var rows = sumData.data || [];
+      var steps = [];
+      var cum = 0;
+      rows.forEach(function (row, i) {
+        var raw = row[valIdx] ? row[valIdx].value : null;
+        var val = (typeof raw === 'number' && !isNaN(raw)) ? raw : 0;
+        var name = row[dimIdx] ? row[dimIdx].formattedValue : '';
+        var isLast = i === rows.length - 1;
+        var isTotal = (i === 0 && state.firstIsTotal !== false) ||
+          (isLast && state.endMode === 'row') ||
+          totalNames.indexOf(name.toLowerCase()) !== -1;
+        if (isTotal) {
+          steps.push({ name: name, kind: 'total', lo: Math.min(0, val), hi: Math.max(0, val), end: val, text: fmtCell(row[valIdx]) });
+          cum = val;
+        } else {
+          var start = cum;
+          cum += val;
+          steps.push({
+            name: name, kind: val >= 0 ? 'up' : 'down', lo: Math.min(start, cum), hi: Math.max(start, cum),
+            end: cum, text: signed(val, fmtCell(row[valIdx]))
+          });
+        }
+      });
+      // total final calculado a partir da soma acumulada
+      if (state.endMode === 'calc' && steps.length) {
+        steps.push({
+          name: state.totalLabel || 'Total', kind: 'total', lo: Math.min(0, cum), hi: Math.max(0, cum), end: cum,
+          text: formatCompact(cum)
+        });
+      }
+      model = { steps: steps };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Cascata] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/waterfall-config.html', '', { height: 740, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Cascata] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>
