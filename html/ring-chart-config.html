@@ -48,6 +48,26 @@
   .color-row input[type="color"]:disabled { opacity: 0.4; cursor: not-allowed; }
   .color-row label { font-size: 11px; color: var(--pd-dlg-muted); display: flex; align-items: center; gap: 4px; }
 
+  .cols-list { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .col-row {
+    border: 1px solid var(--pd-dlg-input-border); border-radius: var(--pd-dlg-radius);
+    background: var(--pd-dlg-input-bg); padding: 6px 8px;
+  }
+  .col-row.off { opacity: 0.55; }
+  .col-row.dragging { opacity: 0.35; }
+  .col-top { display: flex; align-items: center; gap: 6px; }
+  .col-top .drag { cursor: grab; color: var(--pd-dlg-muted); font-size: 14px; line-height: 1; user-select: none; }
+  .col-top input[type="checkbox"] { width: auto; margin: 0; }
+  .col-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--pd-dlg-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-top button.mv {
+    flex: 0 0 auto; width: 22px; height: 22px; padding: 0; font-size: 11px; line-height: 1;
+    background: var(--pd-dlg-secondary); color: var(--pd-dlg-secondary-text);
+  }
+  .col-opts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 6px; }
+  .col-opts .col-title { grid-column: 1 / -1; }
+  .col-opts input[type="text"], .col-opts select { margin-top: 0; padding: 4px 6px; font-size: 11px; }
+  .col-opts select:disabled { opacity: 0.45; }
+
   .actions {
     display: flex; gap: 8px; margin-top: 22px;
     position: sticky; bottom: 0; background: var(--pd-dlg-bg); padding-top: 10px;
@@ -76,7 +96,7 @@
 <script>
 (function () {
   var STATE_KEY = 'projedataRingState';
-  // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color
+  // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color | columns
   // Campos com hidden:true não aparecem na janela (mantêm o valor padrão).
   var SCHEMA = [
     {
@@ -103,11 +123,26 @@
       "label": "Exibir unidades",
       "default": "",
       "options": [
-        ["", "Automático"],
-        ["K", "Milhares (K)"],
-        ["M", "Milhões (M)"],
-        ["B", "Bilhões (B)"],
-        ["T", "Trilhões (T)"]
+        [
+          "",
+          "Automático"
+        ],
+        [
+          "K",
+          "Milhares (K)"
+        ],
+        [
+          "M",
+          "Milhões (M)"
+        ],
+        [
+          "B",
+          "Bilhões (B)"
+        ],
+        [
+          "T",
+          "Trilhões (T)"
+        ]
       ]
     },
     {
@@ -116,10 +151,22 @@
       "label": "Casas decimais",
       "default": "",
       "options": [
-        ["", "Padrão"],
-        ["0", "0"],
-        ["1", "1"],
-        ["2", "2"]
+        [
+          "",
+          "Padrão"
+        ],
+        [
+          "0",
+          "0"
+        ],
+        [
+          "1",
+          "1"
+        ],
+        [
+          "2",
+          "2"
+        ]
       ]
     },
     {
@@ -324,6 +371,19 @@
         return;
       }
 
+      if (f.type === 'columns') {
+        var clab = document.createElement('label');
+        clab.className = 'field';
+        clab.textContent = f.label;
+        block.appendChild(clab);
+        var clist = document.createElement('div');
+        clist.className = 'cols-list';
+        block.appendChild(clist);
+        addHint(block, f.hint);
+        inputs[f.key] = clist;
+        return;
+      }
+
       var label = document.createElement('label');
       label.className = 'field';
       label.appendChild(document.createTextNode(f.label));
@@ -355,6 +415,154 @@
     });
   }
 
+  /* ---------- tipo "columns": lista dos campos da planilha (marcar, reordenar e formatar) ---------- */
+  var availableColumns = [];
+  var COL_ALIGN = [['', 'Auto'], ['esq', 'Esq.'], ['centro', 'Centro'], ['dir', 'Dir.']];
+  var COL_FORMAT = [['auto', 'Padrão'], ['compact', 'K / M'], ['int', 'Inteiro'], ['dec1', '1 casa'], ['dec2', '2 casas'], ['pct', '%']];
+  var COL_VISUAL = [['', 'Nenhum'], ['bar', 'Barra'], ['heat', 'Calor'], ['sign', 'Sinal']];
+  var ALIGN_WORDS = { esq: 'esq', esquerda: 'esq', left: 'esq', centro: 'centro', center: 'centro', dir: 'dir', direita: 'dir', right: 'dir' };
+
+  function parseColumnsSpec(text) {
+    var out = [];
+    String(text || '').split('\n').forEach(function (line) {
+      if (!line.trim()) return;
+      var p = line.split('|').map(function (x) { return x.trim(); });
+      var d = { field: p[0], title: p[1] || '', align: '', format: 'auto', visual: '' };
+      p.slice(2).forEach(function (t) {
+        var k = t.toLowerCase();
+        if (ALIGN_WORDS[k]) d.align = ALIGN_WORDS[k];
+        else if (COL_FORMAT.some(function (o) { return o[0] === k; })) d.format = k;
+        else if (k === 'bar' || k === 'heat' || k === 'sign') d.visual = k;
+      });
+      out.push(d);
+    });
+    return out;
+  }
+
+  function colSelect(opts, value, cls) {
+    var sel = document.createElement('select');
+    sel.className = cls;
+    opts.forEach(function (o) {
+      var op = document.createElement('option');
+      op.value = o[0]; op.textContent = o[1];
+      sel.appendChild(op);
+    });
+    sel.value = value;
+    return sel;
+  }
+
+  function notifyChange(list) { list.dispatchEvent(new Event('change', { bubbles: true })); }
+
+  function colRow(list, d, checked, isNum) {
+    var row = document.createElement('div');
+    row.className = 'col-row' + (checked ? '' : ' off');
+    row.dataset.field = d.field;
+    row.draggable = true;
+
+    var top = document.createElement('div');
+    top.className = 'col-top';
+    var drag = document.createElement('span');
+    drag.className = 'drag'; drag.textContent = '\u2807'; drag.title = 'Arraste para reordenar';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = checked; cb.className = 'col-use';
+    cb.addEventListener('change', function () { row.classList.toggle('off', !cb.checked); });
+    var name = document.createElement('span');
+    name.className = 'col-name'; name.textContent = d.field; name.title = d.field;
+    var up = document.createElement('button');
+    up.type = 'button'; up.className = 'mv'; up.textContent = '\u2191'; up.title = 'Subir';
+    up.addEventListener('click', function () { if (row.previousElementSibling) { list.insertBefore(row, row.previousElementSibling); notifyChange(list); } });
+    var down = document.createElement('button');
+    down.type = 'button'; down.className = 'mv'; down.textContent = '\u2193'; down.title = 'Descer';
+    down.addEventListener('click', function () { if (row.nextElementSibling) { list.insertBefore(row.nextElementSibling, row); notifyChange(list); } });
+    [drag, cb, name, up, down].forEach(function (x) { top.appendChild(x); });
+    row.appendChild(top);
+
+    var opts = document.createElement('div');
+    opts.className = 'col-opts';
+    var title = document.createElement('input');
+    title.type = 'text'; title.className = 'col-title'; title.value = d.title; title.placeholder = 'Título (em branco: ' + d.field + ')';
+    var al = colSelect(COL_ALIGN, d.align, 'col-align');
+    var fm = colSelect(COL_FORMAT, d.format, 'col-format');
+    var vs = colSelect(COL_VISUAL, d.visual, 'col-visual');
+    al.title = 'Alinhamento'; fm.title = 'Formato do valor'; vs.title = 'Visual na célula (barra, mapa de calor ou cor por sinal)';
+    if (isNum === false) { fm.disabled = true; vs.disabled = true; fm.title = vs.title = 'Disponível só para campos numéricos'; }
+    [title, al, fm, vs].forEach(function (x) { opts.appendChild(x); });
+    row.appendChild(opts);
+
+    // arrastar e soltar para reordenar
+    row.addEventListener('dragstart', function (e) {
+      row.classList.add('dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', d.field); } catch (err) { /* ignora */ }
+    });
+    row.addEventListener('dragend', function () { row.classList.remove('dragging'); notifyChange(list); });
+    row.addEventListener('dragover', function (e) {
+      var dragging = list.querySelector('.dragging');
+      if (!dragging || dragging === row) return;
+      e.preventDefault();
+      var r = row.getBoundingClientRect();
+      list.insertBefore(dragging, e.clientY < r.top + r.height / 2 ? row : row.nextSibling);
+    });
+    return row;
+  }
+
+  function renderColumns(key) {
+    var list = inputs[key];
+    list.innerHTML = '';
+    var spec = parseColumnsSpec(state[key]);
+    var byName = {};
+    availableColumns.forEach(function (c) { byName[c.fieldName.toLowerCase()] = c; });
+    var used = {};
+    if (spec.length === 0) {
+      availableColumns.forEach(function (c) {
+        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, true, c.dataType === 'int' || c.dataType === 'float'));
+      });
+    } else {
+      spec.forEach(function (d) {
+        var c = byName[d.field.toLowerCase()];
+        // sem dados disponíveis (planilha vazia) mantém a linha da especificação como está
+        if (!c && availableColumns.length) return;
+        d.field = c ? c.fieldName : d.field;
+        used[d.field.toLowerCase()] = true;
+        list.appendChild(colRow(list, d, true, c ? (c.dataType === 'int' || c.dataType === 'float') : undefined));
+      });
+      availableColumns.forEach(function (c) {
+        if (used[c.fieldName.toLowerCase()]) return;
+        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, false, c.dataType === 'int' || c.dataType === 'float'));
+      });
+    }
+    if (!list.children.length) {
+      var empty = document.createElement('div');
+      empty.className = 'hint';
+      empty.textContent = 'Nenhum campo na planilha: arraste os campos para as Marcas.';
+      list.appendChild(empty);
+    }
+  }
+
+  function serializeColumns(key) {
+    var list = inputs[key];
+    var rows = Array.prototype.slice.call(list.querySelectorAll('.col-row'));
+    var lines = [], plain = true, order = [];
+    rows.forEach(function (row) {
+      var d = {
+        field: row.dataset.field,
+        use: row.querySelector('.col-use').checked,
+        title: row.querySelector('.col-title').value.trim(),
+        align: row.querySelector('.col-align').value,
+        format: row.querySelector('.col-format').value,
+        visual: row.querySelector('.col-visual').value
+      };
+      if (!d.use) { plain = false; return; }
+      order.push(d.field);
+      var extras = [d.align, d.format !== 'auto' ? d.format : '', d.visual].filter(Boolean);
+      if (d.title || extras.length) plain = false;
+      lines.push([d.field].concat(d.title || extras.length ? [d.title] : [], extras).join(' | '));
+    });
+    // tudo marcado, na ordem da planilha e sem ajustes: guarda vazio (automático, acompanha campos novos)
+    var sameOrder = order.length === availableColumns.length && order.every(function (f, i) { return availableColumns[i].fieldName === f; });
+    if (!lines.length || (plain && sameOrder)) return '';
+    return lines.join('\n');
+  }
+
   function selectAccent(key, accent) {
     state[key] = accent;
     var isCustom = typeof accent === 'string' && accent.charAt(0) === '#';
@@ -383,6 +591,7 @@
   }
 
   function populateFields(columns) {
+    availableColumns = columns || [];
     visible.forEach(function (f) {
       if (FIELD_TYPES.indexOf(f.type) !== -1) populateFieldOptions(inputs[f.key], columns, f.emptyLabel || DEFAULT_EMPTY[f.type]);
     });
@@ -393,6 +602,7 @@
       var v = state[f.key];
       if (f.type === 'accent') selectAccent(f.key, v || '');
       else if (f.type === 'checkbox') inputs[f.key].checked = !!v;
+      else if (f.type === 'columns') renderColumns(f.key);
       else if (f.type === 'color') {
         inputs[f.key].useTheme.checked = !v;
         inputs[f.key].picker.disabled = !v;
@@ -406,6 +616,7 @@
     visible.forEach(function (f) {
       if (f.type === 'accent') return;
       if (f.type === 'checkbox') state[f.key] = inputs[f.key].checked;
+      else if (f.type === 'columns') state[f.key] = serializeColumns(f.key);
       else if (f.type === 'color') state[f.key] = inputs[f.key].useTheme.checked ? '' : inputs[f.key].picker.value;
       else state[f.key] = inputs[f.key].value;
     });
