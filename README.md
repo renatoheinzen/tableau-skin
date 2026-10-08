@@ -18,6 +18,7 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Projedata Cascata | worksheet | [`trex/waterfall.trex`](trex/waterfall.trex) | Gráfico em cascata (bridge): valor inicial, variações positivas/negativas e total final, com eixo ajustável |
 | Projedata Perfil com Estrelas | worksheet | [`trex/rating-list.trex`](trex/rating-list.trex) | Lista de atributos com nota em estrelas (inteiras, meias ou parciais) e classificação em texto |
 | Projedata Mini-gráficos por Coorte | worksheet | [`trex/small-multiples.trex`](trex/small-multiples.trex) | Um mini-gráfico (linha, área ou barras) por coorte, com eixos compartilhados — CLV e churn por coorte |
+| Projedata Tabela de Mini-gráficos | worksheet | [`trex/metric-table.trex`](trex/metric-table.trex) | Tabela com uma linha por categoria e até 4 medidas lado a lado (barra, ponto ou valor) com sparkline opcional |
 | Projedata Faixa Lateral | dashboard | [`trex/sidebar-nav.trex`](trex/sidebar-nav.trex) | Navegação em faixa lateral |
 | Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação |
 | Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção |

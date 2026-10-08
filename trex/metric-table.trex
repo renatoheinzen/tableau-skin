@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.metrictable" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Tabela de Mini-gráficos</name>
+    <description>Tabela com uma linha por categoria e até 4 medidas lado a lado, cada uma com barra ou ponto e sparkline opcional, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/metric-table.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACNElEQVR4AeyaP07DMBTGny1xARgYKg7R5gylA91Y2QAJJLgBIzcAiQHYWJlahoozhB4COjDABZBq3uf+kWPSyEMj/BpXfo397MTfz1+Seqimkk+Wma1215x19s2A44PDRBLQMoA2aCyRTn+Asp45me7Qu1J0xyf0OVocsRRo6UMbNEKrL6wA1OmaG2PoXhHt+gNja0MjtEKzq20JZDsUXbidIuqs2Wqfi7VA1jrumOfkHVi7ZWDlGg/X1NA110UXMIBFT7fpGPejaBoWDwawaH5jHHB7IwpY8Ay1N4JmBtEGEN7ts6b87xaA5GM4BM0CykdEIeEskK2GnBMy5uiQqCzsJCu+muXQikWIOp0citoeFlfpUNYjCgm+TqGEnBMy5umZqCwKk3mNSiBvrIjmvwLVsUIJqI5VXec1k0PrXM06rlXpUMh+C2N8YciFRNk+LSTnz+e2K4HcgVLqCSh2p5rlUMh+C2N815ALibJ9WkjOn89tN8shl1xKPTkUu1PJIdEOhezHMMaHRK6OWOzz/Pncdrrl3NWIsR7sUIziyzQ1CyhkP4Yx/kohV0cs9nn+fG57Ix2auITC6xM4NBYO4cofa2Poxc1IroNF6296NESfkkGgHQxg0XmufrSiKyQlBxgsCyDykXogQ7eoiwzWbhlYPF4KfCB6e1WXIqEYxmq3FFT8AyA6lKJT3I/z/mgP0Ait0OyKXDq0SMI6/UV7/MY459yQI6bfKWgZQhs0QivrK5RfAAAA//9w5cTTAAAABklEQVQDAB04k7ym0nZ6AAAAAElFTkSuQmCC</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Tabela de Mini-gráficos</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body { flex: 1; min-height: 0; overflow: auto; }
+  #grid { display: grid; column-gap: 16px; align-content: space-between; min-height: 100%; }
+  .th {
+    font-size: 10px; font-weight: 700; color: var(--pd-text-muted);
+    text-transform: uppercase; letter-spacing: 0.04em; text-align: center;
+    padding-bottom: 6px; margin-bottom: 4px; border-bottom: 1px solid var(--pd-track);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .td { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 28px; padding: 3px 0; }
+  .td.lab { font-size: 12px; color: var(--pd-text); }
+  .td.lab span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tm-bar { flex: 1 1 0; min-width: 24px; height: 10px; background: var(--pd-track); border-radius: 2px; overflow: hidden; }
+  .tm-bar i { display: block; height: 100%; background: var(--pd-accent-1); border-radius: 2px; }
+  #chart-root.accent-laranja .tm-bar i { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .tm-bar i { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .tm-bar i { background: var(--pd-accent-4); }
+  .tm-dot { flex: 1 1 0; min-width: 24px; height: 2px; background: var(--pd-track); position: relative; }
+  .tm-dot i { position: absolute; top: -4px; width: 10px; height: 10px; margin-left: -5px; border-radius: 50%; background: var(--pd-accent-1); }
+  #chart-root.accent-laranja .tm-dot i { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .tm-dot i { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .tm-dot i { background: var(--pd-accent-4); }
+  .tm-val { flex: 0 0 auto; min-width: 44px; text-align: right; font-size: 11px; font-weight: 700; color: var(--pd-text); white-space: nowrap; }
+  .tm-val.only { flex: 1 1 auto; }
+  .tm-spark { flex: 0 0 auto; display: block; overflow: visible; }
+  .tm-spark .sp-line { fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
+  .tm-spark .sp-area, .tm-spark .sp-dot, .tm-spark .sp-bar { fill: currentColor; stroke: none; }
+  .tm-spark .sp-area { opacity: 0.18; }
+  .tm-spark.c-accent { color: var(--pd-accent-1); }
+  #chart-root.accent-laranja .tm-spark.c-accent { color: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .tm-spark.c-accent { color: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .tm-spark.c-accent { color: var(--pd-accent-4); }
+  .tm-spark.c-muted { color: var(--pd-text-muted); }
+  .tm-spark.c-up { color: var(--pd-positive); }
+  .tm-spark.c-down { color: var(--pd-negative); }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"><div id="grid"></div></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataMetricTableState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var gridEl = document.getElementById('grid');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+  var NCOLS = 4;
+  var SPARK_W = { small: 56, medium: 80, large: 110 };
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  function formatPercent(v) {
+    var dec = parseInt(state.decimals, 10);
+    var d = !isNaN(dec) && dec >= 0 ? dec : 1;
+    return (v * 100).toLocaleString('pt-BR', { minimumFractionDigits: d, maximumFractionDigits: d }) + '%';
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    dimensionField: '', trendField: '',
+    sparkStyle: 'line', sparkWidth: 'small', sparkColor: 'accent',
+    sortColumn: '', sortOrder: 'desc', topN: '', showHeader: true
+  };
+  for (var n = 1; n <= NCOLS; n++) {
+    state['c' + n + 'Field'] = ''; state['c' + n + 'Title'] = ''; state['c' + n + 'Style'] = 'bar'; state['c' + n + 'Agg'] = 'sum';
+  }
+  var model = null; // { cols: [{ title, style, min, max }], rows: [{ label, cells: [{ v, text, trend }] }] }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function sparkSvg(vals, colorClass) {
+    var W = SPARK_W[state.sparkWidth] || 56, H = 22, pad = 3;
+    var svg = '<svg class="tm-spark c-' + colorClass + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    if (state.sparkStyle === 'bars') min = Math.min(0, min);
+    var span = max - min || 1;
+    var n = vals.length;
+    var x = function (i) { return n === 1 ? W / 2 : pad + i * (W - 2 * pad) / (n - 1); };
+    var y = function (v) { return H - pad - (v - min) / span * (H - 2 * pad); };
+    if (state.sparkStyle === 'bars') {
+      var bw = Math.max(1.5, (W - 2 * pad) / n - 1.5), y0 = y(0);
+      vals.forEach(function (v, i) {
+        var yy = y(v), top = Math.min(yy, y0), h = Math.max(Math.abs(y0 - yy), 1);
+        svg += '<rect class="sp-bar" x="' + (pad + i * (W - 2 * pad) / n).toFixed(1) + '" y="' + top.toFixed(1) + '" width="' + bw.toFixed(1) +
+          '" height="' + h.toFixed(1) + '" opacity="' + (i === n - 1 ? 1 : 0.45) + '"/>';
+      });
+    } else {
+      var pts = vals.map(function (v, i) { return x(i).toFixed(1) + ',' + y(v).toFixed(1); });
+      if (n > 1) {
+        if (state.sparkStyle === 'area') {
+          svg += '<polygon class="sp-area" points="' + pts.join(' ') + ' ' + x(n - 1).toFixed(1) + ',' + (H - pad) + ' ' + x(0).toFixed(1) + ',' + (H - pad) + '"/>';
+        }
+        svg += '<polyline class="sp-line" points="' + pts.join(' ') + '"/>';
+      }
+      svg += '<circle class="sp-dot" cx="' + x(n - 1).toFixed(1) + '" cy="' + y(vals[n - 1]).toFixed(1) + '" r="2.3"/>';
+    }
+    return svg + '</svg>';
+  }
+
+  function render() {
+    gridEl.innerHTML = '';
+    if (!model || model.rows.length === 0 || model.cols.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      gridEl.appendChild(empty);
+      return;
+    }
+    gridEl.style.gridTemplateColumns = 'minmax(80px, 1.1fr) repeat(' + model.cols.length + ', minmax(110px, 1fr))';
+    var hasTrend = !!model.hasTrend;
+
+    if (state.showHeader !== false) {
+      gridEl.appendChild(document.createElement('div')).className = 'th';
+      model.cols.forEach(function (c) {
+        var h = document.createElement('div');
+        h.className = 'th';
+        h.textContent = c.title;
+        h.title = c.title;
+        gridEl.appendChild(h);
+      });
+    }
+    model.rows.forEach(function (r) {
+      var lab = document.createElement('div');
+      lab.className = 'td lab';
+      var span = document.createElement('span');
+      span.textContent = r.label;
+      span.title = r.label;
+      lab.appendChild(span);
+      gridEl.appendChild(lab);
+
+      r.cells.forEach(function (cell, j) {
+        var col = model.cols[j];
+        var td = document.createElement('div');
+        td.className = 'td';
+        if (hasTrend && cell.trend && cell.trend.length) {
+          var cls = state.sparkColor === 'delta' ? (cell.trend[cell.trend.length - 1] >= cell.trend[0] ? 'up' : 'down') : (state.sparkColor || 'accent');
+          var holder = document.createElement('div');
+          holder.style.display = 'flex';
+          holder.innerHTML = sparkSvg(cell.trend, cls);
+          td.appendChild(holder);
+        }
+        var range = col.max - col.min || 1;
+        if (col.style === 'bar') {
+          var bar = document.createElement('div');
+          bar.className = 'tm-bar';
+          var f = document.createElement('i');
+          f.style.width = (col.max > 0 ? Math.max(0, Math.min(100, cell.v / col.max * 100)) : 0).toFixed(1) + '%';
+          bar.appendChild(f);
+          td.appendChild(bar);
+        } else if (col.style === 'dot') {
+          var track = document.createElement('div');
+          track.className = 'tm-dot';
+          var d = document.createElement('i');
+          d.style.left = (4 + (cell.v - col.min) / range * 92).toFixed(1) + '%';
+          track.appendChild(d);
+          td.appendChild(track);
+        }
+        var val = document.createElement('div');
+        val.className = 'tm-val' + (col.style === 'value' ? ' only' : '');
+        val.textContent = cell.text;
+        td.appendChild(val);
+        gridEl.appendChild(td);
+      });
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      gridEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste 1 campo de texto e 1 a 4 medidas para as Marcas';
+        gridEl.innerHTML = '';
+        return;
+      }
+
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var dimIdx = findColumnIndex(cols, state.dimensionField, cols.findIndex(function (c) { return !isNum(c); }));
+      if (dimIdx === -1) dimIdx = 0;
+      var tIdx = state.trendField ? findColumnIndex(cols, state.trendField, -1) : -1;
+
+      // colunas configuradas; sem nenhuma, usa as primeiras medidas
+      var defs = [];
+      for (var n = 1; n <= NCOLS; n++) {
+        var fIdx = state['c' + n + 'Field'] ? findColumnIndex(cols, state['c' + n + 'Field'], -1) : -1;
+        if (fIdx !== -1) defs.push({ slot: n, idx: fIdx, title: state['c' + n + 'Title'] || cols[fIdx].fieldName, style: state['c' + n + 'Style'] || 'bar', agg: state['c' + n + 'Agg'] || 'sum' });
+      }
+      if (defs.length === 0) {
+        var auto = [];
+        cols.forEach(function (c, i) { if (i !== dimIdx && i !== tIdx && isNum(c) && auto.length < NCOLS) auto.push(i); });
+        defs = auto.map(function (i, k) { return { slot: k + 1, idx: i, title: cols[i].fieldName, style: 'bar', agg: 'sum' }; });
+      }
+      if (defs.length === 0) {
+        titleEl.textContent = 'Coloque ao menos 1 medida nas Marcas';
+        gridEl.innerHTML = '';
+        return;
+      }
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var tType = tIdx !== -1 ? cols[tIdx].dataType : '';
+      var groups = [], byLabel = {};
+      (sumData.data || []).forEach(function (row, i) {
+        var label = row[dimIdx] ? row[dimIdx].formattedValue : '';
+        var g = byLabel[label];
+        if (!g) { g = byLabel[label] = { label: label, points: [] }; groups.push(g); }
+        var raw = tIdx !== -1 && row[tIdx] ? row[tIdx].value : null;
+        var k = typeof raw === 'number' ? raw : ((tType === 'date' || tType === 'date-time') ? Date.parse(raw) : NaN);
+        g.points.push({ k: k, i: i, row: row });
+      });
+
+      var sum = function (v) { return v.reduce(function (x, y) { return x + y; }, 0); };
+      var aggs = {
+        sum: sum,
+        last: function (v) { return v[v.length - 1]; },
+        avg: function (v) { return sum(v) / v.length; },
+        max: function (v) { return Math.max.apply(null, v); },
+        min: function (v) { return Math.min.apply(null, v); }
+      };
+      var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
+
+      var rows = groups.map(function (g) {
+        if (g.points.length > 1 && g.points.every(function (p) { return !isNaN(p.k); })) g.points.sort(function (p, q) { return p.k - q.k || p.i - q.i; });
+        return {
+          label: g.label,
+          cells: defs.map(function (d) {
+            var vals = g.points.map(function (p) { return num(p.row[d.idx]); });
+            var v = (aggs[d.agg] || aggs.sum)(vals);
+            var isPct = g.points.every(function (p) { return p.row[d.idx] && /%\s*$/.test(p.row[d.idx].formattedValue); });
+            var text;
+            if (g.points.length === 1 && !state.displayUnits && state.decimals === '') text = g.points[0].row[d.idx] ? g.points[0].row[d.idx].formattedValue : '';
+            else text = isPct ? formatPercent(v) : formatCompact(v);
+            return { v: v, text: text, trend: tIdx !== -1 ? vals : null };
+          })
+        };
+      });
+
+      var sc = parseInt(state.sortColumn, 10);
+      var sortPos = defs.findIndex(function (d) { return d.slot === sc; });
+      if (sortPos !== -1 && state.sortOrder) {
+        rows.sort(function (a, b) { return state.sortOrder === 'asc' ? a.cells[sortPos].v - b.cells[sortPos].v : b.cells[sortPos].v - a.cells[sortPos].v; });
+      }
+      var top = parseInt(state.topN, 10);
+      if (top > 0) rows = rows.slice(0, top);
+
+      model = {
+        hasTrend: tIdx !== -1,
+        cols: defs.map(function (d, j) {
+          var vs = rows.map(function (r) { return r.cells[j].v; });
+          return { title: d.title, style: d.style, min: Math.min.apply(null, vs), max: Math.max.apply(null, vs) };
+        }),
+        rows: rows
+      };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Tabela de Mini-gráficos] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      gridEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/metric-table-config.html', '', { height: 900, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Tabela de Mini-gráficos] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>
