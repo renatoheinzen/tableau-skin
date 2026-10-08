@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Perfil com Estrelas</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column; justify-content: space-around;
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .rt-row { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 6px 0; }
+  #chart-root.dividers .rt-row + .rt-row { border-top: 1px solid var(--pd-track); }
+  .rt-label {
+    flex: 1 1 0; min-width: 56px;
+    font-size: 12px; font-weight: 600; color: var(--pd-text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .rt-stars { position: relative; flex: 0 0 auto; display: inline-flex; line-height: 0; }
+  .rt-layer { display: inline-flex; white-space: nowrap; }
+  .rt-layer.fill { position: absolute; left: 0; top: 0; overflow: hidden; }
+  .rt-layer svg { flex: 0 0 auto; display: block; }
+  .rt-layer.track svg { fill: var(--pd-track); }
+  .rt-layer.fill svg { fill: var(--pd-accent-1); }
+  #chart-root.accent-laranja .rt-layer.fill svg { fill: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .rt-layer.fill svg { fill: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .rt-layer.fill svg { fill: var(--pd-accent-4); }
+  /* cor pela nota: baixa = negativo, média = amarelo do tema, alta = positivo */
+  #chart-root .rt-layer.fill.s-low svg { fill: var(--pd-negative); }
+  #chart-root .rt-layer.fill.s-mid svg { fill: var(--pd-accent-3); }
+  #chart-root .rt-layer.fill.s-high svg { fill: var(--pd-positive); }
+  .rt-value { flex: 0 0 auto; font-size: 11px; color: var(--pd-text-muted); white-space: nowrap; }
+  .rt-text {
+    flex: 0 1 auto; max-width: 45%; min-width: 0; text-align: right;
+    font-size: 11px; font-weight: 700; color: var(--pd-accent-1);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  #chart-root.accent-laranja .rt-text { color: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .rt-text { color: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .rt-text { color: var(--pd-accent-4); }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataRatingState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+  var STAR_SIZE = { small: 14, medium: 18, large: 24 };
+  var STAR_PATH = 'M12 2l3.1 6.6 7 .9-5.1 4.9 1.3 7.1L12 18.2 5.8 21.5l1.3-7.1L2 9.5l7-.9z';
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    dimensionField: '', valueField: '', textField: '',
+    maxStars: '5', valueMax: '', precision: 'half', starSize: 'medium',
+    colorMode: 'accent', showValue: false, showText: true, showDividers: true
+  };
+  var lastRows = [];
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.toggle('dividers', state.showDividers !== false);
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function starsHtml(size, n) {
+    var s = '';
+    for (var i = 0; i < n; i++) s += '<svg width="' + size + '" height="' + size + '" viewBox="0 0 24 24"><path d="' + STAR_PATH + '"/></svg>';
+    return s;
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (lastRows.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var n = Math.max(1, parseInt(state.maxStars, 10) || 5);
+    var size = STAR_SIZE[state.starSize] || 18;
+    lastRows.forEach(function (r) {
+      // nota na escala de estrelas (0..n), com a precisão escolhida
+      var stars = r.score;
+      if (state.precision === 'whole') stars = Math.round(stars);
+      else if (state.precision === 'half') stars = Math.round(stars * 2) / 2;
+      stars = Math.max(0, Math.min(n, stars));
+
+      var row = document.createElement('div');
+      row.className = 'rt-row';
+
+      var label = document.createElement('div');
+      label.className = 'rt-label';
+      label.textContent = r.label;
+      label.title = r.label;
+      row.appendChild(label);
+
+      var box = document.createElement('div');
+      box.className = 'rt-stars';
+      var fillCls = 'rt-layer fill';
+      if (state.colorMode === 'scale') {
+        var frac = stars / n;
+        fillCls += frac <= 0.34 ? ' s-low' : (frac <= 0.67 ? ' s-mid' : ' s-high');
+      }
+      box.innerHTML = '<span class="rt-layer track">' + starsHtml(size, n) + '</span>' +
+        '<span class="' + fillCls + '" style="width:' + (stars * size).toFixed(1) + 'px">' + starsHtml(size, n) + '</span>';
+      box.title = r.label + ': ' + r.score.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' / ' + n;
+      row.appendChild(box);
+
+      if (state.showValue) {
+        var v = document.createElement('div');
+        v.className = 'rt-value';
+        v.textContent = stars.toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' / ' + n;
+        row.appendChild(v);
+      }
+      if (state.showText !== false && r.text) {
+        var t = document.createElement('div');
+        t.className = 'rt-text';
+        t.textContent = r.text;
+        t.title = r.text;
+        row.appendChild(t);
+      }
+      bodyEl.appendChild(row);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste 1 campo de texto e 1 medida (a nota) para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var dimIdx = findColumnIndex(cols, state.dimensionField, cols.findIndex(function (c) { return !isNum(c); }));
+      if (dimIdx === -1) dimIdx = 0;
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) {
+        valIdx = cols.findIndex(function (c, i) { return i !== dimIdx && isNum(c); });
+        if (valIdx === -1) valIdx = cols.length - 1;
+      }
+      var txtIdx = findColumnIndex(cols, state.textField, -1);
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var n = Math.max(1, parseInt(state.maxStars, 10) || 5);
+      var vmax = parseFloat(String(state.valueMax).replace(',', '.'));
+      var factor = vmax > 0 ? n / vmax : 1; // converte a escala da medida para a escala de estrelas
+      lastRows = (sumData.data || []).map(function (row) {
+        var raw = row[valIdx] ? row[valIdx].value : null;
+        return {
+          label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+          score: (typeof raw === 'number' && !isNaN(raw) ? raw : 0) * factor,
+          text: txtIdx !== -1 && row[txtIdx] ? row[txtIdx].formattedValue : ''
+        };
+      });
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Perfil com Estrelas] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/rating-list-config.html', '', { height: 760, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Perfil com Estrelas] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

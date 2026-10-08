@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.ratinglist" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Perfil com Estrelas</name>
+    <description>Lista de atributos com nota em estrelas e classificação em texto (ex.: perfil de cliente ou produto), com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/rating-list.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAEQklEQVR4AeSaSYgUVxjH/1WQQ3aMiUNiQgjkEsg2M+YwSchCMjEmE5NAcghZwSwKMYQwhIQsJDGHEFwOCiM4gooKCoqggiIyB/WgMHrwIB486ajjdlRBmfL7VU1N1/R0tdVV9ZpuHerr+t773vdful5XL4yvGn/d3cEdnb3B/K63gu0WpyyCFgm0bEcbGmtI1xRD3bODr8em66TnacAa+ixmWrTKgZY+tKERrdXCJhnq6g2WB4FWeVJH9cJWG6MRrWhOapswFBY8fZ8stkVumkPt42JDQ+Gls8L4XPudTHvowZT7vLjGAv1reVsfeMCLP/aA5rEf29qNiccDXny7Y7xr41viwAuvoU7Xbp59SiJc8xh+J4a4t1vu7njzFYlwxzCBPBNDEyNXCWYIV/hJXOeGXn/J3qUfjII8Se4id27o7dcqspN5ZbbczLmh5FZL5uXaqKA5NfTBnApRnNWai2tlnJ0aen/2VIm15qauyj/jzNBdd9Z+7+H9iFp+yfU7nRn6+L104nq19K5sldvTEFuk4yHpySekrmekV3ukvl7pkw+l7z6Xfl0o/f+HNLhE2rpaGtoiPTwj/RmlxhrW0kMvGGCBCTYccMEJNxrSESuVTFfo8hWp1z6+bFoprVosLf1L+rtf6p8vffuZ9JF9UX/jZanzaenxR6X77qkQpGWsYS099IIBFphgwwEXnHCjIQ0rOZ/JEA3r7Vn/7T+y5gaccGdlzWwIwF1D0oJfpOvXGbkNOOCCsxGmhgwBfOiI9MUP0plzjNwE2HDA1ShDw4YgOH5CmveTdPQYo3IDTLDhyIOcyxBEo+ej7Td0gFE5ARbbDOy8iLkNQXjlqt3p/pG27WJULMDoNywwiyAVMhQTL1omrd0cjxo/0wtG451TO0oxBOyaAoaK9MKdjNIMvTgrCdtYXqS3mqk0Qz3d1dDZx0V6q1nKM1TgCvUU6HViaNr90vRp1dDZx/SCkb0jfWUpV+iF59MJslbKwIDLuaHRC9KPf0ZBDmmtaClDaa+BgbXSO59K+w5GQc5cLUNpGLXW1psrfIVm2I+IfGFLkuzdL80xI4Mbk7NRzhw11kQz0SMYYEWj/I+FDc16rkI+cibaWj8vks7ZVqtUJmfUWMNWpCeuJrHiuUbPhQ3Fe39gnTT3q2hrZRXBVqSHXnpiLPK8kdlQGsG9d5uRL6XBDWkrbj5P71zDAOvmq+uvKGTokY7o0/bI2fokWapg8GkbzCzr09YUMnR6NA02/3xRzEKG8st214mhEXfwTUcewZD97NF0YleER/wg0E5X6M3GxYvvX9LqQHLw8m6uHTzgxR8e9q75nn5vLn35bHgIvQA9vNsbVKAV5G0Zpj30YOK5KdhJOrzHW9iWpsxMqD10ocn/AEjB8/QN+3G83rInNKIVzUmRE1conuTS+Rf1mN0xFtjcDotWep9Cyw60oRGtpm/ScQMAAP//JXo4GwAAAAZJREFUAwBaQGu8JpZEowAAAABJRU5ErkJggg==</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>
