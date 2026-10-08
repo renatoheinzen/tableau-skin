@@ -23,7 +23,6 @@
   }
   #brand { display: flex; align-items: center; gap: 10px; padding: 2px 6px 14px; min-width: 0; }
   #brand:empty { display: none; }
-  #logo { max-height: 34px; max-width: 120px; display: none; }
   #brand-text { min-width: 0; }
   #title { font-size: 14px; font-weight: 700; letter-spacing: var(--pd-panel-title-spacing); text-transform: var(--pd-title-transform); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #subtitle { font-size: 11px; color: var(--pd-nav-muted); margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -48,7 +47,6 @@
 
 <div id="nav">
   <div id="brand">
-    <img id="logo" alt="">
     <div id="brand-text"><div id="title"></div><div id="subtitle"></div></div>
   </div>
   <div id="divider"></div>
@@ -59,9 +57,7 @@
 <script>
 (function () {
   var STATE_KEY = 'projedataSidebarState';
-  var LOGO_URL = '../assets/logo-dark.png';
   var navEl = document.getElementById('nav');
-  var logoEl = document.getElementById('logo');
   var titleEl = document.getElementById('title');
   var subtitleEl = document.getElementById('subtitle');
   var brandEl = document.getElementById('brand');
@@ -98,7 +94,7 @@
   };
 
   var state = {
-    title: '', subtitle: '', showLogo: false,
+    title: '', subtitle: '',
     items: 'Visão geral | home\nDesempenho | bars\nVendas | cart', activeItem: 1, parameterName: '', footer: '', bgColor: ''
   };
   var items = [];
@@ -119,10 +115,7 @@
   function render() {
     titleEl.textContent = state.title || '';
     subtitleEl.textContent = state.subtitle || '';
-    var hasLogo = !!(state.showLogo && LOGO_URL);
-    logoEl.style.display = hasLogo ? 'block' : 'none';
-    if (hasLogo) logoEl.src = LOGO_URL;
-    var hasBrand = hasLogo || state.title || state.subtitle;
+    var hasBrand = state.title || state.subtitle;
     brandEl.style.display = hasBrand ? 'flex' : 'none';
     dividerEl.style.display = hasBrand ? 'block' : 'none';
     footerEl.textContent = state.footer || '';
