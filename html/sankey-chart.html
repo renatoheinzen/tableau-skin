@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Sankey</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    --acc: var(--pd-accent-1);
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-root.accent-laranja { --acc: var(--pd-accent-2); }
+  #chart-root.accent-amarelo { --acc: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro { --acc: var(--pd-accent-4); }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body { flex: 1; min-height: 0; position: relative; }
+  #chart-body svg { display: block; width: 100%; height: 100%; font-family: var(--pd-font); }
+  .sk-link { fill: none; stroke-opacity: 0.32; transition: stroke-opacity .12s; }
+  .sk-link:hover { stroke-opacity: 0.65; }
+  .sk-label { fill: var(--pd-text); font-size: 11px; paint-order: stroke; stroke: var(--pd-card-bg); stroke-width: 3px; stroke-linejoin: round; }
+  .sk-label tspan.v { fill: var(--pd-text-muted); font-size: 10px; }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataSankeyState';
+  var NS = 'http://www.w3.org/2000/svg';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    sourceField: '', targetField: '', stage3Field: '', valueField: '',
+    linkColor: 'source', sortNodes: 'value', nodeWidth: 'normal', showValues: true, maxLinks: ''
+  };
+  var model = null;
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  /* rows: [{ path: [rótulo da etapa 1, etapa 2, ...], value }] -> nós por etapa e fluxos entre etapas adjacentes */
+  function buildModel(rows, stages) {
+    var nodes = {}, levels = [], links = {}, linkList = [];
+    for (var i = 0; i < stages; i++) levels.push([]);
+    function node(lvl, label) {
+      var k = lvl + '|' + label;
+      if (!nodes[k]) { nodes[k] = { key: k, lvl: lvl, label: label, inV: 0, outV: 0, ins: [], outs: [] }; levels[lvl].push(nodes[k]); }
+      return nodes[k];
+    }
+    rows.forEach(function (r) {
+      for (var l = 0; l < stages - 1; l++) {
+        var s = node(l, r.path[l]), t = node(l + 1, r.path[l + 1]), k = s.key + '>' + t.key;
+        if (!links[k]) { links[k] = { source: s, target: t, value: 0 }; linkList.push(links[k]); }
+        links[k].value += r.value;
+      }
+    });
+    var max = parseInt(state.maxLinks, 10);
+    if (max > 0 && linkList.length > max) {
+      linkList = linkList.slice().sort(function (a, b) { return b.value - a.value; }).slice(0, max);
+    }
+    levels.forEach(function (lv) { lv.length = 0; });
+    var seen = {};
+    linkList.forEach(function (lk) {
+      lk.source.outs.push(lk); lk.target.ins.push(lk);
+      [lk.source, lk.target].forEach(function (n) { if (!seen[n.key]) { seen[n.key] = 1; levels[n.lvl].push(n); } });
+    });
+    levels.forEach(function (lv) {
+      lv.forEach(function (n) {
+        n.inV = n.ins.reduce(function (a, b) { return a + b.value; }, 0);
+        n.outV = n.outs.reduce(function (a, b) { return a + b.value; }, 0);
+        n.value = Math.max(n.inV, n.outV);
+      });
+      if (state.sortNodes !== 'data') lv.sort(function (a, b) { return b.value - a.value; });
+    });
+    // mesma cor para o mesmo rótulo em qualquer etapa
+    var colorOf = {}, n = 0;
+    levels.forEach(function (lv) { lv.forEach(function (nd) { if (colorOf[nd.label] === undefined) colorOf[nd.label] = n++; }); });
+    levels.forEach(function (lv) { lv.forEach(function (nd) { nd.color = 'var(--pd-series-' + ((colorOf[nd.label] % 8) + 1) + ')'; }); });
+    return { levels: levels, links: linkList };
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (!model || !model.links.length) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var W = bodyEl.clientWidth, H = bodyEl.clientHeight;
+    if (W < 80 || H < 60) return;
+    var L = model.levels.length;
+    var nodeW = { thin: 8, normal: 14, wide: 22 }[state.nodeWidth] || 14;
+    var labelM = Math.max(58, Math.min(150, W * 0.18));
+    var x0 = labelM, x1 = W - labelM, pad = 10, top = 4, bottom = 4;
+    var plotH = H - top - bottom;
+
+    // altura por unidade: a etapa mais "apertada" define a escala de todas
+    var ky = Infinity;
+    model.levels.forEach(function (lv) {
+      if (!lv.length) return;
+      var sum = lv.reduce(function (a, n) { return a + n.value; }, 0);
+      ky = Math.min(ky, (plotH - pad * (lv.length - 1)) / sum);
+    });
+    if (!(ky > 0)) { ky = 0.0001; }
+
+    model.levels.forEach(function (lv, l) {
+      var total = lv.reduce(function (a, n) { return a + n.value * ky; }, 0) + pad * Math.max(0, lv.length - 1);
+      var y = top + (plotH - total) / 2;
+      lv.forEach(function (n) {
+        n.x = x0 + (L > 1 ? l * (x1 - x0 - nodeW) / (L - 1) : 0);
+        n.y = y; n.h = n.value * ky;
+        y += n.h + pad;
+      });
+    });
+    // fluxos empilhados em cada nó, na ordem vertical do outro extremo (menos cruzamentos)
+    model.levels.forEach(function (lv) {
+      lv.forEach(function (n) {
+        var o = n.y;
+        n.outs.sort(function (a, b) { return a.target.y - b.target.y; }).forEach(function (lk) { lk.sy = o; lk.w = lk.value * ky; o += lk.w; });
+        var i = n.y;
+        n.ins.sort(function (a, b) { return a.source.y - b.source.y; }).forEach(function (lk) { lk.ty = i; i += lk.value * ky; });
+      });
+    });
+
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H }, bodyEl);
+    var gl = el('g', {}, svg);
+    model.links.forEach(function (lk) {
+      var sx = lk.source.x + nodeW, tx = lk.target.x, mx = (sx + tx) / 2;
+      var sy = lk.sy + lk.w / 2, ty = lk.ty + lk.w / 2;
+      var stroke = state.linkColor === 'target' ? lk.target.color : state.linkColor === 'neutral' ? 'var(--pd-text-muted)' : lk.source.color;
+      var p = el('path', { class: 'sk-link', d: 'M' + sx + ' ' + sy + 'C' + mx + ' ' + sy + ' ' + mx + ' ' + ty + ' ' + tx + ' ' + ty, 'stroke-width': Math.max(1, lk.w), stroke: stroke }, gl);
+      var t = el('title', {}, p);
+      t.textContent = lk.source.label + ' → ' + lk.target.label + '\n' + formatCompact(lk.value);
+    });
+    var gn = el('g', {}, svg);
+    var maxChars = Math.floor((labelM - 12) / 6.2);
+    model.levels.forEach(function (lv, l) {
+      lv.forEach(function (n) {
+        var r = el('rect', { x: n.x, y: n.y, width: nodeW, height: Math.max(1, n.h), fill: n.color }, gn);
+        var t = el('title', {}, r);
+        t.textContent = n.label + '\n' + formatCompact(n.value);
+        if (n.h < 11) return;
+        var first = l === 0, last = l === L - 1;
+        var txt = el('text', { class: 'sk-label', y: n.y + n.h / 2 + 4, x: first ? n.x - 6 : n.x + nodeW + 6, 'text-anchor': first ? 'end' : 'start' }, gn);
+        var lab = n.label;
+        if ((first || last) && lab.length > maxChars) lab = lab.slice(0, maxChars - 1) + '…';
+        txt.appendChild(document.createTextNode(lab));
+        if (state.showValues !== false) {
+          var v = el('tspan', { class: 'v', dx: 5 }, txt);
+          v.textContent = formatCompact(n.value);
+        }
+      });
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 3) {
+        titleEl.textContent = 'Arraste a origem, o destino (e opcionalmente uma 3ª etapa) e a medida para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var texts = [];
+      cols.forEach(function (c, i) { if (!isNum(c)) texts.push(i); });
+      var srcIdx = findColumnIndex(cols, state.sourceField, texts[0] !== undefined ? texts[0] : 0);
+      var tgtIdx = findColumnIndex(cols, state.targetField, texts.filter(function (i) { return i !== srcIdx; })[0]);
+      if (tgtIdx === undefined) tgtIdx = srcIdx === 0 ? 1 : 0;
+      var s3Idx = state.stage3Field ? findColumnIndex(cols, state.stage3Field, -1) : -1;
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) valIdx = cols.findIndex(function (c, i) { return i !== srcIdx && i !== tgtIdx && i !== s3Idx && isNum(c); });
+      if (valIdx === -1) valIdx = cols.length - 1;
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var idxs = s3Idx !== -1 ? [srcIdx, tgtIdx, s3Idx] : [srcIdx, tgtIdx];
+      var rows = [];
+      (sumData.data || []).forEach(function (row) {
+        var c = row[valIdx];
+        if (!c || typeof c.value !== 'number' || isNaN(c.value) || c.value <= 0) return;
+        rows.push({
+          path: idxs.map(function (i) { return row[i] && row[i].formattedValue !== '' ? row[i].formattedValue : '(vazio)'; }),
+          value: c.value
+        });
+      });
+      model = buildModel(rows, idxs.length);
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Sankey] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/sankey-chart-config.html', '', { height: 760, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Sankey] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  if (window.ResizeObserver) new ResizeObserver(function () { if (model) render(); }).observe(bodyEl);
+  else window.addEventListener('resize', function () { if (model) render(); });
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

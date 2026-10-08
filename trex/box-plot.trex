@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.boxplot" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Box-plot</name>
+    <description>Box-and-whisker: distribuição por categoria (mediana, quartis, bigodes, média e outliers), com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/box-plot.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACvElEQVR4AeyZv2oUURTGz4yk0kKEsEWwsPABUtnY2Qim8Rk0wZCInYVrqRZ2YkSI+gwWiWBjZ2OVB7Cw0C2WgFhoFXQ8v4GTWY8J4w0zc+eus8zH+Tf3nu+7d+7uspvLEa+1tWJhfVzc2hgXO4oviqIngMsO3OB4BHX5S9DGveLmwqJ81sJzHbCiWFL05YLLCtzgCFdPTGtVanNcPJVMXmhmpOj7NYJryXmG6aEgCoXI5kwtCRfOcDeypSC2joIlU7NwRwO88/JwZfKAIGmoBrTkpxblhgoZKVK/RmjJ9Zm7Fqrkji4BCB3X9v1oUchyaKOLF0RA6LgO7l9GEO/tHfTqpMUSgjrp1FWTqII4h6BJsVEFcQ7B3AhqUojNFXWHjESTdhB00tW8flXEw+byeWKrhdr/b4dYLQ9bNZ8ntlosG3WH2hA9CGpjVZucc9ihk67mlcsiHjaXzxNbLdTW7hCTe1gTnye2WixbK6gpYu/ei3jY3D5PbLVQWyuIyT2sic8TWy2WrRUUi5jve+Z0dQbxfd3iJAQh4O569V0Qn5yJmLVJCLqkP+OcO1vRxidXZSovCUEV3XovCUEf9kS+fqvE4JOrMpVXK+j1WxEPG+7zxFbzlpqH3ePzxFbDfv8h8lj/3CEP8MlR86gV5AfEihHAxwLAP45HMoKOE+DzgyC/In2Lhx3q2454Pv+8Q35gX+Oogj5+EgFNLk5UQU9eiYC5EdSkEJuLHZpYMAd2giD96hcmhecehI3q5O69/JfIm9BWPPcgdFzb96Ml/7kvejRl2nazDuafoiXf3s4OpJD7HTRst4VqQAtnSJ49yl5mIlvtdmxvdrijgQ6lIJyth9ltCvgpAc5wN86HgkiUhUJW1U/hTE31qKyWnJWwXX8IIsnWHezLeX3H0B+OZFdzE0VfLrjswg2OcPXEfgMAAP//rSo/8QAAAAZJREFUAwAUa0m4yZpAlQAAAABJRU5ErkJggg==</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

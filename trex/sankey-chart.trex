@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.sankeychart" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Sankey</name>
+    <description>Diagrama de Sankey: fluxos entre origem, destino e uma terceira etapa opcional, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/sankey-chart.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAEqklEQVR4AeyY6XIUZRSGn5mQsISgGQgTEiIoYQlrAiEs4lb+lLtQKCniDRh+qjdgLKtQrwL8abmxxYRFJAqIoJBoQoxsAYIhDOedqYah03R1uqYn01WT6lPTfb7tfc/5+uucN4nH3969mcp9XZn393dlDpkNmGVKxITlkLAJowd0phDa/2Hmvco6rlnD5zZgt1mjWalcwrJb2IRRWN3ArO2pq7Mr8ykJvjBP2qzUr7SwZjHnIX1CSA0Z6Mxri8WtMAu7AzZLSKlTg+OM26+wi4NwJ7MvV4KP9BBrMw7ikqyo410jkjaL+5UWl6TtuXfizsTBLy5mtDmOKH9nzYKaaqhbCC/Z4bt6BbSuhfaN0NEK2zfDznbY1QGvb4M3d8Dbu6DbXga3+eBsE6FGnw5TmpRSgauqhDmzYe4cmD8PaubDCzWwsBYa66F5OWxYA1sNrAC+sR06LHQbW2Dly7B0ifVN2ZgFubHVNofmml0FlTZ3RcWUpYM4GpN+vdyR0fNbO0HgXrMovro1F9VtFt0OA96+CVrXwZpmWLYUFi+CBUZUAP3WKWSbL6FCLlSsucqEihXpsOuUMxQ2csUaV85QsSIddp2iZWhiAm6PwfV/4a8BOH8JzvRD38/w02k4cQqO9cHRXvixB747Dt8eg84DU82PbChCk5MggA8ewL37cPdeDuyt2zD6Hwz8A79fgbO/5cB+fwJ+MJC9Z+CX83DpTxgcgtEbcOsO3Lmbm+P+OIzbnP8bea3x6JEfdO+2aRP65kguegJ4pBeOn8xFt9fA9p21qP8KF/6Aq4MwMpoD+/Ch9+JReKdNKAoQhZyzTKiQ0YxiLt8MeZ0wqlF2bIE2+6+6ZSWsWAapF0FlRRQA9R++2/zW8SX0vIHz5kKqFhqscF/eZOTWky3KVP/I97xxxfCHIuQFTAWZ6h9lbZNVorWWNa9+UfsKRigf6KIUbLasrXoFVNnmt0V9HwkhB3RTgxHbAPWLHU/0v5ESEvxq0wrWrYK1Znr35IvSfAm5Txc9hwWzxLK0xbIlcSTsHEHG+RIKMsF0+lSZoiP5qs3eL6lD0xkbtG9RCTmgUnYCSh1qMXVIOl0hv2EzQsgh1lAP0umk2+lDLekrXQc68qX1hTkhZ5SQQ0zfMH2om02cXL/aTkbbktL6pP05fYL+lgShoGCD9CsTChKlmexTkAypIlX5LM3gppXhKsvlmwligQnlg1NprTL7pJXcEjOkGUjgUBkun8py+dQmEUSCyPAISCfInyeKe19CXvWQNAWJHxJClA0/kGqTCCJB5NyFnBZx6hxc+xuU0aITimLBGzfh4mWyklWPSVf9RvTyVRi6DgrQmClA46b+hN2yvhmKglD+nGMmfw3ZVrxihPovgrZrj2l0R02f05bVbvDaJflzuO9FyAQntzu2z4MiZDGJLQE38NNJEye/dnvj+iwuyckRvjICw2Zxv4bFJXnwYGKCDAfizkYcxEXvEJ99kvgyAd1xJSXs4iD8WUK66f448YEadB8nE2ZhdzA/ISRHtiHDHruPwzs1bNtsTxazAXauZwjJqdRNjNBkJ8Y+ez5sNmhWKpewHBY2YRRWN7DHAAAA//8xN0XwAAAABklEQVQDAPxpz7i0DMLhAAAAAElFTkSuQmCC</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

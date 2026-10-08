@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Box-plot</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    --acc: var(--pd-accent-1);
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-root.accent-laranja { --acc: var(--pd-accent-2); }
+  #chart-root.accent-amarelo { --acc: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro { --acc: var(--pd-accent-4); }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body { flex: 1; min-height: 0; position: relative; }
+  #chart-body svg { display: block; width: 100%; height: 100%; font-family: var(--pd-font); }
+  .bp-grid { stroke: var(--pd-track); stroke-width: 1; }
+  .bp-axis { fill: var(--pd-text-muted); font-size: 11px; }
+  .bp-cat { fill: var(--pd-text); font-size: 12px; }
+  .bp-n { fill: var(--pd-text-muted); font-size: 10px; }
+  .bp-median { stroke: var(--pd-text); stroke-width: 2.5; }
+  .bp-mean { fill: var(--pd-text); stroke: var(--pd-card-bg); stroke-width: 1; }
+  .bp-group:hover .bp-box { fill-opacity: 0.55; }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataBoxPlotState';
+  var NS = 'http://www.w3.org/2000/svg';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    categoryField: '', valueField: '',
+    whiskers: 'iqr', showOutliers: true, showPoints: false, showMean: true, showCount: true,
+    colorByCategory: false, yZero: false, sortOrder: ''
+  };
+  var groups = [];
+  var valueName = '';
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  /* ---------- estatística ---------- */
+  function quantile(sorted, p) {
+    var pos = (sorted.length - 1) * p, lo = Math.floor(pos), hi = Math.ceil(pos);
+    return sorted[lo] + (sorted[hi] - sorted[lo]) * (pos - lo);
+  }
+
+  function summarize(g) {
+    var v = g.values.slice().sort(function (a, b) { return a - b; });
+    var n = v.length;
+    var q1 = quantile(v, 0.25), q3 = quantile(v, 0.75), med = quantile(v, 0.5), iqr = q3 - q1;
+    var lo = v[0], hi = v[n - 1], outliers = [];
+    if (state.whiskers !== 'minmax') {
+      var fLo = q1 - 1.5 * iqr, fHi = q3 + 1.5 * iqr;
+      lo = q1; hi = q3;
+      v.forEach(function (x) {
+        if (x < fLo || x > fHi) outliers.push(x);
+        else { if (x < lo) lo = x; if (x > hi) hi = x; }
+      });
+    }
+    g.n = n; g.q1 = q1; g.q3 = q3; g.median = med; g.min = lo; g.max = hi; g.outliers = outliers;
+    g.mean = v.reduce(function (a, b) { return a + b; }, 0) / n;
+    g.sorted = v;
+  }
+
+  function niceTicks(min, max, count) {
+    if (max === min) { max = min + 1; }
+    var raw = (max - min) / count, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    var norm = raw / mag, step = (norm < 1.5 ? 1 : norm < 3 ? 2 : norm < 7 ? 5 : 10) * mag;
+    var start = Math.floor(min / step) * step, end = Math.ceil(max / step) * step, out = [];
+    for (var t = start; t <= end + step / 2; t += step) out.push(Math.round(t / step) * step);
+    return out;
+  }
+
+  function el(name, attrs, parent) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+
+  function groupColor(i) { return 'var(--pd-series-' + ((i % 8) + 1) + ')'; }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (!groups.length) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var W = bodyEl.clientWidth, H = bodyEl.clientHeight;
+    if (W < 40 || H < 40) return;
+
+    // escala vertical
+    var dMin = Infinity, dMax = -Infinity;
+    groups.forEach(function (g) {
+      var lo = Math.min(g.min, g.outliers.length ? Math.min.apply(null, g.outliers) : g.min);
+      var hi = Math.max(g.max, g.outliers.length ? Math.max.apply(null, g.outliers) : g.max);
+      if (state.showPoints) { lo = Math.min(lo, g.sorted[0]); hi = Math.max(hi, g.sorted[g.n - 1]); }
+      if (lo < dMin) dMin = lo; if (hi > dMax) dMax = hi;
+    });
+    if (state.yZero) { dMin = Math.min(dMin, 0); dMax = Math.max(dMax, 0); }
+    var ticks = niceTicks(dMin, dMax, Math.max(3, Math.min(8, Math.floor(H / 55))));
+    var yMin = ticks[0], yMax = ticks[ticks.length - 1];
+    var tickLabels = ticks.map(formatCompact);
+    var left = Math.max.apply(null, tickLabels.map(function (t) { return t.length; })) * 6.5 + 14;
+    var bottom = 24 + (state.showCount !== false ? 12 : 0), top = 8, right = 8;
+    var plotW = W - left - right, plotH = H - top - bottom;
+    if (plotW < 20 || plotH < 20) return;
+    var y = function (v) { return top + plotH - (v - yMin) / (yMax - yMin) * plotH; };
+
+    var svg = el('svg', { viewBox: '0 0 ' + W + ' ' + H, width: W, height: H }, bodyEl);
+    ticks.forEach(function (t, i) {
+      el('line', { class: 'bp-grid', x1: left, x2: W - right, y1: y(t), y2: y(t) }, svg);
+      var tx = el('text', { class: 'bp-axis', x: left - 8, y: y(t) + 4, 'text-anchor': 'end' }, svg);
+      tx.textContent = tickLabels[i];
+    });
+
+    var slot = plotW / groups.length, boxW = Math.max(8, Math.min(72, slot * 0.55));
+    var maxChars = Math.max(3, Math.floor(slot / 7));
+    groups.forEach(function (g, i) {
+      var cx = left + slot * (i + 0.5);
+      var color = state.colorByCategory && groups.length > 1 ? groupColor(i) : 'var(--acc)';
+      var grp = el('g', { class: 'bp-group' }, svg);
+      var tip = el('title', {}, grp);
+      tip.textContent = g.label + '\nObservações: ' + g.n + '\nMáximo' + (state.whiskers === 'minmax' ? '' : ' (bigode)') + ': ' + formatCompact(g.max) +
+        '\nQ3: ' + formatCompact(g.q3) + '\nMediana: ' + formatCompact(g.median) + '\nMédia: ' + formatCompact(g.mean) +
+        '\nQ1: ' + formatCompact(g.q1) + '\nMínimo' + (state.whiskers === 'minmax' ? '' : ' (bigode)') + ': ' + formatCompact(g.min) +
+        (g.outliers.length ? '\nOutliers: ' + g.outliers.length : '');
+      // bigodes
+      var wc = { stroke: color, 'stroke-width': 1.5 };
+      el('line', Object.assign({ x1: cx, x2: cx, y1: y(g.max), y2: y(g.q3) }, wc), grp);
+      el('line', Object.assign({ x1: cx, x2: cx, y1: y(g.q1), y2: y(g.min) }, wc), grp);
+      el('line', Object.assign({ x1: cx - boxW * 0.25, x2: cx + boxW * 0.25, y1: y(g.max), y2: y(g.max) }, wc), grp);
+      el('line', Object.assign({ x1: cx - boxW * 0.25, x2: cx + boxW * 0.25, y1: y(g.min), y2: y(g.min) }, wc), grp);
+      // caixa
+      el('rect', { class: 'bp-box', x: cx - boxW / 2, y: y(g.q3), width: boxW, height: Math.max(1, y(g.q1) - y(g.q3)), fill: color, 'fill-opacity': 0.32, stroke: color, 'stroke-width': 1.5 }, grp);
+      el('line', { class: 'bp-median', x1: cx - boxW / 2, x2: cx + boxW / 2, y1: y(g.median), y2: y(g.median) }, grp);
+      // pontos individuais (com deslocamento determinístico)
+      if (state.showPoints) {
+        g.sorted.forEach(function (v, k) {
+          var jitter = (((k * 7919) % 13) / 12 - 0.5) * boxW * 0.8;
+          el('circle', { cx: cx + jitter, cy: y(v), r: 2.2, fill: color, 'fill-opacity': 0.55 }, grp);
+        });
+      } else if (state.showOutliers !== false) {
+        g.outliers.forEach(function (v) {
+          el('circle', { cx: cx, cy: y(v), r: 3, fill: 'none', stroke: color, 'stroke-width': 1.5 }, grp);
+        });
+      }
+      if (state.showMean !== false) {
+        var m = y(g.mean), d = 4.5;
+        el('path', { class: 'bp-mean', d: 'M' + cx + ' ' + (m - d) + 'L' + (cx + d) + ' ' + m + 'L' + cx + ' ' + (m + d) + 'L' + (cx - d) + ' ' + m + 'Z' }, grp);
+      }
+      var label = g.label.length > maxChars ? g.label.slice(0, maxChars - 1) + '…' : g.label;
+      var t1 = el('text', { class: 'bp-cat', x: cx, y: H - bottom + 17, 'text-anchor': 'middle' }, svg);
+      t1.textContent = label;
+      if (state.showCount !== false) {
+        var t2 = el('text', { class: 'bp-n', x: cx, y: H - bottom + 30, 'text-anchor': 'middle' }, svg);
+        t2.textContent = 'n = ' + g.n;
+      }
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste um campo de detalhe (ex.: ID), a medida e (opcional) a categoria para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) valIdx = cols.findIndex(isNum);
+      if (valIdx === -1) valIdx = cols.length - 1;
+      var catIdx = state.categoryField ? findColumnIndex(cols, state.categoryField, -1) : -1;
+      valueName = cols[valIdx].fieldName;
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var map = {}, order = [];
+      (sumData.data || []).forEach(function (row) {
+        var c = row[valIdx];
+        if (!c || typeof c.value !== 'number' || isNaN(c.value)) return;
+        var key = catIdx !== -1 && row[catIdx] ? row[catIdx].formattedValue : valueName;
+        if (!map[key]) { map[key] = { label: key, values: [] }; order.push(key); }
+        map[key].values.push(c.value);
+      });
+      groups = order.map(function (k) { return map[k]; });
+      groups.forEach(summarize);
+      if (state.sortOrder === 'desc') groups.sort(function (a, b) { return b.median - a.median; });
+      else if (state.sortOrder === 'asc') groups.sort(function (a, b) { return a.median - b.median; });
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Box-plot] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/box-plot-config.html', '', { height: 800, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Box-plot] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  if (window.ResizeObserver) new ResizeObserver(function () { if (groups.length) render(); }).observe(bodyEl);
+  else window.addEventListener('resize', function () { if (groups.length) render(); });
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

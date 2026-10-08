@@ -24,6 +24,8 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Projedata Dispersão e Bolhas | worksheet | [`trex/scatter-chart.trex`](trex/scatter-chart.trex) | Dispersão e bolhas (tamanho por medida, cor por campo), rótulos, linhas de média, tendência com R² e legenda clicável |
 | Projedata Gráfico Bullet | worksheet | [`trex/bullet-chart.trex`](trex/bullet-chart.trex) | Bullet graph: valor realizado contra a meta, com faixas qualitativas, verde/vermelho opcional e % da meta |
 | Projedata Gráfico de Gantt | worksheet | [`trex/gantt-chart.trex`](trex/gantt-chart.trex) | Gantt: tarefas no tempo (início e fim ou duração), cor por grupo, progresso, marcos e linha de hoje |
+| Projedata Box-plot | worksheet | [`trex/box-plot.trex`](trex/box-plot.trex) | Box-and-whisker: mediana, quartis, bigodes (1,5 × IQR ou mín–máx), média, outliers e pontos, por categoria |
+| Projedata Sankey | worksheet | [`trex/sankey-chart.trex`](trex/sankey-chart.trex) | Diagrama de Sankey: fluxos entre origem, destino e uma 3ª etapa opcional, com cor por origem/destino |
 | Projedata Faixa Lateral | dashboard | [`trex/sidebar-nav.trex`](trex/sidebar-nav.trex) | Navegação em faixa lateral |
 | Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação |
 | Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção |
