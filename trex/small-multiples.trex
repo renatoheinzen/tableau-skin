@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.smallmultiples" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Mini-gráficos por Coorte</name>
+    <description>Um mini-gráfico (linha, área ou barras) por coorte/categoria, com eixos compartilhados — ideal para CLV e churn por coorte, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/small-multiples.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAEtElEQVR4AeyabYgVVRjHf3ckoaAgFUPMiKD3iNYtwg9mhrtrpNQHEQSjKFsLXEqtrKx1k11sKcvUSC0hsTdEsNoNyQRL6e3DthBFWNkL5ocgDbIvEu54/jN37pyZnbs798XrjLjcZ+d5znnmnP/vnJnZc8+sQ8JPc7N7XlOL+/DUVrfP2J/G3IyYtPRJmzQmSGcYUHObu2hoPIcLBV43J8wxNtlYVj7SMkfapFFa48IiQFNb3A2uyxsFuCSemLVYGqVVmm1tJSCvosASuzIXvtHsaS+K9YC8qTMVxbL8HYx2j8Eod3RzDbl0Gz/XHzGIxRkax4O6HnNNY8SLQSyOeWLcZeKz4iMW3UNNZwWND9EkID3b/TD/vycLKFMY7Qth8b1w3VXVycoU0JpnfBhBbd8Ae96H55bC7JkwcUI6wIqB5rb6nV50YboO0mbNM4us1hnR7PEXwz2zoecp2P0ObOr1+45mRaOKgHQpdC0HjeC+nf7o3XBNtMFqoisug6c7wjN/Pxz6tnfLTX7fbbfbpVE/NZBgBGKfrtHb9ips7IE774AxY+za9P56c76d3fkiLHgEXtoE+76Af4/btXD5lGhsR6mA4jAnTthNwLSboXsF7NiMd0NHa0eOep+FSRPDnN7X4IeD8NOv8N4ueHw1zJwHi8yVseVtWNYFm7eH+XFvVKA4jBqdex+s3wqH/og2p5HTLOqcaE1ydP98mDU9rOvfawblozC2vcHvfZDPv7JLh/sjAkmYBAanaWRkR/+BbTtgfjs81gn7vw4y0h91Pyx5IMz/5TdYZS61sKQ6ryxQHEYzI4t3c+AbWLoK2haA6mWCjufZ8QXnQ4eBMUuVUvHqV0puTU4iUPONeE+yoOU0Iv8+5l8So8Gozem3wvVXg3zZGvM3R/eN/FotEchuNA2MnZ/GHzs2zNq1G3b2h3GtXiLQwHew0Hx3bX/CH/VaO4mf37cHutbCCvO47l4Xr60tTgRSkz/+DAKTfzpMUHv317/lskD176oxLZ4Dasw4V99LrmZo5aMQWDnkXAGVg7DLzwHZoxH3tQLQKiNe3si4bjOktd86s9TfYhaY117ZSIRoX3UBEoy9Kp8wLtpJpVFw4wfHSs6vGSgOo7WfVuCViKhnbk1ASTBpVtv1BIi3VTVQHEYgsngHjY6rAkqC0aXWaPFJ/VUMFIcRiCyp8dHKgps+OI6Wn6Y+NdClk+CFlZV/k00jop45qYC0FfvhW9ByW9i1ZiUL90yoyPdGBNJmxstmH0xbsX46HP8P1poNwCzCSGNZoLvb4MAHMGOa0nz77EtY/CS8azYA/ZLs/U4EmmUurc5lodhgVpY/DwcPheVZ9BKBTp4MpeZhVkK1eP9JcsQukK8Ncu3IaF85D7MizUU7ohkaLAaRg3ZkBBYprHPQY95c2BY0b5fJTyoPymLHQcd1+ThWmNtQLI5zjK0u/JVbiqJwMYjFGRgo/O8UMG9pijU5PYjBY5H+gU8Kb+KyUX4uzWj3GIx4PRTMAb79tNCRSygD42n3KPzHdtH1ocw7m4d0PZYKM+pIo7TaMJJamiEFMk2dc5Qp5olhXtuiFx3D/k4p7wyZtPRLmzRKa1zHKQAAAP//HEQSCAAAAAZJREFUAwAJbqm8NDE6yQAAAABJRU5ErkJggg==</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

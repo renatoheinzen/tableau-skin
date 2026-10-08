@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Mini-gráficos por Coorte</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body {
+    flex: 1; min-height: 0;
+    display: grid; gap: 8px 14px;
+    grid-auto-rows: minmax(64px, 1fr);
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .sm-cell { display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  .sm-head { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+  .sm-name { font-size: 11px; font-weight: 700; color: var(--pd-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .sm-caption { font-size: 10px; color: var(--pd-text-muted); white-space: nowrap; }
+  .sm-plot { flex: 1; min-height: 0; position: relative; }
+  .sm-plot svg { position: absolute; left: 0; top: 0; overflow: visible; color: var(--pd-accent-1); }
+  #chart-root.accent-laranja .sm-plot svg { color: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .sm-plot svg { color: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .sm-plot svg { color: var(--pd-accent-4); }
+  .sm-line { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; stroke-linecap: round; }
+  .sm-area { fill: currentColor; opacity: 0.16; stroke: none; }
+  .sm-dot, .sm-bar { fill: currentColor; stroke: none; }
+  .sm-val { font-family: inherit; font-size: 10px; font-weight: 700; fill: var(--pd-text); text-anchor: middle; }
+  .sm-x { font-family: inherit; font-size: 9px; fill: var(--pd-text-muted); text-anchor: middle; }
+  .sm-base { stroke: var(--pd-track); stroke-width: 1; }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataSmallMultiplesState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+  var NS = 'http://www.w3.org/2000/svg';
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    seriesField: '', xField: '', valueField: '', captionField: '',
+    chartStyle: 'line', columns: '1', yScale: 'shared', yZero: false,
+    valueLabels: 'last', xAxis: 'bottom', colorMode: 'accent', sortOrder: '', maxItems: ''
+  };
+  var model = null; // { series: [{ name, caption, points: { xKey: { v, text } } }], xs: [labels] }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function el(name, attrs, text) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function drawChart(plot, s, ctx, showX) {
+    var W = plot.clientWidth, H = plot.clientHeight;
+    if (W < 10 || H < 10) return;
+    var svg = el('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H });
+    var xs = model.xs, n = xs.length;
+    var bars = state.chartStyle === 'bars';
+    var padX = 8, padT = state.valueLabels === 'none' ? 4 : 14, padB = showX ? 14 : 4;
+    var slot = (W - 2 * padX) / n;
+    var cx = function (i) { return padX + slot * (i + 0.5); };
+
+    var lo = ctx.min, hi = ctx.max;
+    if (state.yScale === 'independent') {
+      var vs = Object.keys(s.points).map(function (k) { return s.points[k].v; });
+      lo = Math.min.apply(null, vs); hi = Math.max.apply(null, vs);
+    }
+    if (bars || state.yZero) { lo = Math.min(0, lo); hi = Math.max(0, hi); }
+    else { var pad = (hi - lo) * 0.1; lo -= pad; hi += pad; }
+    var span = hi - lo || 1;
+    var plotH = H - padT - padB;
+    var cy = function (v) { return padT + (hi - v) / span * plotH; };
+
+    if (bars || state.yZero) svg.appendChild(el('line', { class: 'sm-base', x1: padX, x2: W - padX, y1: cy(Math.max(lo, Math.min(0, hi))), y2: cy(Math.max(lo, Math.min(0, hi))) }));
+
+    var color = state.colorMode === 'series' ? 'var(--pd-series-' + ((ctx.index % 8) + 1) + ')' : '';
+    if (color) svg.style.color = color;
+
+    var pts = [];
+    xs.forEach(function (k, i) { if (s.points[k]) pts.push({ i: i, p: s.points[k] }); });
+
+    if (bars) {
+      var bw = Math.max(2, slot * 0.6), y0 = cy(Math.max(lo, Math.min(0, hi)));
+      pts.forEach(function (q, j) {
+        var yy = cy(q.p.v), top = Math.min(yy, y0), h = Math.max(Math.abs(y0 - yy), 1);
+        var r = el('rect', { class: 'sm-bar', x: cx(q.i) - bw / 2, y: top, width: bw, height: h, rx: 2 });
+        if (state.valueLabels === 'last' && j !== pts.length - 1) r.setAttribute('opacity', '0.5');
+        svg.appendChild(r);
+      });
+    } else if (pts.length) {
+      var d = pts.map(function (q) { return cx(q.i).toFixed(1) + ',' + cy(q.p.v).toFixed(1); });
+      if (state.chartStyle === 'area' && pts.length > 1) {
+        var base = cy(Math.max(lo, Math.min(0, hi)));
+        svg.appendChild(el('polygon', { class: 'sm-area', points: d.join(' ') + ' ' + cx(pts[pts.length - 1].i).toFixed(1) + ',' + base + ' ' + cx(pts[0].i).toFixed(1) + ',' + base }));
+      }
+      if (pts.length > 1) svg.appendChild(el('polyline', { class: 'sm-line', points: d.join(' ') }));
+      pts.forEach(function (q, j) {
+        var last = j === pts.length - 1;
+        if (last || state.valueLabels === 'all' || pts.length === 1) svg.appendChild(el('circle', { class: 'sm-dot', cx: cx(q.i), cy: cy(q.p.v), r: last ? 3.4 : 2 }));
+      });
+    }
+
+    pts.forEach(function (q, j) {
+      var show = state.valueLabels === 'all' || (state.valueLabels === 'last' && j === pts.length - 1);
+      if (!show) return;
+      svg.appendChild(el('text', { class: 'sm-val', x: cx(q.i), y: Math.max(10, cy(q.p.v) - 6) }, q.p.text));
+    });
+
+    if (showX) {
+      var every = Math.max(1, Math.ceil(n / Math.max(1, Math.floor(W / 38))));
+      xs.forEach(function (k, i) {
+        if (i % every === 0) svg.appendChild(el('text', { class: 'sm-x', x: cx(i), y: H - 2 }, k));
+      });
+    }
+    plot.appendChild(svg);
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (!model || model.series.length === 0 || model.xs.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var cols = Math.max(1, parseInt(state.columns, 10) || 1);
+    bodyEl.style.gridTemplateColumns = 'repeat(' + cols + ', minmax(0, 1fr))';
+
+    var all = [];
+    model.series.forEach(function (s) { Object.keys(s.points).forEach(function (k) { all.push(s.points[k].v); }); });
+    var ctx = { min: Math.min.apply(null, all), max: Math.max.apply(null, all), index: 0 };
+
+    var plots = [];
+    model.series.forEach(function (s, i) {
+      var cell = document.createElement('div');
+      cell.className = 'sm-cell';
+      var head = document.createElement('div');
+      head.className = 'sm-head';
+      var name = document.createElement('div');
+      name.className = 'sm-name';
+      name.textContent = s.name;
+      name.title = s.name;
+      head.appendChild(name);
+      if (s.caption) {
+        var cap = document.createElement('div');
+        cap.className = 'sm-caption';
+        cap.textContent = s.caption;
+        head.appendChild(cap);
+      }
+      var plot = document.createElement('div');
+      plot.className = 'sm-plot';
+      cell.appendChild(head);
+      cell.appendChild(plot);
+      bodyEl.appendChild(cell);
+      var isLastRow = i >= model.series.length - cols;
+      plots.push({ plot: plot, s: s, i: i, showX: state.xAxis === 'all' || (state.xAxis === 'bottom' && isLastRow) });
+    });
+    // desenha depois do layout, com o tamanho real de cada célula
+    plots.forEach(function (p) {
+      drawChart(p.plot, p.s, { min: ctx.min, max: ctx.max, index: p.i }, p.showX);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 3) {
+        titleEl.textContent = 'Arraste 2 campos de texto (coorte e período) e 1 medida para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var dims = [];
+      cols.forEach(function (c, i) { if (!isNum(c)) dims.push(i); });
+      var serIdx = findColumnIndex(cols, state.seriesField, dims.length ? dims[0] : 0);
+      var xIdx = findColumnIndex(cols, state.xField, dims.filter(function (i) { return i !== serIdx; })[0]);
+      if (xIdx === undefined) xIdx = serIdx === 0 ? 1 : 0;
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) {
+        valIdx = cols.findIndex(function (c, i) { return i !== serIdx && i !== xIdx && isNum(c); });
+        if (valIdx === -1) valIdx = cols.length - 1;
+      }
+      var capIdx = findColumnIndex(cols, state.captionField, -1);
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : cols[valIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      var xType = cols[xIdx].dataType;
+      var series = [], bySeries = {}, xs = [], xKeys = {};
+      (sumData.data || []).forEach(function (row) {
+        var sName = row[serIdx] ? row[serIdx].formattedValue : '';
+        var x = row[xIdx] ? row[xIdx].formattedValue : '';
+        var raw = row[valIdx] ? row[valIdx].value : null;
+        if (typeof raw !== 'number' || isNaN(raw)) return;
+        var s = bySeries[sName];
+        if (!s) {
+          s = bySeries[sName] = { name: sName, caption: capIdx !== -1 && row[capIdx] ? row[capIdx].formattedValue : '', points: {} };
+          series.push(s);
+        }
+        s.points[x] = { v: raw, text: fmtCell(row[valIdx]) };
+        if (xs.indexOf(x) === -1) {
+          xs.push(x);
+          var xr = row[xIdx] ? row[xIdx].value : null;
+          xKeys[x] = typeof xr === 'number' ? xr : ((xType === 'date' || xType === 'date-time') ? Date.parse(xr) : NaN);
+        }
+      });
+      // períodos numéricos/de data em ordem crescente; texto mantém a ordem dos dados
+      if (xs.length && xs.every(function (k) { return !isNaN(xKeys[k]); })) xs.sort(function (a, b) { return xKeys[a] - xKeys[b]; });
+
+      if (state.sortOrder === 'asc' || state.sortOrder === 'desc') {
+        series.sort(function (a, b) { return a.name.localeCompare(b.name, 'pt-BR', { numeric: true }); });
+        if (state.sortOrder === 'desc') series.reverse();
+      }
+      var max = parseInt(state.maxItems, 10);
+      if (max > 0) series = series.slice(0, max);
+
+      model = { series: series, xs: xs };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Mini-gráficos] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/small-multiples-config.html', '', { height: 820, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Mini-gráficos] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  // redesenha quando o tamanho da zona muda
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 80);
+  });
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>
