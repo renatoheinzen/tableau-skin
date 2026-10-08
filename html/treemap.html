@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Treemap</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body { flex: 1; min-height: 0; position: relative; }
+  .tile, .group {
+    position: absolute; box-sizing: border-box; overflow: hidden;
+  }
+  .tile {
+    padding: 4px 6px;
+    display: flex; flex-direction: column; justify-content: flex-start; gap: 1px;
+    background: var(--pd-track); color: var(--pd-text);
+  }
+  #chart-root.rounded .tile { border-radius: 6px; }
+  .tile-name { font-size: 11px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tile-value { font-size: 11px; font-weight: 700; line-height: 1.25; white-space: nowrap; opacity: 0.9; }
+  .group-head {
+    font-size: 11px; font-weight: 700; color: var(--pd-text-muted);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    position: absolute; left: 0; top: 0; right: 0; height: 16px; line-height: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="rounded">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataTreemapState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    dimensionField: '', sizeField: '', colorField: '', groupField: '',
+    colorMode: 'scale', scale: 'accent',
+    showNames: true, showValues: true, tileShape: 'rounded', gap: '2', maxItems: 30
+  };
+  var model = null; // { items: [{ name, group, size, color, sizeText, colorText }] }
+
+  var SCALE_BASE = { accent: 'var(--pd-accent-1)', accent2: 'var(--pd-accent-2)', dark: 'var(--pd-text)' };
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.toggle('rounded', state.tileShape !== 'square');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  // Aceita rgb(), rgba() e color(srgb r g b) (formatos que o navegador devolve para color-mix)
+  function luminanceOf(cssColor) {
+    var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(cssColor);
+    var r, g, b;
+    if (m) { r = +m[1] / 255; g = +m[2] / 255; b = +m[3] / 255; }
+    else {
+      m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(cssColor);
+      if (!m) return null;
+      r = +m[1]; g = +m[2]; b = +m[3];
+    }
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+
+  /* ---------- layout squarified ---------- */
+  // items: [{ v }] já ordenados do maior para o menor; devolve [{ item, x, y, w, h }]
+  function squarify(items, x, y, w, h) {
+    var out = [];
+    var total = items.reduce(function (s, i) { return s + i.v; }, 0);
+    if (!items.length || total <= 0 || w <= 0 || h <= 0) return out;
+    var scale = (w * h) / total;
+    var areas = items.map(function (i) { return i.v * scale; });
+
+    function worst(row, side) {
+      var s = row.reduce(function (a, b) { return a + b; }, 0);
+      var mx = Math.max.apply(null, row), mn = Math.min.apply(null, row);
+      return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+    }
+
+    var i = 0;
+    while (i < items.length) {
+      var side = Math.min(w, h);
+      var row = [areas[i]], j = i + 1;
+      while (j < items.length && worst(row.concat(areas[j]), side) <= worst(row, side)) { row.push(areas[j]); j++; }
+      var rowArea = row.reduce(function (a, b) { return a + b; }, 0);
+      var thick = rowArea / side; // espessura da faixa
+      var off = 0;
+      for (var k = 0; k < row.length; k++) {
+        var len = row[k] / thick;
+        if (w >= h) out.push({ item: items[i + k], x: x, y: y + off, w: thick, h: len });
+        else out.push({ item: items[i + k], x: x + off, y: y, w: len, h: thick });
+        off += len;
+      }
+      if (w >= h) { x += thick; w -= thick; } else { y += thick; h -= thick; }
+      i = j;
+    }
+    return out;
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (!model || model.items.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var W = bodyEl.clientWidth, H = bodyEl.clientHeight;
+    if (W <= 0 || H <= 0) return;
+    var gap = Math.max(0, parseInt(state.gap, 10) || 0);
+    var items = model.items;
+
+    // escala de cor (medida de cor, ou o próprio tamanho quando não há)
+    var cvals = items.map(function (i) { return i.color; });
+    var cmin = Math.min.apply(null, cvals), cmax = Math.max.apply(null, cvals);
+    var base = SCALE_BASE[state.scale] || SCALE_BASE.accent;
+    var seriesColors = {};
+    var seriesKeys = [];
+    var seriesBy = state.groupField ? 'group' : 'name';
+    items.forEach(function (i) { if (seriesKeys.indexOf(i[seriesBy]) === -1) seriesKeys.push(i[seriesBy]); });
+    seriesKeys.forEach(function (k, idx) { seriesColors[k] = 'var(--pd-series-' + ((idx % 8) + 1) + ')'; });
+
+    var tiles = [];
+    function addTile(it, x, y, w, h) {
+      var el = document.createElement('div');
+      el.className = 'tile';
+      var rx = x + gap / 2, ry = y + gap / 2, rw = Math.max(0, w - gap), rh = Math.max(0, h - gap);
+      el.style.left = rx + 'px'; el.style.top = ry + 'px'; el.style.width = rw + 'px'; el.style.height = rh + 'px';
+      el.title = it.name + (it.group ? ' (' + it.group + ')' : '') + ': ' + it.sizeText;
+      if (state.colorMode === 'series') {
+        el.style.background = seriesColors[it[seriesBy]];
+      } else {
+        var t = cmax === cmin ? 1 : (it.color - cmin) / (cmax - cmin);
+        el.style.background = 'color-mix(in srgb, ' + base + ' ' + Math.round(18 + 82 * t) + '%, var(--pd-track))';
+      }
+      if (state.showNames !== false && rw >= 48 && rh >= 24) {
+        var n = document.createElement('div');
+        n.className = 'tile-name';
+        n.textContent = it.name;
+        el.appendChild(n);
+        if (state.showValues !== false && rh >= 40) {
+          var v = document.createElement('div');
+          v.className = 'tile-value';
+          v.textContent = it.sizeText;
+          el.appendChild(v);
+        }
+      }
+      bodyEl.appendChild(el);
+      tiles.push(el);
+    }
+
+    if (state.groupField) {
+      var groups = [], byGroup = {};
+      items.forEach(function (i) {
+        if (!byGroup[i.group]) { byGroup[i.group] = { name: i.group, v: 0, items: [] }; groups.push(byGroup[i.group]); }
+        byGroup[i.group].v += i.size; byGroup[i.group].items.push(i);
+      });
+      groups.sort(function (a, b) { return b.v - a.v; });
+      squarify(groups, 0, 0, W, H).forEach(function (g) {
+        var grp = g.item;
+        var head = g.h >= 40 && g.w >= 60 ? 16 : 0;
+        if (head) {
+          var hd = document.createElement('div');
+          hd.className = 'group-head';
+          hd.style.left = (g.x + gap / 2) + 'px'; hd.style.top = (g.y + gap / 2) + 'px';
+          hd.style.width = Math.max(0, g.w - gap) + 'px'; hd.style.right = 'auto';
+          hd.textContent = grp.name;
+          bodyEl.appendChild(hd);
+        }
+        var inner = grp.items.slice().sort(function (a, b) { return b.size - a.size; }).map(function (i) { i.v = i.size; return i; });
+        squarify(inner, g.x, g.y + head, g.w, g.h - head).forEach(function (r) { addTile(r.item, r.x, r.y, r.w, r.h); });
+      });
+    } else {
+      var flat = items.slice().sort(function (a, b) { return b.size - a.size; }).map(function (i) { i.v = i.size; return i; });
+      squarify(flat, 0, 0, W, H).forEach(function (r) { addTile(r.item, r.x, r.y, r.w, r.h); });
+    }
+
+    // texto claro/escuro conforme a cor final do bloco
+    tiles.forEach(function (el) {
+      var lum = luminanceOf(getComputedStyle(el).backgroundColor);
+      el.style.color = lum != null && lum < 0.55 ? '#ffffff' : '#161616';
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste 1 campo de texto e 1 medida para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var dimIdx = findColumnIndex(cols, state.dimensionField, cols.findIndex(function (c) { return !isNum(c); }));
+      if (dimIdx === -1) dimIdx = 0;
+      var sizeIdx = findColumnIndex(cols, state.sizeField, -1);
+      if (sizeIdx === -1) {
+        sizeIdx = cols.findIndex(function (c, i) { return i !== dimIdx && isNum(c); });
+        if (sizeIdx === -1) sizeIdx = cols.length - 1;
+      }
+      var colorIdx = findColumnIndex(cols, state.colorField, -1);
+      var groupIdx = findColumnIndex(cols, state.groupField, -1);
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+        ? state.customLabel
+        : cols[sizeIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      var items = [];
+      (sumData.data || []).forEach(function (row) {
+        var raw = row[sizeIdx] ? row[sizeIdx].value : null;
+        var size = (typeof raw === 'number' && !isNaN(raw)) ? raw : 0;
+        if (size <= 0) return; // tamanho precisa ser positivo
+        var craw = colorIdx !== -1 && row[colorIdx] ? row[colorIdx].value : null;
+        items.push({
+          name: row[dimIdx] ? row[dimIdx].formattedValue : '',
+          group: groupIdx !== -1 && row[groupIdx] ? row[groupIdx].formattedValue : '',
+          size: size,
+          color: (colorIdx !== -1 && typeof craw === 'number' && !isNaN(craw)) ? craw : size,
+          sizeText: fmtCell(row[sizeIdx])
+        });
+      });
+
+      // limite de blocos: o resto vira "Outros" (soma dos tamanhos)
+      var max = parseInt(state.maxItems, 10);
+      if (max > 0 && items.length > max) {
+        items.sort(function (a, b) { return b.size - a.size; });
+        var rest = items.slice(max - 1);
+        var restSize = rest.reduce(function (s, i) { return s + i.size; }, 0);
+        items = items.slice(0, max - 1);
+        items.push({ name: 'Outros', group: '', size: restSize, color: restSize / rest.length, sizeText: formatCompact(restSize) });
+      }
+      model = { items: items };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Treemap] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/treemap-config.html', '', { height: 760, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Treemap] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  // reencaixa os blocos quando o tamanho da zona muda
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 80);
+  });
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

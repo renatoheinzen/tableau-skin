@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.treemap" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Treemap</name>
+    <description>Treemap (um bloco por categoria, área proporcional ao valor, com agrupamento opcional), com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/treemap.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACG0lEQVR4AeyaT04CMRTGvzbxArpwYTwEcgIX/kn0CO7URBONB9ClHsBo4kLdeQMwkbjwBMghlIULvYAJ9X0NQwrOgOAwtFAyL+28R6e/733DEBI0Ul7lspkrrZmDlXVTkXiXMJ4EWSpkI2MKOn4JKm+YvdYC3pTCjSzYlliS8OUgyzbZyEjWXrAuQStr5soY3CpgsfeNvp2Tkaxkdtk6gmxB4cgtBjEXZsvehrWCrHVSaOfCG4TdahByzQ9Xy+Bc5kEf1EAtujWPXd6PQasReGqgFi1PjC05n4qDWvgZKvVTU68BeYa71+kJMGy461PmJQrisz2lFmRqiYKCJM+CjoKyOuNLPjrkixNZHNGhrM74ko8O+eJEFsdEHcqC+k9+ooIuLoFhY5DYiQoaBDdKPQoapWtZazZXgWEj61pJPjqUdMLXMTrkqzMJV3Qo6YSv40CHyhtAnjHuRgwUNG6AvK8/e4IeroE8I29Heq83ew71dsD38+hQdKjgDvz5liuYa+TtoqCRW1fQwql0qFlQ84rYpkmHGv122jkC8gx3r6cXYNhw16fMG9oYPKYUgkxRi9ZfuDfAR5AKHGhqoBZdr6tvrXDm1IKcUoPVQvp6Td3BQH4o8CzAEHarQdD5UJABeH1Wx0GKEjGW3apA9x8AWVAK+7wf23VvBzKSlcwuZMehJEnr9CeW5YlxKLmqhE/fU2Spko2MZBW+ruMHAAD//8WuvrsAAAAGSURBVAMARn5LvIcoQLwAAAAASUVORK5CYII=</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

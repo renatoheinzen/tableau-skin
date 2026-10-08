@@ -14,6 +14,7 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Projedata Lista Ranqueada | worksheet | [`trex/rank-list.trex`](trex/rank-list.trex) | Lista Top N ranqueada |
 | Projedata Matriz de Calor | worksheet | [`trex/heatmap-matrix.trex`](trex/heatmap-matrix.trex) | Matriz de calor (linha × coluna) |
 | Projedata Lista de Cards | worksheet | [`trex/card-list.trex`](trex/card-list.trex) | Lista de cards |
+| Projedata Treemap | worksheet | [`trex/treemap.trex`](trex/treemap.trex) | Treemap (área proporcional ao valor, cor por intensidade de outra medida ou por série, agrupamento opcional) |
 | Projedata Faixa Lateral | dashboard | [`trex/sidebar-nav.trex`](trex/sidebar-nav.trex) | Navegação em faixa lateral |
 | Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação |
 | Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção |
