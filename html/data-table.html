@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Tabela</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+    --row-pad: 7px; --font: 12px;
+  }
+  #chart-root.density-compact { --row-pad: 4px; --font: 11px; }
+  #chart-root.density-comfortable { --row-pad: 11px; --font: 13px; }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body { flex: 1; min-height: 0; overflow: auto; }
+  table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: var(--font); color: var(--pd-text); }
+  th, td { padding: var(--row-pad) 10px; text-align: left; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 260px; }
+  #chart-root.wrap td { white-space: normal; }
+  th.num, td.num { text-align: right; }
+  th.al-center, td.al-center { text-align: center; }
+  th.al-right, td.al-right { text-align: right; }
+  th.al-left, td.al-left { text-align: left; }
+
+  th {
+    position: sticky; top: 0; z-index: 1;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase;
+    cursor: pointer; user-select: none;
+    background: var(--pd-card-bg); color: var(--pd-text-muted);
+    border-bottom: 2px solid var(--pd-track);
+  }
+  th .arrow { margin-left: 4px; opacity: 0.9; }
+  #chart-root.head-filled th { background: var(--pd-accent-1); color: #fff; border-bottom: 0; }
+  #chart-root.head-filled.accent-laranja th { background: var(--pd-accent-2); }
+  #chart-root.head-filled.accent-amarelo th { background: var(--pd-accent-3); color: #161616; }
+  #chart-root.head-filled.accent-azul-escuro th { background: var(--pd-accent-4); color: #161616; }
+  #chart-root.head-soft th { background: var(--pd-track); color: var(--pd-text); border-bottom: 0; }
+  #chart-root.head-filled th:first-child, #chart-root.head-soft th:first-child { border-top-left-radius: 6px; }
+  #chart-root.head-filled th:last-child, #chart-root.head-soft th:last-child { border-top-right-radius: 6px; }
+
+  td { border-bottom: 1px solid transparent; position: relative; }
+  #chart-root.grid td { border-bottom-color: var(--pd-track); }
+  #chart-root.zebra tbody tr:nth-child(even) td { background: color-mix(in srgb, var(--pd-track) 45%, transparent); }
+  td.rownum { color: var(--pd-text-muted); width: 1%; }
+  td .t-bar {
+    position: absolute; left: 0; top: 18%; bottom: 18%; border-radius: 0 3px 3px 0;
+    background: var(--pd-accent-1); opacity: 0.22; pointer-events: none;
+  }
+  #chart-root.accent-laranja td .t-bar { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo td .t-bar { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro td .t-bar { background: var(--pd-accent-4); }
+  td .t-txt { position: relative; }
+  td.pos .t-txt { color: var(--pd-positive); font-weight: 700; }
+  td.neg .t-txt { color: var(--pd-negative); font-weight: 700; }
+  tfoot td { position: sticky; bottom: 0; font-weight: 700; background: var(--pd-card-bg); border-top: 2px solid var(--pd-track); border-bottom: 0; }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="zebra grid">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"><table id="tbl"></table></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataTableState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var tbl = document.getElementById('tbl');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    columnsSpec: '', headerStyle: 'plain', zebra: true, showGrid: true, density: 'normal',
+    rowNumbers: false, showTotals: false, totalLabel: 'Total', wrapText: false,
+    sortField: '', sortOrder: 'desc', maxRows: ''
+  };
+  var model = null;          // { cols: [{ title, num, align, format, visual, min, max }], rows: [[{ v, text }]] }
+  var userSort = null;       // { idx, dir } definido pelo clique no cabeçalho
+
+  var ALIGN = { esq: 'left', esquerda: 'left', left: 'left', centro: 'center', center: 'center', dir: 'right', direita: 'right', right: 'right' };
+  var FORMAT = { auto: 1, compact: 1, int: 1, dec1: 1, dec2: 1, pct: 1 };
+  var VISUAL = { bar: 1, heat: 1, sign: 1 };
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.toggle('zebra', state.zebra !== false);
+    root.classList.toggle('grid', state.showGrid !== false);
+    root.classList.toggle('wrap', !!state.wrapText);
+    ['plain', 'filled', 'soft'].forEach(function (h) { root.classList.toggle('head-' + h, state.headerStyle === h); });
+    ['compact', 'comfortable'].forEach(function (d) { root.classList.toggle('density-' + d, state.density === d); });
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  // Aceita rgb(), rgba() e color(srgb r g b) (formatos que o navegador devolve para color-mix)
+  function luminanceOf(cssColor) {
+    var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(cssColor);
+    var r, g, b;
+    if (m) { r = +m[1] / 255; g = +m[2] / 255; b = +m[3] / 255; }
+    else {
+      m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(cssColor);
+      if (!m) return null;
+      r = +m[1]; g = +m[2]; b = +m[3];
+    }
+    return 0.299 * r + 0.587 * g + 0.114 * b;
+  }
+
+  // "Campo | Título | direita | pct | bar" — alinhamento, formato e visual em qualquer ordem
+  function parseSpec(text) {
+    var out = [];
+    String(text || '').split('\n').forEach(function (line) {
+      if (!line.trim()) return;
+      var p = line.split('|').map(function (s) { return s.trim(); });
+      var d = { field: p[0], title: p[1] || '', align: '', format: 'auto', visual: '' };
+      p.slice(2).forEach(function (t) {
+        var k = t.toLowerCase();
+        if (ALIGN[k]) d.align = ALIGN[k];
+        else if (FORMAT[k]) d.format = k;
+        else if (VISUAL[k]) d.visual = k;
+      });
+      out.push(d);
+    });
+    return out;
+  }
+
+  function fmtValue(col, cell) {
+    if (!cell) return '';
+    var v = cell.value;
+    var isNum = typeof v === 'number' && !isNaN(v);
+    if (isNum) {
+      if (col.format === 'int') return Math.round(v).toLocaleString('pt-BR');
+      if (col.format === 'dec1') return v.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+      if (col.format === 'dec2') return v.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      if (col.format === 'pct') return (v * 100).toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+      if (col.format === 'compact' || state.displayUnits || state.decimals !== '') return formatCompact(v);
+    }
+    return cell.formattedValue;
+  }
+
+  function sortedRows() {
+    var rows = model.rows.slice();
+    var s = userSort || (model.defaultSort ? model.defaultSort : null);
+    if (!s) return rows;
+    var cmp = function (a, b) {
+      var x = a[s.idx], y = b[s.idx];
+      var r;
+      if (model.cols[s.idx].num) r = x.v - y.v;
+      else if (!isNaN(x.k) && !isNaN(y.k)) r = x.k - y.k;
+      else r = String(x.text).localeCompare(String(y.text), 'pt-BR', { numeric: true });
+      return s.dir === 'asc' ? r : -r;
+    };
+    rows.sort(cmp);
+    return rows;
+  }
+
+  function render() {
+    tbl.innerHTML = '';
+    if (!model || model.cols.length === 0) {
+      tbl.innerHTML = '<tr><td id="chart-status">Sem dados</td></tr>';
+      return;
+    }
+    var rows = sortedRows();
+    var maxRows = parseInt(state.maxRows, 10);
+    if (maxRows > 0) rows = rows.slice(0, maxRows);
+    var cur = userSort || model.defaultSort;
+
+    var thead = document.createElement('thead');
+    var htr = document.createElement('tr');
+    if (state.rowNumbers) htr.appendChild(document.createElement('th')).className = 'num';
+    model.cols.forEach(function (c, i) {
+      var th = document.createElement('th');
+      th.className = c.align ? 'al-' + c.align : (c.num ? 'num' : '');
+      th.textContent = c.title;
+      th.title = c.title;
+      if (cur && cur.idx === i) {
+        var a = document.createElement('span');
+        a.className = 'arrow';
+        a.textContent = cur.dir === 'asc' ? '▲' : '▼';
+        th.appendChild(a);
+      }
+      th.addEventListener('click', function () {
+        // alterna: decrescente (numéricos) / crescente (texto) → o inverso → ordem original
+        var first = c.num ? 'desc' : 'asc';
+        if (!userSort || userSort.idx !== i) userSort = { idx: i, dir: first };
+        else if (userSort.dir === first) userSort = { idx: i, dir: first === 'desc' ? 'asc' : 'desc' };
+        else userSort = null;
+        render();
+      });
+      htr.appendChild(th);
+    });
+    thead.appendChild(htr);
+    tbl.appendChild(thead);
+
+    var heatCells = [];
+    var tbody = document.createElement('tbody');
+    rows.forEach(function (r, ri) {
+      var tr = document.createElement('tr');
+      if (state.rowNumbers) {
+        var n = document.createElement('td');
+        n.className = 'rownum num';
+        n.textContent = String(ri + 1);
+        tr.appendChild(n);
+      }
+      r.forEach(function (cell, ci) {
+        var c = model.cols[ci];
+        var td = document.createElement('td');
+        var cls = c.align ? 'al-' + c.align : (c.num ? 'num' : '');
+        if (c.visual === 'sign' && c.num) cls += cell.v > 0 ? ' pos' : (cell.v < 0 ? ' neg' : '');
+        td.className = cls;
+        td.title = cell.text;
+        if (c.visual === 'bar' && c.num) {
+          var bar = document.createElement('span');
+          bar.className = 't-bar';
+          bar.style.width = (c.max > 0 ? Math.max(0, Math.min(100, cell.v / c.max * 100)) : 0).toFixed(1) + '%';
+          td.appendChild(bar);
+        }
+        var txt = document.createElement('span');
+        txt.className = 't-txt';
+        txt.textContent = cell.text;
+        td.appendChild(txt);
+        if (c.visual === 'heat' && c.num) {
+          var t = c.max === c.min ? 1 : (cell.v - c.min) / (c.max - c.min);
+          td.style.background = 'color-mix(in srgb, var(--pd-accent-1) ' + Math.round(12 + 88 * t) + '%, var(--pd-track))';
+          heatCells.push(td);
+        }
+        tr.appendChild(td);
+      });
+      tbody.appendChild(tr);
+    });
+    tbl.appendChild(tbody);
+
+    if (state.showTotals) {
+      var tf = document.createElement('tfoot');
+      var ftr = document.createElement('tr');
+      if (state.rowNumbers) ftr.appendChild(document.createElement('td'));
+      model.cols.forEach(function (c, i) {
+        var td = document.createElement('td');
+        td.className = c.align ? 'al-' + c.align : (c.num ? 'num' : '');
+        if (i === 0) td.textContent = state.totalLabel || 'Total';
+        else if (c.num && c.format !== 'pct' && c.visual !== 'sign') {
+          var total = rows.reduce(function (s, r) { return s + r[i].v; }, 0);
+          td.textContent = fmtValue(c, { value: total, formattedValue: formatCompact(total) });
+        }
+        ftr.appendChild(td);
+      });
+      tf.appendChild(ftr);
+      tbl.appendChild(tf);
+    }
+
+    // texto claro/escuro conforme a cor final da célula de mapa de calor
+    heatCells.forEach(function (td) {
+      var lum = luminanceOf(getComputedStyle(td).backgroundColor);
+      td.style.color = lum != null && lum < 0.55 ? '#ffffff' : '#161616';
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      tbl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+        titleEl.textContent = 'Arraste os campos da tabela para as Marcas';
+        tbl.innerHTML = '';
+        return;
+      }
+      var cols = sumData.columns;
+      var isNumCol = function (i) { return cols[i].dataType === 'int' || cols[i].dataType === 'float'; };
+
+      // colunas: as da especificação (nessa ordem) ou todas as da planilha
+      var defs = parseSpec(state.columnsSpec).map(function (d) {
+        var idx = cols.findIndex(function (c) { return c.fieldName.toLowerCase() === d.field.toLowerCase(); });
+        return idx === -1 ? null : { idx: idx, title: d.title || cols[idx].fieldName, align: d.align, format: d.format, visual: d.visual };
+      }).filter(Boolean);
+      if (defs.length === 0) {
+        defs = cols.map(function (c, i) { return { idx: i, title: c.fieldName, align: '', format: 'auto', visual: '' }; });
+      }
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var data = sumData.data || [];
+      var mcols = defs.map(function (d) {
+        var num = isNumCol(d.idx);
+        var type = cols[d.idx].dataType;
+        var vals = data.map(function (row) { var c = row[d.idx]; return c && typeof c.value === 'number' ? c.value : 0; });
+        return {
+          title: d.title, num: num, align: d.align, format: d.format, visual: d.visual,
+          isDate: type === 'date' || type === 'date-time',
+          min: vals.length ? Math.min.apply(null, vals) : 0, max: vals.length ? Math.max.apply(null, vals) : 0
+        };
+      });
+      var rows = data.map(function (row) {
+        return defs.map(function (d, j) {
+          var c = row[d.idx];
+          var v = c && typeof c.value === 'number' && !isNaN(c.value) ? c.value : 0;
+          var k = mcols[j].isDate && c ? Date.parse(c.value) : NaN;
+          return { v: v, k: k, text: fmtValue(mcols[j], c) };
+        });
+      });
+      var defaultSort = null;
+      if (state.sortField) {
+        var si = defs.findIndex(function (d) { return cols[d.idx].fieldName === state.sortField; });
+        if (si !== -1) defaultSort = { idx: si, dir: state.sortOrder === 'asc' ? 'asc' : 'desc' };
+      }
+      model = { cols: mcols, rows: rows, defaultSort: defaultSort };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Tabela] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      tbl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/data-table-config.html', '', { height: 860, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Tabela] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

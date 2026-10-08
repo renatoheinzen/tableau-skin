@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.datatable" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Tabela</name>
+    <description>Tabela estilizada (cabeçalho, linhas zebradas, totais, barras, mapa de calor e cor por sinal nas células), com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/data-table.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACAklEQVR4AeyaPU7DQBCF367EBaCgiDhEkjOEFOQW/AgkKOgp6SlAQuLnFAlFxBlCDgEpKOACSFnmbX7kGHuKCNBs4sgT7+54o+/NW69dxKPg02yGjXorHDd2Q1fiTSIYCbJ0yUbGAnT8ENRsh4PxFl6dw61M6EjUJKwcZOmQjYxkzYMtCGq0wnUIuHfAdv5Ca30ykpXMWba5oJhwOM0mk2gLc2SfwkZB0TpJTMfSOwl71CDknjfXOOBS2kkf1EAtfryJfa7HpNUIPDVQi5cdY0/6K3FQC++h+kqomYioUxD39kk39z3oAxYjh5nt1igoO5B8uxJk3cLKocqhf66AuuSabcBiaDVSBWkTreYqQb/pzF/8lurQ+RFgMbRCqIK0iVZzlSCrzsy41suhqzvAYszcKDqvl0NFFbA+VjmUtEMW3xLIpBW1WnJadSzkKocsuKAxqA5ZfEsg09KCtIlWc6pDVqE1rvUVpFXFUk51iE9li6EVUBWkTbSaW0lBI6vVXoJrRIeGS0y0OmXoQ8BTGR2fyhajjJdavP/EYwDeyy5KZZwaqMUPBu7LO1ykAl7GSQ1RCy8Y9N0DAm7YTjKEPWoQeG4KcgJent1ZkqJETGSPKrD4B0AmnMMh1+M0b/ZERrKSOQs5d2g2SOv8B3ZkxziRsZ6EpecUWXpkIyNZhW/h+AYAAP//wHg1aAAAAAZJREFUAwD3vPe8+L3K2QAAAABJRU5ErkJggg==</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>
