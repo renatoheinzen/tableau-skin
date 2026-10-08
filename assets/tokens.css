@@ -51,6 +51,13 @@
   --pd-card-shadow: none;
   --pd-card-padding: 12px 16px;
 
+  /* Barra de rolagem */
+  --pd-scrollbar-thumb: #3B42A0;
+  --pd-scrollbar-thumb-hover: #6B7BFF;
+  --pd-scrollbar-track: transparent;
+  --pd-scrollbar-width: 8px;
+  --pd-scrollbar-radius: 4px;
+
   /* Navegação (faixa lateral e cabeçalho com abas) */
   --pd-nav-bg: #14185A;
   --pd-nav-text: #FFFFFF;
@@ -83,3 +90,11 @@
   --pd-dlg-input-border: #2A2F7A;
   --pd-dlg-radius: 4px;
 }
+
+/* Barra de rolagem */
+*::-webkit-scrollbar { width: var(--pd-scrollbar-width); height: var(--pd-scrollbar-width); }
+*::-webkit-scrollbar-track { background: var(--pd-scrollbar-track); border-radius: var(--pd-scrollbar-radius); }
+*::-webkit-scrollbar-thumb { background: var(--pd-scrollbar-thumb); border-radius: var(--pd-scrollbar-radius); }
+*::-webkit-scrollbar-thumb:hover { background: var(--pd-scrollbar-thumb-hover); }
+*::-webkit-scrollbar-corner { background: transparent; }
+@supports (-moz-appearance: none) { * { scrollbar-width: thin; scrollbar-color: var(--pd-scrollbar-thumb) var(--pd-scrollbar-track); } }
