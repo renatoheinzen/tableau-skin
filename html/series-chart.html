@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Gráfico de Séries</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #main { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: 6px; }
+  #chart-root.legend-bottom #main { flex-direction: column-reverse; }
+  #chart-root.legend-right #main { flex-direction: row-reverse; }
+  #chart-root.legend-none #legend { display: none; }
+  #legend { display: flex; flex-wrap: wrap; gap: 4px 14px; flex: 0 0 auto; }
+  #chart-root.legend-right #legend { flex-direction: column; flex-wrap: nowrap; gap: 6px; justify-content: center; max-width: 34%; }
+  .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--pd-text); cursor: pointer; user-select: none; min-width: 0; }
+  .lg.off { opacity: 0.35; }
+  .lg i { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+  .lg.line i { height: 3px; border-radius: 2px; width: 14px; }
+  .lg span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #plot { flex: 1; min-height: 0; min-width: 0; position: relative; }
+  #plot svg { position: absolute; left: 0; top: 0; overflow: visible; }
+  .grid-line { stroke: var(--pd-track); stroke-width: 1; }
+  .axis-line { stroke: var(--pd-text-muted); stroke-width: 1; opacity: 0.5; }
+  .tick { font-family: inherit; font-size: 10px; fill: var(--pd-text-muted); }
+  .val { font-family: inherit; font-size: 10px; font-weight: 700; fill: var(--pd-text); text-anchor: middle; }
+  .ser-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+</style>
+</head>
+<body>
+
+<div id="chart-root" class="legend-top">
+  <div id="chart-title">Carregando...</div>
+  <div id="main">
+    <div id="legend"></div>
+    <div id="plot"></div>
+  </div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataSeriesChartState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var legendEl = document.getElementById('legend');
+  var plotEl = document.getElementById('plot');
+  var NS = 'http://www.w3.org/2000/svg';
+  var BAR_TYPES = { stacked: 1, grouped: 1, percent: 1, combo: 1 };
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  var state = {
+    displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    xField: '', seriesField: '', valueField: '', lineField: '',
+    chartType: 'stacked', orientation: 'vertical', dualAxis: true, lineAgg: 'avg',
+    legend: 'top', showValues: 'none', showGrid: true, yZero: true, showPoints: true, barWidth: 'normal',
+    sortOrder: '', maxCategories: ''
+  };
+  var model = null; // { xs: [labels], series: [{ name, vals: {x: v} }], line: { name, vals } | null, percentFormat }
+  var hidden = {};  // séries ocultadas pela legenda
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ['top', 'bottom', 'right', 'none'].forEach(function (p) { root.classList.toggle('legend-' + p, state.legend === p); });
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  var colorCache = {};
+  // cor do tema (resolvida) e se o texto sobre ela deve ser claro
+  function seriesColor(i) { return 'var(--pd-series-' + ((i % 8) + 1) + ')'; }
+  function textOn(i) {
+    if (colorCache[i] !== undefined) return colorCache[i];
+    var probe = document.createElement('span');
+    probe.style.background = seriesColor(i);
+    document.body.appendChild(probe);
+    var c = getComputedStyle(probe).backgroundColor;
+    document.body.removeChild(probe);
+    var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(c);
+    var lum = m ? (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) / 255 : 0;
+    return (colorCache[i] = lum < 0.55 ? '#ffffff' : '#161616');
+  }
+
+  function el(name, attrs, text) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function niceTicks(lo, hi, n) {
+    if (lo === hi) hi = lo + 1;
+    var span = hi - lo, step = Math.pow(10, Math.floor(Math.log10(span / n)));
+    var err = span / n / step;
+    if (err >= 7.5) step *= 10; else if (err >= 3.5) step *= 5; else if (err >= 1.5) step *= 2;
+    var a = Math.floor(lo / step) * step, b = Math.ceil(hi / step) * step, t = [];
+    for (var v = a; v <= b + step / 2; v += step) t.push(+v.toFixed(10));
+    return { ticks: t, min: a, max: b };
+  }
+
+  function fmtAxis(v, pct) { return pct ? Math.round(v) + '%' : formatCompact(v); }
+  function truncate(s, n) { s = String(s); return s.length > n ? s.slice(0, Math.max(1, n - 1)) + '…' : s; }
+
+  function visibleSeries() { return model.series.filter(function (s) { return !hidden[s.name]; }); }
+
+  function renderLegend() {
+    legendEl.innerHTML = '';
+    var items = model.series.map(function (s, i) { return { name: s.name, i: i, line: state.chartType === 'lines' }; });
+    if (model.line) items.push({ name: model.line.name, i: model.series.length, line: true, isLine: true });
+    if (items.length < 2 && !model.line) { legendEl.style.display = 'none'; return; }
+    legendEl.style.display = '';
+    items.forEach(function (it) {
+      var d = document.createElement('div');
+      d.className = 'lg' + (it.line ? ' line' : '') + (hidden[it.name] ? ' off' : '');
+      var sw = document.createElement('i');
+      sw.style.background = seriesColor(it.i);
+      var sp = document.createElement('span');
+      sp.textContent = it.name;
+      sp.title = it.name;
+      d.appendChild(sw); d.appendChild(sp);
+      if (!it.isLine) d.addEventListener('click', function () { hidden[it.name] = !hidden[it.name]; render(); });
+      legendEl.appendChild(d);
+    });
+  }
+
+  function render() {
+    plotEl.innerHTML = '';
+    if (!model || model.xs.length === 0 || (model.series.length === 0 && !model.line)) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      plotEl.appendChild(empty);
+      legendEl.innerHTML = '';
+      return;
+    }
+    renderLegend();
+    var W = plotEl.clientWidth, H = plotEl.clientHeight;
+    if (W < 40 || H < 40) return;
+
+    var type = state.chartType;
+    var horiz = state.orientation === 'horizontal' && (type === 'stacked' || type === 'grouped' || type === 'percent');
+    var xs = model.xs, n = xs.length;
+    var ser = visibleSeries();
+    var pct = type === 'percent';
+
+    // ---- valores empilhados / agrupados ----
+    var stacks = xs.map(function (x) {
+      var pos = 0, neg = 0, total = 0, segs = [];
+      ser.forEach(function (s) { total += Math.abs(s.vals[x] || 0); });
+      ser.forEach(function (s) {
+        var v = s.vals[x];
+        if (v === undefined) return;
+        var nv = pct ? (total ? Math.abs(v) / total * 100 : 0) : v;
+        var y0, y1;
+        if (nv >= 0) { y0 = pos; y1 = pos + nv; pos = y1; } else { y1 = neg; y0 = neg + nv; neg = y0; }
+        segs.push({ s: s, i: model.series.indexOf(s), v: v, y0: y0, y1: y1 });
+      });
+      return { x: x, segs: segs, top: pos, bottom: neg, total: pct ? 100 : segs.reduce(function (a, g) { return a + g.v; }, 0) };
+    });
+
+    // ---- domínio do eixo principal ----
+    var lo = 0, hi = 0;
+    if (type === 'stacked' || type === 'percent' || type === 'area' || (type === 'combo')) {
+      stacks.forEach(function (st) { lo = Math.min(lo, st.bottom); hi = Math.max(hi, st.top); });
+    } else if (type === 'grouped') {
+      stacks.forEach(function (st) { st.segs.forEach(function (g) { lo = Math.min(lo, g.v); hi = Math.max(hi, g.v); }); });
+    } else { // linhas
+      var vals = [];
+      ser.forEach(function (s) { Object.keys(s.vals).forEach(function (k) { vals.push(s.vals[k]); }); });
+      lo = vals.length ? Math.min.apply(null, vals) : 0; hi = vals.length ? Math.max.apply(null, vals) : 1;
+      if (state.yZero) { lo = Math.min(0, lo); hi = Math.max(0, hi); }
+      else { var pd = (hi - lo) * 0.08 || 1; lo -= pd; hi += pd; }
+    }
+    if (pct) { lo = 0; hi = 100; }
+    var lineVals = model.line ? model.xs.map(function (x) { return model.line.vals[x]; }).filter(function (v) { return v !== undefined; }) : [];
+    var dual = !!model.line && state.dualAxis !== false;
+    if (model.line && !dual && lineVals.length) { lo = Math.min(lo, Math.min.apply(null, lineVals)); hi = Math.max(hi, Math.max.apply(null, lineVals)); }
+    var main = niceTicks(lo, hi, horiz ? 5 : Math.max(3, Math.floor(H / 48)));
+    var sec = null;
+    if (dual && lineVals.length) {
+      var l0 = Math.min(0, Math.min.apply(null, lineVals)), l1 = Math.max.apply(null, lineVals);
+      sec = niceTicks(l0, l1, Math.max(3, Math.floor(H / 48)));
+    }
+
+    // ---- margens ----
+    var lblW = function (ticks, p) { return Math.max.apply(null, ticks.map(function (t) { return fmtAxis(t, p).length; })) * 6 + 8; };
+    var maxX = Math.max.apply(null, xs.map(function (x) { return String(x).length; }));
+    var padL, padR, padT = state.showValues !== 'none' ? 14 : 6, padB;
+    if (horiz) { padL = Math.min(W * 0.35, maxX * 6 + 10); padR = 12; padB = 18; }
+    else { padL = lblW(main.ticks, pct); padR = sec ? lblW(sec.ticks, false) : 8; padB = 20; }
+    var pw = W - padL - padR, ph = H - padT - padB;
+    if (pw < 20 || ph < 20) return;
+
+    var svg = el('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H });
+    var vpos, cpos, span;   // vpos: valor -> coordenada; cpos: centro da categoria
+    if (horiz) {
+      vpos = function (v) { return padL + (v - main.min) / (main.max - main.min) * pw; };
+      span = ph / n; cpos = function (i) { return padT + span * (i + 0.5); };
+    } else {
+      vpos = function (v) { return padT + (main.max - v) / (main.max - main.min) * ph; };
+      span = pw / n; cpos = function (i) { return padL + span * (i + 0.5); };
+    }
+
+    // grade e rótulos do eixo de valores
+    main.ticks.forEach(function (t) {
+      var p = vpos(t);
+      if (state.showGrid !== false) {
+        svg.appendChild(horiz ? el('line', { class: 'grid-line', x1: p, x2: p, y1: padT, y2: padT + ph }) : el('line', { class: 'grid-line', x1: padL, x2: padL + pw, y1: p, y2: p }));
+      }
+      svg.appendChild(horiz
+        ? el('text', { class: 'tick', x: p, y: H - 4, 'text-anchor': 'middle' }, fmtAxis(t, pct))
+        : el('text', { class: 'tick', x: padL - 6, y: p + 3, 'text-anchor': 'end' }, fmtAxis(t, pct)));
+    });
+    if (sec) {
+      sec.ticks.forEach(function (t) {
+        var y = padT + (sec.max - t) / (sec.max - sec.min) * ph;
+        svg.appendChild(el('text', { class: 'tick', x: padL + pw + 6, y: y + 3, 'text-anchor': 'start' }, formatCompact(t)));
+      });
+    }
+    // linha de base (zero)
+    if (main.min < 0 && main.max > 0) {
+      var z = vpos(0);
+      svg.appendChild(horiz ? el('line', { class: 'axis-line', x1: z, x2: z, y1: padT, y2: padT + ph }) : el('line', { class: 'axis-line', x1: padL, x2: padL + pw, y1: z, y2: z }));
+    }
+
+    // rótulos das categorias
+    var everyX = horiz ? 1 : Math.max(1, Math.ceil(n / Math.max(1, Math.floor(pw / 46))));
+    xs.forEach(function (x, i) {
+      if (i % everyX) return;
+      if (horiz) svg.appendChild(el('text', { class: 'tick', x: padL - 6, y: cpos(i) + 3, 'text-anchor': 'end' }, truncate(x, Math.floor(padL / 6))));
+      else svg.appendChild(el('text', { class: 'tick', x: cpos(i), y: H - 4, 'text-anchor': 'middle' }, truncate(x, Math.max(3, Math.floor(span * everyX / 6)))));
+    });
+
+    var wFactor = state.barWidth === 'thin' ? 0.4 : (state.barWidth === 'wide' ? 0.85 : 0.65);
+    var showAll = state.showValues === 'all', showTot = state.showValues === 'total';
+
+    // ---- barras (empilhadas, 100%, agrupadas e combinação) ----
+    if (BAR_TYPES[type]) {
+      stacks.forEach(function (st, i) {
+        var c = cpos(i), bw = span * wFactor;
+        if (type === 'grouped') {
+          var k = st.segs.length, w1 = bw / Math.max(1, k);
+          st.segs.forEach(function (g, j) {
+            var a = vpos(Math.max(0, g.v)), b = vpos(Math.min(0, g.v)), off = c - bw / 2 + w1 * j;
+            var r = horiz ? el('rect', { x: Math.min(a, b), y: off, width: Math.abs(b - a) || 1, height: Math.max(1, w1 - 1), rx: 2 })
+                          : el('rect', { x: off, y: Math.min(a, b), width: Math.max(1, w1 - 1), height: Math.abs(b - a) || 1, rx: 2 });
+            r.style.fill = seriesColor(g.i);
+            r.appendChild(el('title', {}, g.s.name + ' · ' + st.x + ': ' + formatCompact(g.v)));
+            svg.appendChild(r);
+            if (showAll || showTot) {
+              svg.appendChild(horiz ? el('text', { class: 'val', x: Math.max(a, b) + 4, y: off + w1 / 2 + 3, 'text-anchor': 'start' }, formatCompact(g.v))
+                                    : el('text', { class: 'val', x: off + w1 / 2, y: Math.min(a, b) - 4 }, formatCompact(g.v)));
+            }
+          });
+        } else {
+          st.segs.forEach(function (g) {
+            var a = vpos(g.y1), b = vpos(g.y0);
+            var r = horiz ? el('rect', { x: Math.min(a, b), y: c - bw / 2, width: Math.max(1, Math.abs(b - a)), height: bw, rx: 2 })
+                          : el('rect', { x: c - bw / 2, y: Math.min(a, b), width: bw, height: Math.max(1, Math.abs(b - a)), rx: 2 });
+            r.style.fill = seriesColor(g.i);
+            r.appendChild(el('title', {}, g.s.name + ' · ' + st.x + ': ' + formatCompact(g.v)));
+            svg.appendChild(r);
+            var big = horiz ? Math.abs(b - a) > 34 : Math.abs(b - a) > 14;
+            if (showAll && big) {
+              var t = el('text', { class: 'val', x: horiz ? (a + b) / 2 : c, y: horiz ? c + 3 : (a + b) / 2 + 3 }, pct ? Math.round(g.y1 - g.y0) + '%' : formatCompact(g.v));
+              t.style.fill = textOn(g.i);
+              svg.appendChild(t);
+            }
+          });
+          if ((showTot || showAll) && !pct && st.segs.length) {
+            var tp = vpos(st.top);
+            svg.appendChild(horiz ? el('text', { class: 'val', x: tp + 4, y: c + 3, 'text-anchor': 'start' }, formatCompact(st.total))
+                                  : el('text', { class: 'val', x: c, y: tp - 4 }, formatCompact(st.total)));
+          }
+        }
+      });
+    }
+
+    // ---- áreas empilhadas ----
+    if (type === 'area') {
+      var up = ser.map(function () { return []; }), dn = ser.map(function () { return []; });
+      stacks.forEach(function (st, i) {
+        ser.forEach(function (s, j) {
+          var g = st.segs.filter(function (q) { return q.s === s; })[0];
+          var y0 = g ? g.y0 : st.top, y1 = g ? g.y1 : st.top;
+          up[j].push(cpos(i).toFixed(1) + ',' + vpos(y1).toFixed(1));
+          dn[j].push(cpos(i).toFixed(1) + ',' + vpos(y0).toFixed(1));
+        });
+      });
+      for (var j = ser.length - 1; j >= 0; j--) {
+        var poly = el('polygon', { points: up[j].concat(dn[j].slice().reverse()).join(' ') });
+        poly.style.fill = seriesColor(model.series.indexOf(ser[j]));
+        poly.style.opacity = 0.85;
+        poly.appendChild(el('title', {}, ser[j].name));
+        svg.appendChild(poly);
+      }
+      if (showTot || showAll) {
+        stacks.forEach(function (st, i) { svg.appendChild(el('text', { class: 'val', x: cpos(i), y: vpos(st.top) - 5 }, formatCompact(st.total))); });
+      }
+    }
+
+    // ---- linhas por série ----
+    if (type === 'lines') {
+      ser.forEach(function (s) {
+        var idx = model.series.indexOf(s), pts = [];
+        xs.forEach(function (x, i) { if (s.vals[x] !== undefined) pts.push({ i: i, v: s.vals[x] }); });
+        if (!pts.length) return;
+        var pl = el('polyline', { class: 'ser-line', points: pts.map(function (p) { return cpos(p.i).toFixed(1) + ',' + vpos(p.v).toFixed(1); }).join(' ') });
+        pl.style.stroke = seriesColor(idx);
+        svg.appendChild(pl);
+        pts.forEach(function (p, k) {
+          var last = k === pts.length - 1;
+          if (state.showPoints !== false || last) {
+            var d = el('circle', { cx: cpos(p.i), cy: vpos(p.v), r: last ? 3.4 : 2.4 });
+            d.style.fill = seriesColor(idx);
+            d.appendChild(el('title', {}, s.name + ' · ' + xs[p.i] + ': ' + formatCompact(p.v)));
+            svg.appendChild(d);
+          }
+          if (showAll || (showTot && last)) svg.appendChild(el('text', { class: 'val', x: cpos(p.i), y: vpos(p.v) - 7 }, formatCompact(p.v)));
+        });
+      });
+    }
+
+    // ---- linha de combinação (medida extra, eixo secundário opcional) ----
+    if (model.line && lineVals.length) {
+      var li = model.series.length;
+      var ly = function (v) { return sec ? padT + (sec.max - v) / (sec.max - sec.min) * ph : vpos(v); };
+      var lp = [];
+      xs.forEach(function (x, i) { var v = model.line.vals[x]; if (v !== undefined) lp.push({ i: i, v: v, x: x }); });
+      var lpl = el('polyline', { class: 'ser-line', points: lp.map(function (p) { return cpos(p.i).toFixed(1) + ',' + ly(p.v).toFixed(1); }).join(' ') });
+      lpl.style.stroke = seriesColor(li);
+      svg.appendChild(lpl);
+      lp.forEach(function (p, k) {
+        var d = el('circle', { cx: cpos(p.i), cy: ly(p.v), r: 3 });
+        d.style.fill = seriesColor(li);
+        d.appendChild(el('title', {}, model.line.name + ' · ' + p.x + ': ' + formatCompact(p.v)));
+        svg.appendChild(d);
+        if (showAll || (showTot && k === lp.length - 1)) svg.appendChild(el('text', { class: 'val', x: cpos(p.i), y: ly(p.v) - 7 }, model.line.pctText ? formatPct(p.v) : formatCompact(p.v)));
+      });
+    }
+    plotEl.appendChild(svg);
+  }
+
+  function formatPct(v) { return (v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%'; }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      plotEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste a categoria, (a série) e as medidas para as Marcas';
+        plotEl.innerHTML = '';
+        return;
+      }
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var dims = [];
+      cols.forEach(function (c, i) { if (!isNum(c)) dims.push(i); });
+      var xIdx = findColumnIndex(cols, state.xField, dims.length ? dims[0] : 0);
+      var serIdx = state.seriesField ? findColumnIndex(cols, state.seriesField, -1) : -1;
+      var lineIdx = state.lineField ? findColumnIndex(cols, state.lineField, -1) : -1;
+      if (state.chartType !== 'combo') lineIdx = -1;
+      var valIdx = state.valueField ? findColumnIndex(cols, state.valueField, -1) : -1;
+      var nums = [];
+      cols.forEach(function (c, i) { if (isNum(c) && i !== xIdx && i !== serIdx && i !== lineIdx) nums.push(i); });
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var xs = [], xKey = {}, xType = cols[xIdx].dataType;
+      var seriesMap = {}, seriesList = [];
+      function ensureSeries(name) {
+        if (!seriesMap[name]) { seriesMap[name] = { name: name, vals: {} }; seriesList.push(seriesMap[name]); }
+        return seriesMap[name];
+      }
+      var lineSum = {}, lineCnt = {};
+      var wide = serIdx === -1 && valIdx === -1; // sem série e sem medida escolhida: cada medida vira uma série
+      var wideCols = wide ? nums.slice(0, 8) : [];
+      if (serIdx === -1 && valIdx === -1 && nums.length === 0) { plotEl.innerHTML = ''; titleEl.textContent = 'Coloque ao menos 1 medida nas Marcas'; return; }
+      if (!wide && valIdx === -1) valIdx = nums[0];
+      var valPct = false;
+
+      (sumData.data || []).forEach(function (row) {
+        var x = row[xIdx] ? row[xIdx].formattedValue : '';
+        if (xs.indexOf(x) === -1) {
+          xs.push(x);
+          var xr = row[xIdx] ? row[xIdx].value : null;
+          xKey[x] = typeof xr === 'number' ? xr : ((xType === 'date' || xType === 'date-time') ? Date.parse(xr) : NaN);
+        }
+        var add = function (name, cell) {
+          if (!cell || typeof cell.value !== 'number' || isNaN(cell.value)) return;
+          var s = ensureSeries(name);
+          s.vals[x] = (s.vals[x] || 0) + cell.value;
+        };
+        if (wide) wideCols.forEach(function (ci) { add(cols[ci].fieldName, row[ci]); });
+        else add(serIdx !== -1 ? (row[serIdx] ? row[serIdx].formattedValue : '') : cols[valIdx].fieldName, row[valIdx]);
+        if (lineIdx !== -1 && row[lineIdx] && typeof row[lineIdx].value === 'number') {
+          lineSum[x] = (lineSum[x] || 0) + row[lineIdx].value;
+          lineCnt[x] = (lineCnt[x] || 0) + 1;
+          if (/%\s*$/.test(row[lineIdx].formattedValue)) valPct = true;
+        }
+      });
+      if (xs.length && xs.every(function (k) { return !isNaN(xKey[k]); })) xs.sort(function (a, b) { return xKey[a] - xKey[b]; });
+
+      var totalOf = function (x) { return seriesList.reduce(function (a, s) { return a + Math.abs(s.vals[x] || 0); }, 0); };
+      if (state.sortOrder === 'desc' || state.sortOrder === 'asc') {
+        xs.sort(function (a, b) { return state.sortOrder === 'asc' ? totalOf(a) - totalOf(b) : totalOf(b) - totalOf(a); });
+      }
+      var maxC = parseInt(state.maxCategories, 10);
+      if (maxC > 0) xs = xs.slice(0, maxC);
+
+      var line = null;
+      if (lineIdx !== -1) {
+        line = { name: cols[lineIdx].fieldName, vals: {}, pctText: valPct };
+        xs.forEach(function (x) {
+          if (lineCnt[x]) line.vals[x] = state.lineAgg === 'sum' ? lineSum[x] : lineSum[x] / lineCnt[x];
+        });
+      }
+      model = { xs: xs, series: seriesList, line: line };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Gráfico de Séries] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      plotEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/series-chart-config.html', '', { height: 860, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Gráfico de Séries] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  // redesenha quando o tamanho da zona muda
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 80);
+  });
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

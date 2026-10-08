@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.serieschart" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Gráfico de Séries</name>
+    <description>Barras empilhadas, 100%, agrupadas, linhas múltiplas, área empilhada e combinação barras + linha, com a paleta de série da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/series-chart.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAEM0lEQVR4AeyZWWgUWRSG/+6QzOrMOEPoYUJmZOKOGuK+IwoiKm6Iu4JoRDE++GrEJxUE31QEF/RB3BUlcQP3BxcIBndcETViiPuCYozl+bu93tLu2rpQb7lQp+6559xT9/9Sfatut3Fk+DdtmpU7o9yaPrPcqhC7LWYZYtRSQW3UmEE60oBmzrGm5ubjliSWS8FgsQIxUw5qGUxt1EitHwuTnA6VlVtLEMNKiSTETD8S1JrUbFP6HogJCyiz5SLhUjO1K7FJIN46JlQwai21k4G648nFFcN8diJtwkCWeE4+pghIQizqR4IscfnMDYo6idJPFjGUqIDpbY9OQId2ripLCMRnu+soE5LjhgFjhwKTRwFd2zsqKiCQY9aURJ9uQPeO/tQYD9SiCBhpW+VXbwCnzjrDeQK1bQm4mfOlw2ca/Qrwo6au9Ow5sG038KpeRdJbT6D0ks8XGT8c+Kuxnm+rwNy6o/uZvE8GxAXsZpnE2GND+gNtWujI3sNA1Wndd/I+GZDThH7inYqB/r31yOrzQOV+3XfzjAMq+BuYMEJLvlsn62aX7nt5RgFx20KYnBwte0sl8OiJ7nt5RgHxIVD4j5ZMmEvXdN+P90WB7AL79QS62DZhR08CR07YR/jzPYH4pHEzNQ3HFLdWvWBtq6bA8AG65pq8PPm+0RH/nieQn0v16gxMnwiUjgNmlwIlbfxUpcb83giYNDLl8/ziJbCpAmhoYC+4hQb66Udg9BA9cdF/wJQxQEv5q/8mYnUms0cY7ghUdv0O4E6t6gVvQwPNsf0K8fipFsA3PLdMTZsAP+TpuN0bMRDgXk3F9hwCqs+pXnZtKKAmhUDjP1ITE6Z8EVAhL0D7XiuRD3QsBvhdxm78CtC3e6qW5zMXgV0H6IWzrIF++RngS1BNv257ytsnW5R5i1O+25nvG5W/9wDYsFP1wrVZA7Vupic+eAy4eEX3uSvWPW+P6+bpM+9xfkZkBdS8CMh7ty7uPwS2yy7Yz2SZxmyVbc3l65ky2cUCA3Gx5/+pJ1uzSftBvWNVwOHjQavcxwcG+l8ey+qSN2uAG7dVL1i7eiPAj1qwKu/RnkD2JxP9vFx90X8LtB/UC/t4dprPE8ip0NT4dyBT74zS9W3dIftOQP0FTG9d79DAvqbLT9fnCMQva7T0ErMjjkD1r80W7qTOEejCZWDtZl0WFc8RiABVZ3iOlrkCRQslpfarBJI9c4ruKzjX8A5Vu4GUzQXczKnWrYY5p7qQ8er4G/ltIuRFjCknS7yhDqtFUYhfwqTajKOWLPEVK2L1sCAfLDNUZa1CGMjCNYRlC2OrYsDSrC/2hQupnQyUkQSis3RBbBYT9KNk1EztSvN7IAaSCQvyczuisKZqZamUJjVT/Dv7AIgx3rr6OhTKE2OG9OX/z1AjrSkHtVRSGzVS68fC3gIAAP//M2G61AAAAAZJREFUAwCxzWe4Zd2BXAAAAABJRU5ErkJggg==</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>
