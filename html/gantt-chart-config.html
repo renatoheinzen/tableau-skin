@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Format Extension — Projedata Gráfico de Gantt</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    color: var(--pd-dlg-text);
+    background: var(--pd-dlg-bg);
+  }
+  body { padding: 16px; overflow-y: auto; }
+  h2 { margin: 0 0 4px 0; font-size: 15px; color: var(--pd-dlg-label); }
+  .subtitle { font-size: 11px; color: var(--pd-dlg-muted); margin-bottom: 16px; }
+
+  label.field { display: block; margin-top: 12px; font-weight: 600; font-size: 12px; color: var(--pd-dlg-label); }
+  input[type="text"], input[type="number"], select, textarea {
+    width: 100%; padding: 6px 8px; margin-top: 4px;
+    border: 1px solid var(--pd-dlg-input-border); border-radius: var(--pd-dlg-radius);
+    background: var(--pd-dlg-input-bg); color: var(--pd-dlg-text);
+    font-family: inherit; font-size: 13px;
+  }
+  textarea { resize: vertical; line-height: 1.4; }
+  .checkbox-row { display: flex; align-items: center; gap: 6px; margin-top: 14px; }
+  .checkbox-row input { width: auto; }
+  .checkbox-row label { font-weight: 600; font-size: 12px; color: var(--pd-dlg-label); margin: 0; }
+  .hint { color: var(--pd-dlg-muted); font-size: 10px; margin-top: 3px; }
+
+  .accent-row { display: flex; gap: 10px; margin: 8px 0 4px 0; }
+  .accent-swatch { width: 24px; height: 24px; border-radius: 50%; cursor: pointer; border: 2px solid transparent; }
+  .accent-swatch.selected { border-color: var(--pd-dlg-text); }
+  .accent-custom {
+    position: relative; overflow: hidden;
+    background: conic-gradient(#ff3b3b, #ffd23b, #3bff6a, #3bd9ff, #3b4bff, #d93bff, #ff3b3b);
+  }
+  .accent-custom input { position: absolute; inset: -6px; width: 40px; height: 40px; opacity: 0; cursor: pointer; border: 0; padding: 0; }
+
+  .color-row { display: flex; align-items: center; gap: 10px; margin-top: 8px; }
+  .color-row input[type="color"] {
+    width: 36px; height: 28px; padding: 2px; margin: 0;
+    border: 1px solid var(--pd-dlg-input-border); border-radius: var(--pd-dlg-radius);
+    background: var(--pd-dlg-input-bg); cursor: pointer;
+  }
+  .color-row input[type="color"]:disabled { opacity: 0.4; cursor: not-allowed; }
+  .color-row label { font-size: 11px; color: var(--pd-dlg-muted); display: flex; align-items: center; gap: 4px; }
+
+  .cols-list { margin-top: 6px; display: flex; flex-direction: column; gap: 6px; }
+  .col-row {
+    border: 1px solid var(--pd-dlg-input-border); border-radius: var(--pd-dlg-radius);
+    background: var(--pd-dlg-input-bg); padding: 6px 8px;
+  }
+  .col-row.off { opacity: 0.55; }
+  .col-row.dragging { opacity: 0.35; }
+  .col-top { display: flex; align-items: center; gap: 6px; }
+  .col-top .drag { cursor: grab; color: var(--pd-dlg-muted); font-size: 14px; line-height: 1; user-select: none; }
+  .col-top input[type="checkbox"] { width: auto; margin: 0; }
+  .col-name { flex: 1; min-width: 0; font-size: 12px; font-weight: 600; color: var(--pd-dlg-label); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .col-top button.mv {
+    flex: 0 0 auto; width: 22px; height: 22px; padding: 0; font-size: 11px; line-height: 1;
+    background: var(--pd-dlg-secondary); color: var(--pd-dlg-secondary-text);
+  }
+  .col-opts { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 4px; margin-top: 6px; }
+  .col-opts .col-title { grid-column: 1 / -1; }
+  .col-opts input[type="text"], .col-opts select { margin-top: 0; padding: 4px 6px; font-size: 11px; }
+  .col-opts select:disabled { opacity: 0.45; }
+
+  .actions {
+    display: flex; gap: 8px; margin-top: 22px;
+    position: sticky; bottom: 0; background: var(--pd-dlg-bg); padding-top: 10px;
+  }
+  button {
+    flex: 1; padding: 9px; border: none; border-radius: var(--pd-dlg-radius);
+    font-family: inherit; font-weight: 700; font-size: 13px; cursor: pointer;
+  }
+  #save-btn { background: var(--pd-dlg-primary); color: var(--pd-dlg-primary-text); }
+  #save-btn:hover { filter: brightness(0.85); }
+  #cancel-btn { background: var(--pd-dlg-secondary); color: var(--pd-dlg-secondary-text); }
+  #cancel-btn:hover { filter: brightness(0.93); }
+</style>
+</head>
+<body>
+
+<h2>Projedata Gráfico de Gantt</h2>
+<div class="subtitle">Formatar extensão</div>
+<div id="form"></div>
+
+<div class="actions">
+  <button id="cancel-btn">Cancelar</button>
+  <button id="save-btn">Salvar</button>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataGanttState';
+  // Tipos: accent | text | number | checkbox | select | dimension | measure | field | color | columns
+  // Campos com hidden:true não aparecem na janela (mantêm o valor padrão).
+  var SCHEMA = [
+    {
+      "key": "accent",
+      "type": "accent",
+      "label": "Cor das barras (sem campo de grupo)",
+      "default": ""
+    },
+    {
+      "key": "customLabel",
+      "type": "text",
+      "label": "Título customizado (opcional)",
+      "placeholder": "Deixe em branco para usar o nome do campo"
+    },
+    {
+      "key": "showLabel",
+      "type": "checkbox",
+      "label": "Mostrar título",
+      "default": true
+    },
+    {
+      "key": "taskField",
+      "type": "dimension",
+      "label": "Campo da tarefa",
+      "hint": "\"Automático\" usa o 1º campo de texto colocado em Marcas."
+    },
+    {
+      "key": "startField",
+      "type": "field",
+      "label": "Campo da data de início",
+      "emptyLabel": "Automático (1º campo de data)"
+    },
+    {
+      "key": "endField",
+      "type": "field",
+      "label": "Campo da data de fim",
+      "emptyLabel": "Automático (2º campo de data)",
+      "hint": "Em branco e com duração escolhida: fim = início + duração."
+    },
+    {
+      "key": "durationField",
+      "type": "field",
+      "label": "Medida da duração em dias (alternativa ao fim)",
+      "emptyLabel": "Nenhuma"
+    },
+    {
+      "key": "groupField",
+      "type": "field",
+      "label": "Campo do grupo (cor)",
+      "emptyLabel": "Nenhum",
+      "hint": "Cada valor vira uma cor da série do tema, com legenda clicável."
+    },
+    {
+      "key": "progressField",
+      "type": "field",
+      "label": "Medida do progresso (0–1 ou 0–100)",
+      "emptyLabel": "Nenhuma",
+      "hint": "A parte concluída aparece mais forte dentro da barra."
+    },
+    {
+      "key": "sortOrder",
+      "type": "select",
+      "label": "Ordenação das tarefas",
+      "default": "start",
+      "options": [
+        [
+          "start",
+          "Pelo início"
+        ],
+        [
+          "end",
+          "Pelo fim"
+        ],
+        [
+          "",
+          "Ordem dos dados"
+        ]
+      ]
+    },
+    {
+      "key": "rowHeight",
+      "type": "select",
+      "label": "Altura das linhas",
+      "default": "normal",
+      "options": [
+        [
+          "compact",
+          "Compacta"
+        ],
+        [
+          "normal",
+          "Normal"
+        ],
+        [
+          "comfortable",
+          "Confortável"
+        ]
+      ]
+    },
+    {
+      "key": "labelWidth",
+      "type": "select",
+      "label": "Largura dos nomes das tarefas",
+      "default": "medium",
+      "options": [
+        [
+          "narrow",
+          "Estreita"
+        ],
+        [
+          "medium",
+          "Média"
+        ],
+        [
+          "wide",
+          "Larga"
+        ]
+      ]
+    },
+    {
+      "key": "showToday",
+      "type": "checkbox",
+      "label": "Linha de \"hoje\"",
+      "default": true
+    },
+    {
+      "key": "showProgress",
+      "type": "checkbox",
+      "label": "Mostrar o progresso nas barras",
+      "default": true
+    },
+    {
+      "key": "showBarLabels",
+      "type": "checkbox",
+      "label": "Texto dentro da barra (% ou início)",
+      "default": false
+    },
+    {
+      "key": "showDates",
+      "type": "checkbox",
+      "label": "Data de fim ao lado da barra",
+      "default": false
+    }
+  ];
+
+  var FIELD_TYPES = ['dimension', 'measure', 'field'];
+  var DEFAULT_EMPTY = {
+    dimension: 'Automático (1º campo de texto/data)',
+    measure: 'Automático (1º campo numérico)',
+    field: 'Nenhum'
+  };
+
+  var formEl = document.getElementById('form');
+  var state = {};
+  var inputs = {};
+
+  var visible = SCHEMA.filter(function (f) { return !f.hidden; });
+  SCHEMA.forEach(function (f) { state[f.key] = f.default !== undefined ? f.default : ''; });
+
+  function addHint(parent, text) {
+    if (!text) return;
+    var h = document.createElement('div');
+    h.className = 'hint';
+    h.textContent = text;
+    parent.appendChild(h);
+  }
+
+  function buildForm() {
+    visible.forEach(function (f) {
+      // cada campo fica num bloco próprio (o builder usa para arrastar e reordenar)
+      var block = document.createElement('div');
+      block.className = 'fld-block';
+      block.dataset.key = f.key;
+      formEl.appendChild(block);
+
+      if (f.type === 'accent') {
+        var lbl = document.createElement('label');
+        lbl.className = 'field';
+        lbl.textContent = f.label;
+        block.appendChild(lbl);
+        var row = document.createElement('div');
+        row.className = 'accent-row';
+        [['', 1, 'Destaque 1'], ['accent-laranja', 2, 'Destaque 2'], ['accent-amarelo', 3, 'Destaque 3'], ['accent-azul-escuro', 4, 'Destaque 4']].forEach(function (a) {
+          var sw = document.createElement('div');
+          sw.className = 'accent-swatch';
+          sw.dataset.accent = a[0];
+          sw.title = a[2];
+          sw.style.background = 'var(--pd-accent-' + a[1] + ')';
+          row.appendChild(sw);
+        });
+        // Última opção: cor personalizada (abre o seletor de cores do navegador)
+        var custom = document.createElement('div');
+        custom.className = 'accent-swatch accent-custom';
+        custom.dataset.accent = 'custom';
+        custom.title = 'Outra cor…';
+        var picker = document.createElement('input');
+        picker.type = 'color';
+        picker.value = '#3246ff';
+        picker.addEventListener('input', function () { selectAccent(f.key, picker.value); });
+        custom.appendChild(picker);
+        row.appendChild(custom);
+        row.addEventListener('click', function (e) {
+          var sw = e.target.closest('.accent-swatch');
+          if (sw && sw.dataset.accent !== 'custom') selectAccent(f.key, sw.dataset.accent);
+        });
+        block.appendChild(row);
+        addHint(block, f.hint);
+        inputs[f.key] = row;
+        return;
+      }
+
+      if (f.type === 'checkbox') {
+        var wrap = document.createElement('div');
+        wrap.className = 'checkbox-row';
+        var cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.id = 'in-' + f.key;
+        var cl = document.createElement('label');
+        cl.htmlFor = cb.id;
+        cl.textContent = f.label;
+        wrap.appendChild(cb);
+        wrap.appendChild(cl);
+        block.appendChild(wrap);
+        addHint(block, f.hint);
+        inputs[f.key] = cb;
+        return;
+      }
+
+      if (f.type === 'color') {
+        var clbl = document.createElement('label');
+        clbl.className = 'field';
+        clbl.textContent = f.label;
+        block.appendChild(clbl);
+        var crow = document.createElement('div');
+        crow.className = 'color-row';
+        var picker = document.createElement('input');
+        picker.type = 'color';
+        picker.value = '#ffffff';
+        var useTheme = document.createElement('input');
+        useTheme.type = 'checkbox';
+        var ul = document.createElement('label');
+        ul.appendChild(useTheme);
+        ul.appendChild(document.createTextNode(f.themeLabel || 'Usar cor do tema'));
+        useTheme.addEventListener('change', function () { picker.disabled = useTheme.checked; });
+        crow.appendChild(picker);
+        crow.appendChild(ul);
+        block.appendChild(crow);
+        addHint(block, f.hint);
+        inputs[f.key] = { picker: picker, useTheme: useTheme };
+        return;
+      }
+
+      if (f.type === 'columns') {
+        var clab = document.createElement('label');
+        clab.className = 'field';
+        clab.textContent = f.label;
+        block.appendChild(clab);
+        var clist = document.createElement('div');
+        clist.className = 'cols-list';
+        block.appendChild(clist);
+        addHint(block, f.hint);
+        inputs[f.key] = clist;
+        return;
+      }
+
+      var label = document.createElement('label');
+      label.className = 'field';
+      label.appendChild(document.createTextNode(f.label));
+      var input;
+      if (f.type === 'select') {
+        input = document.createElement('select');
+        f.options.forEach(function (o) {
+          var opt = document.createElement('option');
+          opt.value = o[0];
+          opt.textContent = o[1];
+          input.appendChild(opt);
+        });
+      } else if (f.type === 'textarea') {
+        input = document.createElement('textarea');
+        input.rows = f.rows || 5;
+        if (f.placeholder) input.placeholder = f.placeholder;
+      } else if (FIELD_TYPES.indexOf(f.type) !== -1) {
+        input = document.createElement('select');
+      } else {
+        input = document.createElement('input');
+        input.type = f.type === 'number' ? 'number' : 'text';
+        if (f.type === 'number') input.min = f.min !== undefined ? f.min : 1;
+        if (f.placeholder) input.placeholder = f.placeholder;
+      }
+      label.appendChild(input);
+      block.appendChild(label);
+      addHint(block, f.hint);
+      inputs[f.key] = input;
+    });
+  }
+
+  /* ---------- tipo "columns": lista dos campos da planilha (marcar, reordenar e formatar) ---------- */
+  var availableColumns = [];
+  var COL_ALIGN = [['', 'Auto'], ['esq', 'Esq.'], ['centro', 'Centro'], ['dir', 'Dir.']];
+  var COL_FORMAT = [['auto', 'Padrão'], ['compact', 'K / M'], ['int', 'Inteiro'], ['dec1', '1 casa'], ['dec2', '2 casas'], ['pct', '%']];
+  var COL_VISUAL = [['', 'Nenhum'], ['bar', 'Barra'], ['heat', 'Calor'], ['sign', 'Sinal']];
+  var ALIGN_WORDS = { esq: 'esq', esquerda: 'esq', left: 'esq', centro: 'centro', center: 'centro', dir: 'dir', direita: 'dir', right: 'dir' };
+
+  function parseColumnsSpec(text) {
+    var out = [];
+    String(text || '').split('\n').forEach(function (line) {
+      if (!line.trim()) return;
+      var p = line.split('|').map(function (x) { return x.trim(); });
+      var d = { field: p[0], title: p[1] || '', align: '', format: 'auto', visual: '' };
+      p.slice(2).forEach(function (t) {
+        var k = t.toLowerCase();
+        if (ALIGN_WORDS[k]) d.align = ALIGN_WORDS[k];
+        else if (COL_FORMAT.some(function (o) { return o[0] === k; })) d.format = k;
+        else if (k === 'bar' || k === 'heat' || k === 'sign') d.visual = k;
+      });
+      out.push(d);
+    });
+    return out;
+  }
+
+  function colSelect(opts, value, cls) {
+    var sel = document.createElement('select');
+    sel.className = cls;
+    opts.forEach(function (o) {
+      var op = document.createElement('option');
+      op.value = o[0]; op.textContent = o[1];
+      sel.appendChild(op);
+    });
+    sel.value = value;
+    return sel;
+  }
+
+  function notifyChange(list) { list.dispatchEvent(new Event('change', { bubbles: true })); }
+
+  function colRow(list, d, checked, isNum) {
+    var row = document.createElement('div');
+    row.className = 'col-row' + (checked ? '' : ' off');
+    row.dataset.field = d.field;
+    row.draggable = true;
+
+    var top = document.createElement('div');
+    top.className = 'col-top';
+    var drag = document.createElement('span');
+    drag.className = 'drag'; drag.textContent = '\u2807'; drag.title = 'Arraste para reordenar';
+    var cb = document.createElement('input');
+    cb.type = 'checkbox'; cb.checked = checked; cb.className = 'col-use';
+    cb.addEventListener('change', function () { row.classList.toggle('off', !cb.checked); });
+    var name = document.createElement('span');
+    name.className = 'col-name'; name.textContent = d.field; name.title = d.field;
+    var up = document.createElement('button');
+    up.type = 'button'; up.className = 'mv'; up.textContent = '\u2191'; up.title = 'Subir';
+    up.addEventListener('click', function () { if (row.previousElementSibling) { list.insertBefore(row, row.previousElementSibling); notifyChange(list); } });
+    var down = document.createElement('button');
+    down.type = 'button'; down.className = 'mv'; down.textContent = '\u2193'; down.title = 'Descer';
+    down.addEventListener('click', function () { if (row.nextElementSibling) { list.insertBefore(row.nextElementSibling, row); notifyChange(list); } });
+    [drag, cb, name, up, down].forEach(function (x) { top.appendChild(x); });
+    row.appendChild(top);
+
+    var opts = document.createElement('div');
+    opts.className = 'col-opts';
+    var title = document.createElement('input');
+    title.type = 'text'; title.className = 'col-title'; title.value = d.title; title.placeholder = 'Título (em branco: ' + d.field + ')';
+    var al = colSelect(COL_ALIGN, d.align, 'col-align');
+    var fm = colSelect(COL_FORMAT, d.format, 'col-format');
+    var vs = colSelect(COL_VISUAL, d.visual, 'col-visual');
+    al.title = 'Alinhamento'; fm.title = 'Formato do valor'; vs.title = 'Visual na célula (barra, mapa de calor ou cor por sinal)';
+    if (isNum === false) { fm.disabled = true; vs.disabled = true; fm.title = vs.title = 'Disponível só para campos numéricos'; }
+    [title, al, fm, vs].forEach(function (x) { opts.appendChild(x); });
+    row.appendChild(opts);
+
+    // arrastar e soltar para reordenar
+    row.addEventListener('dragstart', function (e) {
+      row.classList.add('dragging');
+      try { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', d.field); } catch (err) { /* ignora */ }
+    });
+    row.addEventListener('dragend', function () { row.classList.remove('dragging'); notifyChange(list); });
+    row.addEventListener('dragover', function (e) {
+      var dragging = list.querySelector('.dragging');
+      if (!dragging || dragging === row) return;
+      e.preventDefault();
+      var r = row.getBoundingClientRect();
+      list.insertBefore(dragging, e.clientY < r.top + r.height / 2 ? row : row.nextSibling);
+    });
+    return row;
+  }
+
+  function renderColumns(key) {
+    var list = inputs[key];
+    list.innerHTML = '';
+    var spec = parseColumnsSpec(state[key]);
+    var byName = {};
+    availableColumns.forEach(function (c) { byName[c.fieldName.toLowerCase()] = c; });
+    var used = {};
+    if (spec.length === 0) {
+      availableColumns.forEach(function (c) {
+        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, true, c.dataType === 'int' || c.dataType === 'float'));
+      });
+    } else {
+      spec.forEach(function (d) {
+        var c = byName[d.field.toLowerCase()];
+        // sem dados disponíveis (planilha vazia) mantém a linha da especificação como está
+        if (!c && availableColumns.length) return;
+        d.field = c ? c.fieldName : d.field;
+        used[d.field.toLowerCase()] = true;
+        list.appendChild(colRow(list, d, true, c ? (c.dataType === 'int' || c.dataType === 'float') : undefined));
+      });
+      availableColumns.forEach(function (c) {
+        if (used[c.fieldName.toLowerCase()]) return;
+        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, false, c.dataType === 'int' || c.dataType === 'float'));
+      });
+    }
+    if (!list.children.length) {
+      var empty = document.createElement('div');
+      empty.className = 'hint';
+      empty.textContent = 'Nenhum campo na planilha: arraste os campos para as Marcas.';
+      list.appendChild(empty);
+    }
+  }
+
+  function serializeColumns(key) {
+    var list = inputs[key];
+    var rows = Array.prototype.slice.call(list.querySelectorAll('.col-row'));
+    var lines = [], plain = true, order = [];
+    rows.forEach(function (row) {
+      var d = {
+        field: row.dataset.field,
+        use: row.querySelector('.col-use').checked,
+        title: row.querySelector('.col-title').value.trim(),
+        align: row.querySelector('.col-align').value,
+        format: row.querySelector('.col-format').value,
+        visual: row.querySelector('.col-visual').value
+      };
+      if (!d.use) { plain = false; return; }
+      order.push(d.field);
+      var extras = [d.align, d.format !== 'auto' ? d.format : '', d.visual].filter(Boolean);
+      if (d.title || extras.length) plain = false;
+      lines.push([d.field].concat(d.title || extras.length ? [d.title] : [], extras).join(' | '));
+    });
+    // tudo marcado, na ordem da planilha e sem ajustes: guarda vazio (automático, acompanha campos novos)
+    var sameOrder = order.length === availableColumns.length && order.every(function (f, i) { return availableColumns[i].fieldName === f; });
+    if (!lines.length || (plain && sameOrder)) return '';
+    return lines.join('\n');
+  }
+
+  function selectAccent(key, accent) {
+    state[key] = accent;
+    var isCustom = typeof accent === 'string' && accent.charAt(0) === '#';
+    inputs[key].querySelectorAll('.accent-swatch').forEach(function (el) {
+      var selected = isCustom ? el.dataset.accent === 'custom' : el.dataset.accent === accent;
+      el.classList.toggle('selected', selected);
+      if (el.dataset.accent === 'custom' && isCustom) {
+        el.style.background = accent;
+        el.querySelector('input').value = accent;
+      }
+    });
+  }
+
+  function populateFieldOptions(select, columns, placeholder) {
+    select.innerHTML = '';
+    var opt0 = document.createElement('option');
+    opt0.value = '';
+    opt0.textContent = placeholder;
+    select.appendChild(opt0);
+    (columns || []).forEach(function (c) {
+      var opt = document.createElement('option');
+      opt.value = c.fieldName;
+      opt.textContent = c.fieldName;
+      select.appendChild(opt);
+    });
+  }
+
+  function populateFields(columns) {
+    availableColumns = columns || [];
+    visible.forEach(function (f) {
+      if (FIELD_TYPES.indexOf(f.type) !== -1) populateFieldOptions(inputs[f.key], columns, f.emptyLabel || DEFAULT_EMPTY[f.type]);
+    });
+  }
+
+  function populateForm() {
+    visible.forEach(function (f) {
+      var v = state[f.key];
+      if (f.type === 'accent') selectAccent(f.key, v || '');
+      else if (f.type === 'checkbox') inputs[f.key].checked = !!v;
+      else if (f.type === 'columns') renderColumns(f.key);
+      else if (f.type === 'color') {
+        inputs[f.key].useTheme.checked = !v;
+        inputs[f.key].picker.disabled = !v;
+        if (v) inputs[f.key].picker.value = v;
+      }
+      else inputs[f.key].value = v == null ? '' : v;
+    });
+  }
+
+  function readForm() {
+    visible.forEach(function (f) {
+      if (f.type === 'accent') return;
+      if (f.type === 'checkbox') state[f.key] = inputs[f.key].checked;
+      else if (f.type === 'columns') state[f.key] = serializeColumns(f.key);
+      else if (f.type === 'color') state[f.key] = inputs[f.key].useTheme.checked ? '' : inputs[f.key].picker.value;
+      else state[f.key] = inputs[f.key].value;
+    });
+  }
+
+  document.getElementById('cancel-btn').addEventListener('click', function () {
+    tableau.extensions.ui.closeDialog('cancelled');
+  });
+
+  document.getElementById('save-btn').addEventListener('click', function () {
+    readForm();
+    tableau.extensions.settings.set(STATE_KEY, JSON.stringify(state));
+    tableau.extensions.settings.saveAsync().then(function () {
+      tableau.extensions.ui.closeDialog('saved');
+    }).catch(function (err) {
+      console.error('[Projedata Gráfico de Gantt config] erro ao salvar:', err);
+      alert('Erro ao salvar configurações. Veja o console (F12).');
+    });
+  });
+
+  buildForm();
+
+  tableau.extensions.initializeDialogAsync().then(function () {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    return tableau.extensions.worksheetContent.worksheet.getSummaryDataAsync({ ignoreSelection: true });
+  }).then(function (sumData) {
+    populateFields(sumData.columns);
+    populateForm();
+  }).catch(function (err) {
+    console.error('[Projedata Gráfico de Gantt config] erro ao inicializar dialog ou ler campos:', err);
+    populateFields([]);
+    populateForm();
+  });
+})();
+</script>
+
+</body>
+</html>

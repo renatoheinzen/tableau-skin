@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.ganttchart" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Gráfico de Gantt</name>
+    <description>Gráfico de Gantt: tarefas no tempo, com cor por grupo, progresso, marcos e linha de hoje, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/gantt-chart.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACBklEQVR4AeyZT07CQBTGv9Z4BMKCeAgWrjyCrF2bKEQCXkBcqhcQY4KauHYLHsGVCw6hLAhHIDq+b5IiYkuTdvpnYMh8MH2P6fy+99qGBB8hr1ZL7bZ76qzTU0PRp0iVRGQZko2MIej4Z6hzoU53K/iQxL0saIhqorIMsjTIRkayroJJ7jfU7albeHiQSFVU9lElq2ZeIl0YYkIB3aWcFVMykz2A1YbYOiaCoG2fZKcHcvv65vJwxQOrJR7oxd+p4ESMVEW2jyq9+HLNHdruJOCnFxHqQWADPus0xGf7BnjRFmo0pGdhb315VJhU2B6mY2sNmd4sj/M5Q3lUOc0erkNpqpfH2u3qUPdSfn4blOtQggoUeskl4I1d4gzFlqjgLxjp0PERkIWS1MaIoSQbZ7XGGcqqsqbO6zpkqpJZncd1KKyyzy9AFgrbKy7mOhRXoaLzrkNFdyBu/8I6dLAPJNU6U4UZWgeVJucMpaleHmu3t0N5VNfEHq5DJqrIc7y9A0nF9VHayA5NotxaGJ+wQ2MLwaOQx/438BqVtS1OL/7XDE8CPhXZPqb04g8G3hwK8h+D5X7EA73wHsLdjffoAX1bLZGdHsivDXHSv/bOmeDcJpGZ7AHzwhADOqHQlLkN99RUbpWmZhbgYPwxxCBbN59hT54YbTkeiSaisgyyjMhGRrKugv0AAAD//9IUYlwAAAAGSURBVAMAJ0o/uGvu5X0AAAAASUVORK5CYII=</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

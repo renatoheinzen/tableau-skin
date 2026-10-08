@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Gráfico Bullet</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    --acc: var(--pd-accent-1);
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-root.accent-laranja { --acc: var(--pd-accent-2); }
+  #chart-root.accent-amarelo { --acc: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro { --acc: var(--pd-accent-4); }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column; justify-content: space-around; gap: 8px;
+    overflow-y: auto; overflow-x: hidden;
+  }
+  .bl-row { display: flex; align-items: center; gap: 12px; min-width: 0; }
+  .bl-label { flex: 0 0 28%; min-width: 0; font-size: 12px; color: var(--pd-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .bl-track { flex: 1 1 0; min-width: 40px; height: 26px; position: relative; display: flex; border-radius: 3px; overflow: hidden; }
+  .bl-band { height: 100%; flex: 0 0 auto; }
+  .bl-band.b1 { background: color-mix(in srgb, var(--pd-text) 22%, var(--pd-track)); }
+  .bl-band.b2 { background: color-mix(in srgb, var(--pd-text) 13%, var(--pd-track)); }
+  .bl-band.b3 { background: color-mix(in srgb, var(--pd-text) 6%, var(--pd-track)); }
+  #chart-root.nobands .bl-track { background: var(--pd-track); }
+  .bl-bar { position: absolute; left: 0; top: 36%; height: 28%; background: var(--acc); border-radius: 0 2px 2px 0; }
+  .bl-bar.ok { background: var(--pd-positive); }
+  .bl-bar.bad { background: var(--pd-negative); }
+  .bl-target { position: absolute; top: 14%; height: 72%; width: 3px; margin-left: -1px; background: var(--pd-text); border-radius: 1px; }
+  .bl-val { flex: 0 0 auto; min-width: 96px; text-align: right; font-size: 11px; color: var(--pd-text); white-space: nowrap; }
+  .bl-val b { font-weight: 700; }
+  .bl-val small { color: var(--pd-text-muted); font-size: 10px; margin-left: 4px; }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataBulletState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    dimensionField: '', valueField: '', targetField: '',
+    bands: 'auto', scaleMode: 'shared', colorByTarget: false, showPercent: true, showTargetValue: false,
+    sortOrder: '', maxRows: ''
+  };
+  var rows = [];
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.toggle('nobands', state.bands === 'none');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (rows.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    // escala: compartilhada (mesma régua em todas as linhas) ou independente (cada linha vai até o seu máximo)
+    var extent = function (r) { return Math.max(r.value, r.target !== null ? r.target * 1.25 : 0, 1e-9); };
+    var shared = Math.max.apply(null, rows.map(extent));
+    rows.forEach(function (r) {
+      var max = state.scaleMode === 'independent' ? extent(r) : shared;
+      var hasT = r.target !== null && r.target > 0;
+      // faixas qualitativas: até 60%, 60–90% e 90–125% da meta (sem meta: terços do máximo da linha)
+      var cuts = hasT ? [0.6 * r.target, 0.9 * r.target, 1.25 * r.target] : [max / 3, 2 * max / 3, max];
+
+      var row = document.createElement('div');
+      row.className = 'bl-row';
+      var label = document.createElement('div');
+      label.className = 'bl-label';
+      label.textContent = r.label;
+      label.title = r.label;
+      row.appendChild(label);
+
+      var track = document.createElement('div');
+      track.className = 'bl-track';
+      if (state.bands !== 'none') {
+        var prev = 0;
+        cuts.forEach(function (c, i) {
+          var w = Math.max(0, Math.min(100, c / max * 100) - prev);
+          var band = document.createElement('div');
+          band.className = 'bl-band b' + (i + 1);
+          band.style.width = w + '%';
+          track.appendChild(band);
+          prev += w;
+        });
+      }
+      var bar = document.createElement('div');
+      bar.className = 'bl-bar' + (state.colorByTarget && hasT ? (r.value >= r.target ? ' ok' : ' bad') : '');
+      bar.style.width = Math.max(0, Math.min(100, r.value / max * 100)) + '%';
+      bar.title = r.label + ': ' + r.valueText + (hasT ? ' (meta ' + r.targetText + ')' : '');
+      track.appendChild(bar);
+      if (hasT) {
+        var t = document.createElement('div');
+        t.className = 'bl-target';
+        t.style.left = Math.min(100, r.target / max * 100) + '%';
+        t.title = 'Meta: ' + r.targetText;
+        track.appendChild(t);
+      }
+      row.appendChild(track);
+
+      var val = document.createElement('div');
+      val.className = 'bl-val';
+      var html = '<b></b>';
+      val.innerHTML = html;
+      val.firstChild.textContent = r.valueText;
+      if (hasT && state.showPercent !== false) {
+        var s = document.createElement('small');
+        s.textContent = Math.round(r.value / r.target * 100) + '% da meta';
+        val.appendChild(s);
+      }
+      if (hasT && state.showTargetValue) {
+        var s2 = document.createElement('small');
+        s2.textContent = 'meta ' + r.targetText;
+        val.appendChild(s2);
+      }
+      row.appendChild(val);
+      bodyEl.appendChild(row);
+    });
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste 1 campo de texto, o valor e (opcional) a meta para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var dimIdx = findColumnIndex(cols, state.dimensionField, cols.findIndex(function (c) { return !isNum(c); }));
+      if (dimIdx === -1) dimIdx = 0;
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) valIdx = cols.findIndex(function (c, i) { return i !== dimIdx && isNum(c); });
+      if (valIdx === -1) valIdx = cols.length - 1;
+      var tgtIdx = state.targetField ? findColumnIndex(cols, state.targetField, -1) : -1;
+      // sem meta escolhida, usa a 2ª medida das Marcas quando existir
+      if (!state.targetField) {
+        var second = cols.findIndex(function (c, i) { return i !== dimIdx && i !== valIdx && isNum(c); });
+        if (second !== -1) tgtIdx = second;
+      }
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : null; };
+      rows = (sumData.data || []).map(function (row) {
+        var v = num(row[valIdx]);
+        return {
+          label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+          value: v === null ? 0 : v, valueText: fmtCell(row[valIdx]),
+          target: tgtIdx !== -1 ? num(row[tgtIdx]) : null, targetText: tgtIdx !== -1 ? fmtCell(row[tgtIdx]) : ''
+        };
+      });
+      if (state.sortOrder === 'desc') rows.sort(function (a, b) { return b.value - a.value; });
+      else if (state.sortOrder === 'asc') rows.sort(function (a, b) { return a.value - b.value; });
+      var max = parseInt(state.maxRows, 10);
+      if (max > 0) rows = rows.slice(0, max);
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Bullet] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/bullet-chart-config.html', '', { height: 780, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Bullet] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

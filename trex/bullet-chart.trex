@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.bulletchart" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Gráfico Bullet</name>
+    <description>Bullet graph: valor realizado contra a meta, com faixas qualitativas, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/bullet-chart.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACNElEQVR4AeyYQU4CMRSG34zhCGQWxL0bF5xDjuBOQQl4AXGpXkCMEXXnDcBzsHDjXlkQjkC0vn9isY7TJgxlaJkh/TOd12nn+9+jJCWklE+rJSrtnjjt9MSQ9cESjggsQ7CBMQWd/hnqnIvjSpXeeeCOJzRYNZYrDSwNsIERrEkwHvsNdXvihgJ64EjEcr1FYI2ZFdKFIQwIoq4y5kUXzGCXsLEhlA4DMujbFezwAO4w3lwBXeLGa7EHeAl3qnTERiKW7y2Cl5C/cwe+O5H88MKiugxswbUOQ/htd8ZLn3ezVAaoGgxlmOfulGIZ2t8jyltq7XXvVp9J9otVoZNDojyUzPIq98Wq0CqZ2tTcYlXo/pkoD9ms5kYrZNOIXMto6PWNKG9JMFx178aYTkZDukkux0tD665O94L/2PhRlneVFcqStTznlBWylW15KsXV1ppYp6wQsuCyjBXSnRhtxNWkLLueOjfZNxpKPuzDvdGQrdNqnokwGsoTxNa7SkO2MrmudYwVsnVaXRd82rpGQ2kTXI8ZDelOjDbiamKWXU+dm+wbDakP+9IvDdmq1KonUx3HVlZoonPrYXyCCo09BNchj8MvohfdqG9xeAk/Z/TE4FOW720KL+FgEMxJEP8T5rkf9gAv2EN0ex08BkR9Xy2BHR7AHxtCp38VnGEAfZ8EZrBL5oUhBOIBQU3u+7CnprxVmjEzA8v2xxCCKN18Rrv8i9Hm+xFrwnKlgWUENjCCNQn2DQAA//8LYufWAAAABklEQVQDAKD9vbjSxHmjAAAAAElFTkSuQmCC</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

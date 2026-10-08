@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Gráfico de Gantt</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    --acc: var(--pd-accent-1);
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-root.accent-laranja { --acc: var(--pd-accent-2); }
+  #chart-root.accent-amarelo { --acc: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro { --acc: var(--pd-accent-4); }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 8px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-bottom: 6px; }
+  .lg { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; color: var(--pd-text); cursor: pointer; user-select: none; }
+  .lg.off { opacity: 0.35; }
+  .lg i { width: 10px; height: 10px; border-radius: 2px; flex: 0 0 auto; }
+  #plot { flex: 1; min-height: 0; overflow: auto; position: relative; }
+  #plot svg { display: block; }
+  .grid-line { stroke: var(--pd-track); stroke-width: 1; }
+  .row-band { fill: color-mix(in srgb, var(--pd-track) 40%, transparent); }
+  .tick { font-family: inherit; font-size: 10px; fill: var(--pd-text-muted); }
+  .task { font-family: inherit; font-size: 11px; fill: var(--pd-text); }
+  .grp { font-family: inherit; font-size: 11px; font-weight: 700; fill: var(--pd-text); }
+  .today { stroke: var(--pd-negative); stroke-width: 1.5; stroke-dasharray: 4 3; }
+  .today-lbl { font-family: inherit; font-size: 9px; font-weight: 700; fill: var(--pd-negative); text-anchor: middle; }
+  .gbar { stroke: none; }
+  .barlbl { font-family: inherit; font-size: 10px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="legend"></div>
+  <div id="plot"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataGanttState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var legendEl = document.getElementById('legend');
+  var plotEl = document.getElementById('plot');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+  var NS = 'http://www.w3.org/2000/svg';
+  var DAY = 86400000;
+  var ROW_H = { compact: 22, normal: 28, comfortable: 36 };
+
+  var state = {
+    accent: '', customLabel: '', showLabel: true,
+    taskField: '', startField: '', endField: '', durationField: '', groupField: '', progressField: '',
+    rowHeight: 'normal', showToday: true, showProgress: true, sortOrder: 'start', showDates: false, showBarLabels: false,
+    labelWidth: 'medium'
+  };
+  var model = null; // { tasks: [{ name, start, end, group, progress, startText, endText }], groups: [] }
+  var hidden = {};
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  function parseDate(v) {
+    if (v === null || v === undefined || v === '') return NaN;
+    if (typeof v === 'number') return v;
+    var s = String(v).trim().replace(' ', 'T');
+    // data pura (AAAA-MM-DD) é lida como meia-noite local, para não deslocar o dia
+    if (/^\d{4}-\d{2}-\d{2}$/.test(s)) s += 'T00:00:00';
+    return new Date(s).getTime();
+  }
+
+  function el(name, attrs, text) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  function groupColor(i) { return 'var(--pd-series-' + ((i % 8) + 1) + ')'; }
+  function colorOf(t) { return model.groups.length ? groupColor(model.groups.indexOf(t.group)) : 'var(--acc)'; }
+
+  var colorCache = {};
+  function textOnColor(css) {
+    if (colorCache[css] !== undefined) return colorCache[css];
+    var probe = document.createElement('span');
+    probe.style.background = css;
+    document.body.appendChild(probe);
+    var c = getComputedStyle(probe).backgroundColor;
+    document.body.removeChild(probe);
+    var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(c);
+    var lum = m ? (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) / 255 : 0;
+    return (colorCache[css] = lum < 0.55 ? '#ffffff' : '#161616');
+  }
+
+  // marcas de tempo "redondas": dias, semanas, meses, trimestres ou anos conforme a duração total
+  function makeTicks(t0, t1) {
+    var span = (t1 - t0) / DAY, ticks = [], d = new Date(t0);
+    d.setHours(0, 0, 0, 0);
+    var fmt, step;
+    if (span <= 21) { step = { u: 'day', n: 1 }; fmt = { day: '2-digit', month: 'short' }; }
+    else if (span <= 100) { step = { u: 'week', n: 1 }; fmt = { day: '2-digit', month: 'short' }; }
+    else if (span <= 420) { step = { u: 'month', n: 1 }; fmt = { month: 'short', year: '2-digit' }; }
+    else if (span <= 1200) { step = { u: 'month', n: 3 }; fmt = { month: 'short', year: '2-digit' }; }
+    else { step = { u: 'month', n: 12 }; fmt = { year: 'numeric' }; }
+    if (step.u === 'week') { d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); }
+    else if (step.u === 'month') { d.setDate(1); if (step.n > 1) d.setMonth(step.n === 12 ? 0 : Math.floor(d.getMonth() / step.n) * step.n); }
+    for (var guard = 0; guard < 400 && d.getTime() <= t1; guard++) {
+      if (d.getTime() >= t0 - DAY) ticks.push({ t: d.getTime(), text: d.toLocaleDateString('pt-BR', fmt).replace('.', '').replace(' de ', '/') });
+      if (step.u === 'day') d.setDate(d.getDate() + 1);
+      else if (step.u === 'week') d.setDate(d.getDate() + 7);
+      else d.setMonth(d.getMonth() + step.n);
+    }
+    return ticks;
+  }
+
+  function renderLegend() {
+    legendEl.innerHTML = '';
+    if (model.groups.length < 2) { legendEl.style.display = 'none'; return; }
+    legendEl.style.display = '';
+    model.groups.forEach(function (g, i) {
+      var d = document.createElement('div');
+      d.className = 'lg' + (hidden[g] ? ' off' : '');
+      var sw = document.createElement('i');
+      sw.style.background = groupColor(i);
+      var sp = document.createElement('span');
+      sp.textContent = g;
+      d.appendChild(sw); d.appendChild(sp);
+      d.addEventListener('click', function () { hidden[g] = !hidden[g]; render(); });
+      legendEl.appendChild(d);
+    });
+  }
+
+  function render() {
+    plotEl.innerHTML = '';
+    if (!model || model.tasks.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      plotEl.appendChild(empty);
+      legendEl.innerHTML = '';
+      return;
+    }
+    renderLegend();
+    var W = plotEl.clientWidth;
+    if (W < 120) return;
+    var tasks = model.tasks.filter(function (t) { return !t.group || !hidden[t.group]; });
+    if (!tasks.length) return;
+
+    var rowH = ROW_H[state.rowHeight] || 28;
+    var labelW = state.labelWidth === 'narrow' ? 100 : (state.labelWidth === 'wide' ? 220 : 150);
+    labelW = Math.min(labelW, W * 0.45);
+    var padR = 16, axisH = 22;
+    var t0 = Math.min.apply(null, tasks.map(function (t) { return t.start; }));
+    var t1 = Math.max.apply(null, tasks.map(function (t) { return t.end; }));
+    if (t1 <= t0) t1 = t0 + DAY;
+    var pad = (t1 - t0) * 0.02;
+    t0 -= pad; t1 += pad;
+    var pw = W - labelW - padR;
+    var H = axisH + tasks.length * rowH + 6;
+    var sx = function (t) { return labelW + (t - t0) / (t1 - t0) * pw; };
+
+    var svg = el('svg', { width: W, height: H, viewBox: '0 0 ' + W + ' ' + H });
+    tasks.forEach(function (t, i) {
+      if (i % 2 === 0) svg.appendChild(el('rect', { class: 'row-band', x: 0, y: axisH + i * rowH, width: W, height: rowH }));
+    });
+    makeTicks(t0, t1).forEach(function (k) {
+      var x = sx(k.t);
+      svg.appendChild(el('line', { class: 'grid-line', x1: x, x2: x, y1: axisH - 4, y2: H - 4 }));
+      svg.appendChild(el('text', { class: 'tick', x: x + 3, y: 12 }, k.text));
+    });
+
+    tasks.forEach(function (t, i) {
+      var y = axisH + i * rowH, cy = y + rowH / 2, bh = Math.min(rowH - 8, 18);
+      var name = t.name.length > labelW / 6.2 ? t.name.slice(0, Math.max(3, Math.floor(labelW / 6.2) - 1)) + '…' : t.name;
+      var nt = el('text', { class: 'task', x: 6, y: cy + 4 }, name);
+      nt.appendChild(el('title', {}, t.name));
+      svg.appendChild(nt);
+
+      var color = colorOf(t), x = sx(t.start), w = Math.max(sx(t.end) - x, 0);
+      var tip = t.name + '\n' + t.startText + (t.endText && t.endText !== t.startText ? ' → ' + t.endText : '') + (t.group ? '\n' + t.group : '') + (t.progress !== null ? '\n' + Math.round(t.progress * 100) + '% concluído' : '');
+      if (w < 2) { // marco (início = fim): losango
+        var dm = el('polygon', { class: 'gbar', points: [x, cy - 8, x + 8, cy, x, cy + 8, x - 8, cy].join(' ') });
+        dm.style.fill = color;
+        dm.appendChild(el('title', {}, tip));
+        svg.appendChild(dm);
+      } else {
+        var bar = el('rect', { class: 'gbar', x: x, y: cy - bh / 2, width: w, height: bh, rx: 3 });
+        bar.style.fill = color;
+        bar.style.opacity = state.showProgress && t.progress !== null ? 0.4 : 1;
+        bar.appendChild(el('title', {}, tip));
+        svg.appendChild(bar);
+        if (state.showProgress && t.progress !== null) {
+          var pr = el('rect', { class: 'gbar', x: x, y: cy - bh / 2, width: w * Math.max(0, Math.min(1, t.progress)), height: bh, rx: 3 });
+          pr.style.fill = color;
+          pr.appendChild(el('title', {}, tip));
+          svg.appendChild(pr);
+        }
+        if (state.showBarLabels && w > 40) {
+          var bl = el('text', { class: 'barlbl', x: x + 5, y: cy + 3.5 }, t.progress !== null ? Math.round(t.progress * 100) + '%' : t.startText);
+          bl.style.fill = textOnColor(color);
+          svg.appendChild(bl);
+        }
+      }
+      if (state.showDates) svg.appendChild(el('text', { class: 'tick', x: Math.min(sx(t.end) + 6, W - 70), y: cy + 3.5 }, t.endText));
+    });
+
+    if (state.showToday !== false) {
+      var now = new Date(); now.setHours(0, 0, 0, 0);
+      var tn = now.getTime();
+      if (tn >= t0 && tn <= t1) {
+        svg.appendChild(el('line', { class: 'today', x1: sx(tn), x2: sx(tn), y1: axisH - 4, y2: H - 4 }));
+        svg.appendChild(el('text', { class: 'today-lbl', x: sx(tn), y: axisH - 8 }, 'hoje'));
+      }
+    }
+    plotEl.appendChild(svg);
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      plotEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+        titleEl.textContent = 'Arraste a tarefa, a data de início e a de fim (ou a duração) para as Marcas';
+        plotEl.innerHTML = '';
+        return;
+      }
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var isDate = function (c) { return c.dataType === 'date' || c.dataType === 'date-time'; };
+      var dates = [], strs = [];
+      cols.forEach(function (c, i) { if (isDate(c)) dates.push(i); else if (!isNum(c)) strs.push(i); });
+      var taskIdx = findColumnIndex(cols, state.taskField, strs.length ? strs[0] : 0);
+      var startIdx = findColumnIndex(cols, state.startField, dates.length ? dates[0] : -1);
+      var durIdx = state.durationField ? findColumnIndex(cols, state.durationField, -1) : -1;
+      var endIdx = state.endField ? findColumnIndex(cols, state.endField, -1) : (durIdx === -1 && dates.length > 1 ? dates[1] : -1);
+      var grpIdx = state.groupField ? findColumnIndex(cols, state.groupField, -1) : -1;
+      var progIdx = state.progressField ? findColumnIndex(cols, state.progressField, -1) : -1;
+      if (startIdx === -1 || (endIdx === -1 && durIdx === -1)) {
+        titleEl.textContent = 'Coloque a data de início e a de fim (ou a duração em dias) nas Marcas';
+        plotEl.innerHTML = '';
+        return;
+      }
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var tasks = [], groups = [];
+      (sumData.data || []).forEach(function (row, i) {
+        var s = parseDate(row[startIdx] && row[startIdx].value);
+        var e = endIdx !== -1 ? parseDate(row[endIdx] && row[endIdx].value)
+          : s + (row[durIdx] && typeof row[durIdx].value === 'number' ? row[durIdx].value : 0) * DAY;
+        if (isNaN(s) || isNaN(e)) return;
+        if (e < s) { var tmp = s; s = e; e = tmp; }
+        var g = grpIdx !== -1 && row[grpIdx] ? row[grpIdx].formattedValue : '';
+        if (g && groups.indexOf(g) === -1) groups.push(g);
+        var p = progIdx !== -1 && row[progIdx] && typeof row[progIdx].value === 'number' ? row[progIdx].value : null;
+        if (p !== null && p > 1) p = p / 100; // aceita 0–1 ou 0–100
+        tasks.push({
+          name: row[taskIdx] ? row[taskIdx].formattedValue : '', start: s, end: e, group: g, progress: p, order: i,
+          startText: row[startIdx].formattedValue, endText: endIdx !== -1 && row[endIdx] ? row[endIdx].formattedValue : new Date(e).toLocaleDateString('pt-BR')
+        });
+      });
+      if (state.sortOrder === 'start') tasks.sort(function (a, b) { return a.start - b.start || a.order - b.order; });
+      else if (state.sortOrder === 'end') tasks.sort(function (a, b) { return a.end - b.end || a.order - b.order; });
+      model = { tasks: tasks, groups: groups };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Gantt] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      plotEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/gantt-chart-config.html', '', { height: 820, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Gantt] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  // redesenha quando o tamanho da zona muda
+  var resizeTimer = null;
+  window.addEventListener('resize', function () {
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(render, 80);
+  });
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>
