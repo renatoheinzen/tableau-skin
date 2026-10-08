@@ -253,10 +253,14 @@
         return;
       }
 
-      var valueIdx = 0;
+      // sem campo escolhido, prefere a primeira medida (numérica); só usa a 1ª coluna se não houver nenhuma
+      var valueIdx = -1;
       if (state.valueField) {
-        var foundIdx = sumData.columns.findIndex(function (c) { return c.fieldName === state.valueField; });
-        if (foundIdx !== -1) valueIdx = foundIdx;
+        valueIdx = sumData.columns.findIndex(function (c) { return c.fieldName === state.valueField; });
+      }
+      if (valueIdx === -1) {
+        valueIdx = sumData.columns.findIndex(function (c) { return c.dataType === 'int' || c.dataType === 'float'; });
+        if (valueIdx === -1) valueIdx = 0;
       }
       var columnName = sumData.columns[valueIdx].fieldName;
       labelEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : columnName;

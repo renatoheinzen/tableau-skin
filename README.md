@@ -29,10 +29,25 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 
 ### Como instalar num workbook
 
+O jeito de carregar depende do **Tipo** da extensão na tabela acima.
+
+**Extensões de planilha** (tipo *worksheet*: KPI, gráficos, tabelas, listas, treemap, cascata…)
+
+> No Tableau 2026.2 elas **não** entram pelo objeto *Extensão* do dashboard — o Tableau responde "Esta extensão não é uma extensão do painel". Elas entram pela própria planilha.
+
 1. Baixe o `.trex` da extensão desejada (arquivos em [`trex/`](trex/)).
-2. No Tableau Desktop, arraste um objeto **Extensão** para o dashboard e selecione o `.trex` baixado.
+2. Na planilha, arraste os campos para o cartão **Marcas** (a extensão lê os campos que estão nele).
+3. Abra o menu do tipo de marca (onde está "Automático") → em *Extensões de visualização*, clique em **Adicionar extensão** → **Acessar extensões de visualização locais** e escolha o `.trex`.
+4. Autorize a extensão (ela abre a página do GitHub Pages e não pede acesso total aos dados). A planilha passa a ser desenhada pela extensão.
+5. Ajuste em **Formatar extensão** (cartão Marcas) e coloque a planilha no dashboard normalmente.
+
+**Extensões de painel** (tipo *dashboard*: Faixa Lateral, Cabeçalho com Abas, Painel de Seção e as Skins)
+
+1. Baixe o `.trex`.
+2. No dashboard, arraste um objeto **Extensão** → **Acessar extensões locais** e selecione o `.trex`.
 3. Para as Skins, converta o container de layout raiz do dashboard para **Flutuante** e envie a extensão para trás (**Organizar → Enviar para trás**) — objetos flutuantes nunca ficam atrás de conteúdo lado a lado, então o container precisa ser flutuante também.
-4. Publique o workbook. Se o Tableau Server/Cloud bloquear a extensão, adicione `https://renatoheinzen.github.io` (com e sem `https://`) na lista de extensões permitidas do site.
+
+**Publicação:** publique o workbook. Se o Tableau Server/Cloud bloquear a extensão, adicione `https://renatoheinzen.github.io` (com e sem `https://`) na lista de extensões permitidas do site.
 
 ## Estrutura do projeto
 
