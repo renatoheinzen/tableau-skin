@@ -11,7 +11,7 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Projedata Gráfico de Pizza | worksheet | [`trex/pie-chart.trex`](trex/pie-chart.trex) | Gráfico de pizza/donut com a paleta de série da marca |
 | Projedata Gráfico de Linha | worksheet | [`trex/line-chart.trex`](trex/line-chart.trex) | Gráfico de linha estilizado |
 | Projedata Anel de Proporção | worksheet | [`trex/ring-chart.trex`](trex/ring-chart.trex) | Anéis de proporção por categoria |
-| Projedata Lista Ranqueada | worksheet | [`trex/rank-list.trex`](trex/rank-list.trex) | Lista Top N ranqueada |
+| Projedata Lista Ranqueada | worksheet | [`trex/rank-list.trex`](trex/rank-list.trex) | Lista Top N ranqueada, com sparkline (linha/área/barras) por período e barra proporcional opcionais |
 | Projedata Matriz de Calor | worksheet | [`trex/heatmap-matrix.trex`](trex/heatmap-matrix.trex) | Matriz de calor (linha × coluna) |
 | Projedata Lista de Cards | worksheet | [`trex/card-list.trex`](trex/card-list.trex) | Lista de cards |
 | Projedata Treemap | worksheet | [`trex/treemap.trex`](trex/treemap.trex) | Treemap (área proporcional ao valor, cor por intensidade de outra medida ou por série, agrupamento opcional) |

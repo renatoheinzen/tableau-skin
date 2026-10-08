@@ -44,6 +44,24 @@
     font-size: 12px; color: var(--pd-text);
     overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
   }
+  .rk-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+  .rk-main .rk-label { flex: none; }
+  .rk-bar { height: 4px; border-radius: 2px; background: var(--pd-track); overflow: hidden; }
+  .rk-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--pd-accent-1); }
+  #chart-root.accent-laranja .rk-bar > i { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .rk-bar > i { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .rk-bar > i { background: var(--pd-accent-4); }
+  .rk-spark { flex: 0 0 auto; display: block; overflow: visible; }
+  .rk-spark .sp-line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+  .rk-spark .sp-area, .rk-spark .sp-dot, .rk-spark .sp-bar { fill: currentColor; stroke: none; }
+  .rk-spark .sp-area { opacity: 0.18; }
+  .rk-spark.c-accent { color: var(--pd-accent-1); }
+  #chart-root.accent-laranja .rk-spark.c-accent { color: var(--pd-accent-2); }
+  #chart-root.accent-amarelo .rk-spark.c-accent { color: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro .rk-spark.c-accent { color: var(--pd-accent-4); }
+  .rk-spark.c-muted { color: var(--pd-text-muted); }
+  .rk-spark.c-up { color: var(--pd-positive); }
+  .rk-spark.c-down { color: var(--pd-negative); }
   .rk-badge {
     flex: 0 0 auto; min-width: 38px; box-sizing: border-box;
     padding: 5px 9px; border-radius: 8px; border: 1px solid transparent;
@@ -101,7 +119,8 @@
     displayUnits: '', decimals: '',
     accent: '', customLabel: '', showLabel: true,
     dimensionField: '', valueField: '', value2Field: '',
-    topN: 5, sortOrder: 'desc', showRank: true, badge2Style: 'dark'
+    topN: 5, sortOrder: 'desc', showRank: true, badge2Style: 'dark',
+    trendField: '', trendValueField: '', aggregate: 'sum', sparkStyle: 'line', sparkWidth: 'medium', sparkColor: 'accent', showBar: false
   };
   var lastRows = [];
 
@@ -150,6 +169,37 @@
     return lum > 0.62 ? '#161616' : '#ffffff';
   }
 
+  var SPARK_W = { small: 60, medium: 90, large: 130 };
+
+  function sparkSvg(vals, colorClass) {
+    var W = SPARK_W[state.sparkWidth] || 90, H = 24, pad = 3;
+    var svg = '<svg class="rk-spark c-' + colorClass + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    if (state.sparkStyle === 'bars') min = Math.min(0, min); // barras partem do zero
+    var span = max - min || 1;
+    var n = vals.length;
+    var x = function (i) { return n === 1 ? W / 2 : pad + i * (W - 2 * pad) / (n - 1); };
+    var y = function (v) { return H - pad - (v - min) / span * (H - 2 * pad); };
+    if (state.sparkStyle === 'bars') {
+      var bw = Math.max(1.5, (W - 2 * pad) / n - 1.5), y0 = y(0);
+      vals.forEach(function (v, i) {
+        var yy = y(v), top = Math.min(yy, y0), h = Math.max(Math.abs(y0 - yy), 1);
+        svg += '<rect class="sp-bar" x="' + (pad + i * (W - 2 * pad) / n).toFixed(1) + '" y="' + top.toFixed(1) +
+          '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" opacity="' + (i === n - 1 ? 1 : 0.45) + '"/>';
+      });
+    } else {
+      var pts = vals.map(function (v, i) { return x(i).toFixed(1) + ',' + y(v).toFixed(1); });
+      if (n > 1) {
+        if (state.sparkStyle === 'area') {
+          svg += '<polygon class="sp-area" points="' + pts.join(' ') + ' ' + x(n - 1).toFixed(1) + ',' + (H - pad) + ' ' + x(0).toFixed(1) + ',' + (H - pad) + '"/>';
+        }
+        svg += '<polyline class="sp-line" points="' + pts.join(' ') + '"/>';
+      }
+      svg += '<circle class="sp-dot" cx="' + x(n - 1).toFixed(1) + '" cy="' + y(vals[n - 1]).toFixed(1) + '" r="2.4"/>';
+    }
+    return svg + '</svg>';
+  }
+
   function render() {
     bodyEl.innerHTML = '';
     if (lastRows.length === 0) {
@@ -160,6 +210,7 @@
       return;
     }
     var badge2Cls = 'b-' + (state.badge2Style || 'dark');
+    var maxA = Math.max.apply(null, lastRows.map(function (r) { return r.a; }));
     lastRows.forEach(function (r, i) {
       var row = document.createElement('div');
       row.className = 'rk-row';
@@ -171,11 +222,31 @@
         row.appendChild(pos);
       }
 
+      var main = document.createElement('div');
+      main.className = 'rk-main';
       var label = document.createElement('div');
       label.className = 'rk-label';
       label.textContent = r.label;
       label.title = r.label;
-      row.appendChild(label);
+      main.appendChild(label);
+      if (state.showBar) {
+        var bar = document.createElement('div');
+        bar.className = 'rk-bar';
+        var fill = document.createElement('i');
+        fill.style.width = (maxA > 0 ? Math.max(0, Math.min(100, r.a / maxA * 100)) : 0).toFixed(1) + '%';
+        bar.appendChild(fill);
+        main.appendChild(bar);
+      }
+      row.appendChild(main);
+
+      if (r.trend && r.trend.length) {
+        var cls = state.sparkColor === 'delta' ? (r.trend[r.trend.length - 1] >= r.trend[0] ? 'up' : 'down') : (state.sparkColor || 'accent');
+        var holder = document.createElement('div');
+        holder.style.display = 'flex';
+        holder.innerHTML = sparkSvg(r.trend, cls);
+        holder.title = r.trend.map(function (v) { return formatCompact(v); }).join(' \u2192 ');
+        row.appendChild(holder);
+      }
 
       var a = document.createElement('div');
       a.className = 'rk-badge a';
@@ -221,14 +292,49 @@
       titleEl.classList.toggle('hidden', state.showLabel === false);
 
       var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
-      var rows = (sumData.data || []).map(function (row) {
-        return {
-          label: row[dimIdx] ? row[dimIdx].formattedValue : '',
-          a: num(row[aIdx]),
-          aFormatted: fmtCell(row[aIdx]),
-          bFormatted: bIdx !== -1 ? fmtCell(row[bIdx]) : null
+      var tIdx = state.trendField ? findColumnIndex(sumData.columns, state.trendField, -1) : -1;
+      var sIdx = findColumnIndex(sumData.columns, state.trendValueField, aIdx);
+      var rows;
+      if (tIdx === -1) {
+        rows = (sumData.data || []).map(function (row) {
+          return {
+            label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+            a: num(row[aIdx]),
+            aFormatted: fmtCell(row[aIdx]),
+            bFormatted: bIdx !== -1 ? fmtCell(row[bIdx]) : null
+          };
+        });
+      } else {
+        // uma linha por categoria x período: agrupa por categoria, ordena os períodos e agrega o selo
+        var tType = sumData.columns[tIdx].dataType;
+        var groups = [], byLabel = {};
+        (sumData.data || []).forEach(function (row, i) {
+          var label = row[dimIdx] ? row[dimIdx].formattedValue : '';
+          var g = byLabel[label];
+          if (!g) { g = byLabel[label] = { label: label, points: [] }; groups.push(g); }
+          var raw = row[tIdx] ? row[tIdx].value : null;
+          var k = typeof raw === 'number' ? raw : ((tType === 'date' || tType === 'date-time') ? Date.parse(raw) : NaN);
+          g.points.push({ k: k, i: i, a: num(row[aIdx]), b: bIdx !== -1 ? num(row[bIdx]) : 0, s: num(row[sIdx]) });
+        });
+        var sum = function (v) { return v.reduce(function (x, y) { return x + y; }, 0); };
+        var aggs = {
+          sum: sum,
+          last: function (v) { return v[v.length - 1]; },
+          avg: function (v) { return sum(v) / v.length; },
+          max: function (v) { return Math.max.apply(null, v); },
+          min: function (v) { return Math.min.apply(null, v); }
         };
-      });
+        var agg = aggs[state.aggregate] || aggs.sum;
+        rows = groups.map(function (g) {
+          if (g.points.every(function (p) { return !isNaN(p.k); })) g.points.sort(function (p, q) { return p.k - q.k || p.i - q.i; });
+          var a = agg(g.points.map(function (p) { return p.a; }));
+          return {
+            label: g.label, a: a, aFormatted: formatCompact(a),
+            bFormatted: bIdx !== -1 ? formatCompact(agg(g.points.map(function (p) { return p.b; }))) : null,
+            trend: g.points.map(function (p) { return p.s; })
+          };
+        });
+      }
 
       if (state.sortOrder === 'desc') rows.sort(function (x, y) { return y.a - x.a; });
       else if (state.sortOrder === 'asc') rows.sort(function (x, y) { return x.a - y.a; });

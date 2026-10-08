@@ -103,11 +103,26 @@
       "label": "Exibir unidades",
       "default": "",
       "options": [
-        ["", "Automático"],
-        ["K", "Milhares (K)"],
-        ["M", "Milhões (M)"],
-        ["B", "Bilhões (B)"],
-        ["T", "Trilhões (T)"]
+        [
+          "",
+          "Automático"
+        ],
+        [
+          "K",
+          "Milhares (K)"
+        ],
+        [
+          "M",
+          "Milhões (M)"
+        ],
+        [
+          "B",
+          "Bilhões (B)"
+        ],
+        [
+          "T",
+          "Trilhões (T)"
+        ]
       ]
     },
     {
@@ -116,10 +131,22 @@
       "label": "Casas decimais",
       "default": "",
       "options": [
-        ["", "Padrão"],
-        ["0", "0"],
-        ["1", "1"],
-        ["2", "2"]
+        [
+          "",
+          "Padrão"
+        ],
+        [
+          "0",
+          "0"
+        ],
+        [
+          "1",
+          "1"
+        ],
+        [
+          "2",
+          "2"
+        ]
       ]
     },
     {
@@ -139,6 +166,113 @@
       "type": "field",
       "label": "Campo do 2º selo (opcional)",
       "emptyLabel": "Nenhum (só um selo)"
+    },
+    {
+      "key": "trendField",
+      "type": "field",
+      "label": "Campo do período (sparkline)",
+      "emptyLabel": "Nenhum (sem sparkline)",
+      "hint": "Ex.: mês. A planilha precisa ter uma linha por categoria × período."
+    },
+    {
+      "key": "trendValueField",
+      "type": "field",
+      "label": "Medida do sparkline",
+      "emptyLabel": "Mesma do selo principal"
+    },
+    {
+      "key": "aggregate",
+      "type": "select",
+      "label": "Valor do selo (com sparkline)",
+      "default": "sum",
+      "options": [
+        [
+          "sum",
+          "Soma dos períodos"
+        ],
+        [
+          "last",
+          "Último período"
+        ],
+        [
+          "avg",
+          "Média"
+        ],
+        [
+          "max",
+          "Máximo"
+        ],
+        [
+          "min",
+          "Mínimo"
+        ]
+      ]
+    },
+    {
+      "key": "sparkStyle",
+      "type": "select",
+      "label": "Estilo do sparkline",
+      "default": "line",
+      "options": [
+        [
+          "line",
+          "Linha"
+        ],
+        [
+          "area",
+          "Área"
+        ],
+        [
+          "bars",
+          "Barras"
+        ]
+      ]
+    },
+    {
+      "key": "sparkWidth",
+      "type": "select",
+      "label": "Largura do sparkline",
+      "default": "medium",
+      "options": [
+        [
+          "small",
+          "Pequena"
+        ],
+        [
+          "medium",
+          "Média"
+        ],
+        [
+          "large",
+          "Grande"
+        ]
+      ]
+    },
+    {
+      "key": "sparkColor",
+      "type": "select",
+      "label": "Cor do sparkline",
+      "default": "accent",
+      "options": [
+        [
+          "accent",
+          "Destaque"
+        ],
+        [
+          "muted",
+          "Neutra"
+        ],
+        [
+          "delta",
+          "Verde / vermelho (último × primeiro)"
+        ]
+      ]
+    },
+    {
+      "key": "showBar",
+      "type": "checkbox",
+      "label": "Barra proporcional abaixo do nome",
+      "default": false
     },
     {
       "key": "topN",
