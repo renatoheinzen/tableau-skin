@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.scatterchart" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Dispersão e Bolhas</name>
+    <description>Gráfico de dispersão e de bolhas (tamanho e cor por campo), com médias, linha de tendência e a paleta da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/scatter-chart.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAEM0lEQVR4AdyZSYwVVRSG/1dNLxwWTk1jWpGgiRsTA06YYG+M0UQ0ceGwJBGIBEzYartw4bAlEWOCmLB0WJjYmGiMm5ZElCkkbEiAMHWgacaEMU1TnO8VBd33VfW7VXVf84pKna5z/zPc/69bVf3qvUgZ26pVce/qofijNUPxsNkxs7hLDC7DcINjBnW1CFrzabyit09HLfCdFSwzGzDrlh0uy+AGR7i6xCx2G1o7FH+jhr43pN+s2/d+uDY5T2F6SxCBWFo7JVYLF85wT8k2BbF0BFKwbke4owHeUfPmaugLBrU204CWqKdPH5qQfrO67/1oieyae7PuSlL+aDHTohS4C46LEMSz/Y5refIJacnixPBLEhpAUMnacGUImDdX6ulJDB+szAxdIajv4VbqWVhrVivSFYJaaZVHOi5oYJ708nPSW69JH7ydGD4YMaiPn+bvdMvCpmdkjzom6MEHpFeXSoMvSQsek+6/V2o0EsMHI0bOmfPSiZPS5GRi+AcOq9TWEUGc+dcHpbkZ94bLkhxyr1yVtu1KrKwYegcXxMq88qKaqyHPjZWjhlrPkty04IIWP6NCYnRzQxS1N4elD0EFcalxCZVlQy09ytZTF1TQ/IKfOSDgWtUeQQU98pBLr/i4ao+ggu67p7gAt6Jqj6CCXHJ3YhxU0MXL1SVU7RFU0Kkz1QVV7RFU0JHR6oKq9ggqaPSEdDLjg6avTGrp4ZuflRdUEBPs2ivF9r0SfhGjhtoiNVm5wQWdPSf9838xUYihhtoskkWwQoKef1Zat0Ja/3li+GDuhFw2f474XX5cZuRS4/YpM/YW9M4b0vJ3pacWSHPmJIYPRsydnLP991Zp5D/p0DHpwqVk1VgNfDBi5JDr1pcdRz6FrAIvYnm5xMjJinPm/90pDf8l/fhbYvhgxLJqqmBegpa+0H4Kn5z2XZKMR+0boPftdf0T++kAwwdLojP/9RLE6/LMbZLX7HY5PnGIL39Penqh1GuXNoYPRqxdj6hdwmzHB5eoKcSdF2HEXNwdRy6QNeYGzsKnYj45U/Pz/IXz8yLSTLG0ykvQ1u1pev7RJye/OlzES9COPRKP17xpiZGTFy+CHzySnz1TLK3yEkTyr39Im3+R9h+Srl1LDB+MGDkhbGSbNGH93V5gxFzcHXsLopBVWL9JWmefFDB8MGKh7Lh94bj5Z2nfwUQYQvDBiLWbp5Cgds1CxSH+k/0T/nqDhOGD+fTvSkE+xPNy7kpBAd4z887XrOOjrNDuWZ+2cxPujq5Lv3eu/+x2Rks0Oa4fbNoxs7rvY2iJNm5sTCjWZ3VXgwa0cA/p268am+zHNXvq11MW3NEA+6YgnA1fNj4mgF8ngzPcU863BAE0A7FWml+He2rMLrOVTc5GON2nCQJk6SbG9bg9MVbbeIvZqFm37HDZAjc4wtUldgMAAP//XUNtNAAAAAZJREFUAwAoO5W4MlajLwAAAABJRU5ErkJggg==</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

@@ -21,6 +21,7 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Projedata Tabela de Mini-gráficos | worksheet | [`trex/metric-table.trex`](trex/metric-table.trex) | Tabela com uma linha por categoria e até 4 medidas lado a lado (barra, ponto ou valor) com sparkline opcional |
 | Projedata Tabela | worksheet | [`trex/data-table.trex`](trex/data-table.trex) | Tabela estilizada: cabeçalho, zebra, ordenação por clique, totais, barras, mapa de calor e cor por sinal nas células |
 | Projedata Gráfico de Séries | worksheet | [`trex/series-chart.trex`](trex/series-chart.trex) | Barras empilhadas, 100%, lado a lado, linhas múltiplas, área empilhada e barras + linha (eixo secundário), com legenda clicável |
+| Projedata Dispersão e Bolhas | worksheet | [`trex/scatter-chart.trex`](trex/scatter-chart.trex) | Dispersão e bolhas (tamanho por medida, cor por campo), rótulos, linhas de média, tendência com R² e legenda clicável |
 | Projedata Faixa Lateral | dashboard | [`trex/sidebar-nav.trex`](trex/sidebar-nav.trex) | Navegação em faixa lateral |
 | Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação |
 | Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção |
