@@ -72,12 +72,34 @@
   /* clique filtra o dashboard (seleção de marcas) */
   .pd-click { cursor: pointer; }
   .pd-dim { opacity: 0.35; }
+
+  /* drill-down: barra de navegação e transição */
+  #drill-bar {
+    display: none; align-items: center; gap: 6px; min-width: 0;
+    margin: -2px 0 6px; font-size: 11px; color: var(--pd-text-muted);
+  }
+  #drill-bar.on { display: flex; }
+  #drill-bar button {
+    font: inherit; font-weight: 600; color: var(--pd-text); cursor: pointer;
+    background: transparent; border: 1px solid var(--pd-card-border-color); border-radius: 4px;
+    padding: 1px 8px; line-height: 1.6;
+  }
+  #drill-bar button:hover { border-color: var(--pd-text-muted); }
+  #drill-bar .crumb-sep { opacity: 0.6; }
+  #drill-bar .crumb-cur { color: var(--pd-text); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pd-drill { cursor: zoom-in; }
+  .donut-back { cursor: zoom-out; }
+  #pie-wrap svg.drill-in { animation: pdDrillIn 0.28s ease-out; }
+  #pie-wrap svg.drill-out { animation: pdDrillOut 0.28s ease-out; }
+  @keyframes pdDrillIn { from { transform: scale(0.82); opacity: 0; } to { transform: none; opacity: 1; } }
+  @keyframes pdDrillOut { from { transform: scale(1.12); opacity: 0; } to { transform: none; opacity: 1; } }
 </style>
 </head>
 <body>
 
 <div id="chart-root">
   <div id="chart-title">Carregando...</div>
+  <div id="drill-bar"></div>
   <div id="chart-body"></div>
 </div>
 
@@ -86,6 +108,7 @@
   var STATE_KEY = 'projedataPieState';
   var titleEl = document.getElementById('chart-title');
   var bodyEl = document.getElementById('chart-body');
+  var drillBarEl = document.getElementById('drill-bar');
   var SERIES_COUNT = 8;
 
   var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
@@ -114,11 +137,13 @@
   var state = {
     displayUnits: '', decimals: '',
     customLabel: '', showLabel: true,
-    dimensionField: '', measureField: '',
+    dimensionField: '', measureField: '', drillField: '',
     donut: false, legend: 'right', showPercent: true,
     sortOrder: '', maxItems: ''
   };
   var lastRows = [];
+  // drill-down: linhas brutas (nível 1 + nível 2) e o grupo aberto no momento (não é salvo nas configurações)
+  var drill = { on: false, field: '', rawRows: [], group: null, groupRaw: null, anim: '' };
 
   function loadState() {
     try {
@@ -168,9 +193,79 @@
     return el;
   }
 
+  // soma as linhas por rótulo, aplica ordenação e limite de fatias
+  function aggregate(items) {
+    var map = {}, out = [];
+    items.forEach(function (it) {
+      var r = map[it.label];
+      if (!r) { r = map[it.label] = { label: it.label, dimRaw: it.dimRaw, value: 0, formatted: it.formatted, n: 0 }; out.push(r); }
+      r.value += it.value; r.n++;
+    });
+    out.forEach(function (r) { if (r.n > 1) r.formatted = formatCompact(r.value); });
+    if (state.sortOrder === 'desc') out.sort(function (a, b) { return b.value - a.value; });
+    else if (state.sortOrder === 'asc') out.sort(function (a, b) { return a.value - b.value; });
+    var max = parseInt(state.maxItems, 10);
+    if (!isNaN(max) && max > 0) out = out.slice(0, max);
+    return out;
+  }
+
+  function currentRows() {
+    if (!drill.on) return lastRows;
+    if (drill.group === null) {
+      return aggregate(drill.rawRows.map(function (r) { return { label: r.label, dimRaw: r.dimRaw, value: r.value, formatted: r.formatted }; }));
+    }
+    return aggregate(drill.rawRows.filter(function (r) { return r.label === drill.group; })
+      .map(function (r) { return { label: r.subLabel, dimRaw: r.subRaw, value: r.value, formatted: r.formatted }; }));
+  }
+
+  function drillInto(row) {
+    drill.group = row.label; drill.groupRaw = row.dimRaw; drill.anim = 'drill-in';
+    if (state.clickFilter !== false && row.dimRaw !== null && row.dimRaw !== undefined) {
+      pdWs().selectMarksByValueAsync([{ fieldName: clickDim.field, value: row.dimRaw }], tableau.SelectionUpdateType.Replace)
+        .catch(function (e) { console.warn('[Projedata] seleção de marcas falhou:', e && (e.message || e)); });
+    }
+    render();
+  }
+  function drillUp() {
+    if (!drill.on || drill.group === null) return;
+    drill.group = null; drill.groupRaw = null; drill.anim = 'drill-out';
+    if (state.clickFilter !== false) pdWs().clearSelectedMarksAsync().catch(function () {});
+    render();
+  }
+  function bindDrill(el, row) {
+    el.classList.add('pd-drill');
+    el.addEventListener('click', function (ev) { ev.stopPropagation(); drillInto(row); });
+  }
+  // dentro de um grupo, a seleção de marcas usa grupo + subgrupo
+  function bindLeaf(el, row) {
+    if (drill.on && drill.group !== null) {
+      pdBindClick(el, [{ fieldName: clickDim.field, value: drill.groupRaw }, { fieldName: drill.field, value: row.dimRaw }]);
+    } else pdBindClick(el, row.dimRaw);
+  }
+
+  function renderDrillBar() {
+    drillBarEl.innerHTML = '';
+    var open = drill.on && drill.group !== null;
+    drillBarEl.classList.toggle('on', open);
+    if (!open) return;
+    var back = document.createElement('button');
+    back.type = 'button';
+    back.textContent = '\u2039 Voltar';
+    back.title = 'Voltar para todos os grupos';
+    back.addEventListener('click', function (ev) { ev.stopPropagation(); drillUp(); });
+    var sep = document.createElement('span'); sep.className = 'crumb-sep'; sep.textContent = '\u203a';
+    var cur = document.createElement('span'); cur.className = 'crumb-cur'; cur.textContent = drill.group; cur.title = drill.group;
+    drillBarEl.appendChild(back);
+    drillBarEl.appendChild(sep);
+    drillBarEl.appendChild(cur);
+  }
+
   function render() {
     bodyEl.innerHTML = '';
-    var rows = lastRows;
+    renderDrillBar();
+    var rows = currentRows();
+    var level1 = drill.on && drill.group === null;
+    var anim = drill.anim; drill.anim = '';
     if (rows.length === 0) {
       var empty = document.createElement('div');
       empty.id = 'chart-status';
@@ -186,6 +281,7 @@
     var SIZE = 200, C = SIZE / 2, R_OUT = 96, R_IN = state.donut ? 58 : 0;
 
     var svg = svgEl('svg', { viewBox: '0 0 ' + SIZE + ' ' + SIZE, preserveAspectRatio: 'xMidYMid meet' });
+    if (anim) svg.setAttribute('class', anim);
     var angle = -Math.PI / 2;
     rows.forEach(function (r, i) {
       var frac = Math.max(r.value, 0) / total;
@@ -201,9 +297,9 @@
         path = svgEl('path', { d: slicePath(C, C, R_OUT, R_IN, angle, angle + frac * 2 * Math.PI), fill: color });
       }
       var tip = svgEl('title');
-      tip.textContent = r.label + ': ' + r.formatted + ' (' + formatPct(frac * 100) + ')';
+      tip.textContent = r.label + ': ' + r.formatted + ' (' + formatPct(frac * 100) + ')' + (level1 ? '\nClique para detalhar' : '');
       path.appendChild(tip);
-      pdBindClick(path, r.dimRaw);
+      if (level1) bindDrill(path, r); else bindLeaf(path, r);
       svg.appendChild(path);
       angle += frac * 2 * Math.PI;
     });
@@ -212,9 +308,18 @@
       var totalText = svgEl('text', { x: C, y: C + 2, 'text-anchor': 'middle', 'font-size': 26, class: 'donut-total' });
       totalText.textContent = formatCompact(total);
       var caption = svgEl('text', { x: C, y: C + 22, 'text-anchor': 'middle', 'font-size': 11, class: 'donut-caption' });
-      caption.textContent = 'Total';
+      var capText = drill.on && drill.group !== null ? drill.group : 'Total';
+      caption.textContent = capText.length > 16 ? capText.slice(0, 15) + '\u2026' : capText;
       svg.appendChild(totalText);
       svg.appendChild(caption);
+      if (drill.on && drill.group !== null) {
+        // clicar no centro do donut volta um nível
+        var hole = svgEl('circle', { cx: C, cy: C, r: R_IN - 2, fill: 'transparent', class: 'donut-back' });
+        var holeTip = svgEl('title'); holeTip.textContent = 'Voltar para todos os grupos';
+        hole.appendChild(holeTip);
+        hole.addEventListener('click', function (ev) { ev.stopPropagation(); drillUp(); });
+        svg.appendChild(hole);
+      }
     }
 
     var wrap = document.createElement('div');
@@ -243,7 +348,7 @@
           pct.textContent = formatPct(Math.max(r.value, 0) / total * 100);
           item.appendChild(pct);
         }
-        pdBindClick(item, r.dimRaw);
+        if (level1) bindDrill(item, r); else bindLeaf(item, r);
         legend.appendChild(item);
       });
       bodyEl.appendChild(legend);
@@ -324,6 +429,8 @@
     document.addEventListener('click', function () {
       if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
     });
+    // Esc volta um nível do drill-down
+    document.addEventListener('keydown', function (ev) { if (ev.key === 'Escape') drillUp(); });
     pdRefreshSelection();
   }
 
@@ -353,6 +460,27 @@
       titleEl.classList.toggle('hidden', state.showLabel === false);
 
       clickDim.field = sumData.columns[dimIdx].fieldName;
+      var drillIdx = findColumnIndex(sumData.columns, state.drillField, -1);
+      drill.on = drillIdx !== -1 && drillIdx !== dimIdx && drillIdx !== measIdx;
+      if (drill.on) {
+        drill.field = sumData.columns[drillIdx].fieldName;
+        drill.rawRows = (sumData.data || []).map(function (row) {
+          var raw = row[measIdx] ? row[measIdx].value : null;
+          return {
+            label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+            dimRaw: row[dimIdx] ? row[dimIdx].value : null,
+            subLabel: row[drillIdx] ? row[drillIdx].formattedValue : '',
+            subRaw: row[drillIdx] ? row[drillIdx].value : null,
+            value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
+            formatted: fmtCell(row[measIdx])
+          };
+        });
+        // o grupo aberto sumiu dos dados (filtro mudou): volta ao 1º nível
+        if (drill.group !== null && !drill.rawRows.some(function (r) { return r.label === drill.group; })) { drill.group = null; drill.groupRaw = null; }
+        render();
+        return;
+      }
+      drill.group = null; drill.groupRaw = null;
       var rows = (sumData.data || []).map(function (row) {
         var raw = row[measIdx] ? row[measIdx].value : null;
         return {
