@@ -76,6 +76,9 @@
   .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
   .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
   .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
+  /* clique filtra o dashboard (seleção de marcas) */
+  .pd-click { cursor: pointer; }
+  .pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
@@ -234,11 +237,64 @@
         }
         row.appendChild(vals);
       }
+      pdBindClick(row, r.dimRaw);
       bodyEl.appendChild(row);
     });
+    pdApplySelection();
   }
 
   var loadTimeoutId = null;
+  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+  var clickDim = { field: '' };
+  var selectedKeys = null;
+  function pdKey(v) { return String(v); }
+  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+  function pdBindClick(el, value) {
+    if (state.clickFilter === false || value === null || value === undefined || !clickDim.field) return;
+    var key = pdKey(value);
+    el.setAttribute('data-pd-key', key);
+    el.classList.add('pd-click');
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var T = tableau.SelectionUpdateType, ws = pdWs();
+      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+      var already = !!(selectedKeys && selectedKeys[key]);
+      var sel = [{ fieldName: clickDim.field, value: value }];
+      var p;
+      if (multi) p = ws.selectMarksByValueAsync(sel, already ? T.Remove : T.Add);
+      else if (already && Object.keys(selectedKeys).length === 1) p = ws.clearSelectedMarksAsync();
+      else p = ws.selectMarksByValueAsync(sel, T.Replace);
+      p.catch(function (e) { console.warn('[Projedata] seleção de marcas falhou:', e && (e.message || e)); });
+    });
+  }
+  function pdApplySelection() {
+    var els = document.querySelectorAll('[data-pd-key]');
+    for (var i = 0; i < els.length; i++) {
+      els[i].classList.toggle('pd-dim', !!selectedKeys && !selectedKeys[els[i].getAttribute('data-pd-key')]);
+    }
+  }
+  function pdRefreshSelection() {
+    if (state.clickFilter === false || !clickDim.field) return;
+    pdWs().getSelectedMarksAsync().then(function (m) {
+      var keys = null, t = m && m.data && m.data[0];
+      if (t && t.data.length) {
+        var ci = -1;
+        t.columns.forEach(function (c, i) { if (c.fieldName === clickDim.field) ci = i; });
+        if (ci !== -1) { keys = {}; t.data.forEach(function (r) { keys[pdKey(r[ci].value)] = true; }); }
+      }
+      selectedKeys = keys;
+      pdApplySelection();
+    }).catch(function () {});
+  }
+  function pdInitClick() {
+    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+    // clique fora das marcas limpa a seleção
+    document.addEventListener('click', function () {
+      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+    });
+    pdRefreshSelection();
+  }
+
   function updateChart() {
     titleEl.textContent = 'Carregando...';
     if (loadTimeoutId) clearTimeout(loadTimeoutId);
@@ -265,10 +321,12 @@
         : sumData.columns[partIdx].fieldName;
       titleEl.classList.toggle('hidden', state.showLabel === false);
 
+      clickDim.field = dimIdx !== -1 ? sumData.columns[dimIdx].fieldName : '';
       var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
       var rows = (sumData.data || []).map(function (row) {
         return {
           label: dimIdx !== -1 && row[dimIdx] ? row[dimIdx].formattedValue : '',
+          dimRaw: dimIdx !== -1 && row[dimIdx] ? row[dimIdx].value : null,
           part: num(row[partIdx]),
           partFormatted: fmtCell(row[partIdx]),
           total: totalIdx !== -1 ? num(row[totalIdx]) : null,
@@ -321,6 +379,7 @@
       clearTimeout(initTimeoutId);
       loadState();
       tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      pdInitClick();
       updateChart();
     }).catch(function (err) {
       clearTimeout(initTimeoutId);

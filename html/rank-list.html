@@ -75,6 +75,9 @@
   .rk-badge.b-dark { background: var(--pd-text); color: var(--pd-surface); }
   .rk-badge.b-outline { background: transparent; color: var(--pd-text); border-color: var(--pd-text-muted); }
   .rk-badge.b-light { background: var(--pd-track); color: var(--pd-text); }
+  /* clique filtra o dashboard (seleção de marcas) */
+  .pd-click { cursor: pointer; }
+  .pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
@@ -259,12 +262,65 @@
         b.textContent = r.bFormatted;
         row.appendChild(b);
       }
+      pdBindClick(row, r.dimRaw);
       bodyEl.appendChild(row);
       a.style.color = readableOn(a);
     });
+    pdApplySelection();
   }
 
   var loadTimeoutId = null;
+  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+  var clickDim = { field: '' };
+  var selectedKeys = null;
+  function pdKey(v) { return String(v); }
+  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+  function pdBindClick(el, value) {
+    if (state.clickFilter === false || value === null || value === undefined || !clickDim.field) return;
+    var key = pdKey(value);
+    el.setAttribute('data-pd-key', key);
+    el.classList.add('pd-click');
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var T = tableau.SelectionUpdateType, ws = pdWs();
+      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+      var already = !!(selectedKeys && selectedKeys[key]);
+      var sel = [{ fieldName: clickDim.field, value: value }];
+      var p;
+      if (multi) p = ws.selectMarksByValueAsync(sel, already ? T.Remove : T.Add);
+      else if (already && Object.keys(selectedKeys).length === 1) p = ws.clearSelectedMarksAsync();
+      else p = ws.selectMarksByValueAsync(sel, T.Replace);
+      p.catch(function (e) { console.warn('[Projedata] seleção de marcas falhou:', e && (e.message || e)); });
+    });
+  }
+  function pdApplySelection() {
+    var els = document.querySelectorAll('[data-pd-key]');
+    for (var i = 0; i < els.length; i++) {
+      els[i].classList.toggle('pd-dim', !!selectedKeys && !selectedKeys[els[i].getAttribute('data-pd-key')]);
+    }
+  }
+  function pdRefreshSelection() {
+    if (state.clickFilter === false || !clickDim.field) return;
+    pdWs().getSelectedMarksAsync().then(function (m) {
+      var keys = null, t = m && m.data && m.data[0];
+      if (t && t.data.length) {
+        var ci = -1;
+        t.columns.forEach(function (c, i) { if (c.fieldName === clickDim.field) ci = i; });
+        if (ci !== -1) { keys = {}; t.data.forEach(function (r) { keys[pdKey(r[ci].value)] = true; }); }
+      }
+      selectedKeys = keys;
+      pdApplySelection();
+    }).catch(function () {});
+  }
+  function pdInitClick() {
+    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+    // clique fora das marcas limpa a seleção
+    document.addEventListener('click', function () {
+      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+    });
+    pdRefreshSelection();
+  }
+
   function updateChart() {
     titleEl.textContent = 'Carregando...';
     if (loadTimeoutId) clearTimeout(loadTimeoutId);
@@ -291,6 +347,7 @@
         : sumData.columns[aIdx].fieldName;
       titleEl.classList.toggle('hidden', state.showLabel === false);
 
+      clickDim.field = sumData.columns[dimIdx].fieldName;
       var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
       var tIdx = state.trendField ? findColumnIndex(sumData.columns, state.trendField, -1) : -1;
       var sIdx = findColumnIndex(sumData.columns, state.trendValueField, aIdx);
@@ -299,6 +356,7 @@
         rows = (sumData.data || []).map(function (row) {
           return {
             label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+            dimRaw: row[dimIdx] ? row[dimIdx].value : null,
             a: num(row[aIdx]),
             aFormatted: fmtCell(row[aIdx]),
             bFormatted: bIdx !== -1 ? fmtCell(row[bIdx]) : null
@@ -311,7 +369,7 @@
         (sumData.data || []).forEach(function (row, i) {
           var label = row[dimIdx] ? row[dimIdx].formattedValue : '';
           var g = byLabel[label];
-          if (!g) { g = byLabel[label] = { label: label, points: [] }; groups.push(g); }
+          if (!g) { g = byLabel[label] = { label: label, dimRaw: row[dimIdx] ? row[dimIdx].value : null, points: [] }; groups.push(g); }
           var raw = row[tIdx] ? row[tIdx].value : null;
           var k = typeof raw === 'number' ? raw : ((tType === 'date' || tType === 'date-time') ? Date.parse(raw) : NaN);
           g.points.push({ k: k, i: i, a: num(row[aIdx]), b: bIdx !== -1 ? num(row[bIdx]) : 0, s: num(row[sIdx]) });
@@ -329,7 +387,7 @@
           if (g.points.every(function (p) { return !isNaN(p.k); })) g.points.sort(function (p, q) { return p.k - q.k || p.i - q.i; });
           var a = agg(g.points.map(function (p) { return p.a; }));
           return {
-            label: g.label, a: a, aFormatted: formatCompact(a),
+            label: g.label, dimRaw: g.dimRaw, a: a, aFormatted: formatCompact(a),
             bFormatted: bIdx !== -1 ? formatCompact(agg(g.points.map(function (p) { return p.b; }))) : null,
             trend: g.points.map(function (p) { return p.s; })
           };
@@ -374,6 +432,7 @@
       clearTimeout(initTimeoutId);
       loadState();
       tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      pdInitClick();
       updateChart();
     }).catch(function (err) {
       clearTimeout(initTimeoutId);
