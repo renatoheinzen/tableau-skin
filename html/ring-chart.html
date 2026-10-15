@@ -175,7 +175,7 @@
   function buildRing(pct, r) {
     // círculo de raio 15.9155 → circunferência 100, então o dasharray é direto em %
     var svg = svgEl('svg', { viewBox: '0 0 36 36', class: 'ring-svg' });
-    var tipText = (r.label || 'Proporção') + ': ' + formatPct(pct) + ' (' + r.partFormatted + (r.totalFormatted ? ' de ' + r.totalFormatted : '') + ')';
+    var tipText = (r.label || 'Proporção') + ': ' + formatPct(pct) + (r.totalFormatted ? ' (' + r.partFormatted + ' de ' + r.totalFormatted + ')' : ' do total das linhas (' + r.partFormatted + ')');
     var track = svgEl('circle', { class: 'ring-track', cx: 18, cy: 18, r: 15.9155 });
     var arc = svgEl('circle', {
       class: 'ring-arc', cx: 18, cy: 18, r: 15.9155,
