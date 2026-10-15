@@ -20,6 +20,7 @@
     border: var(--pd-panel-border-width) solid var(--pd-panel-border-color);
     border-radius: var(--pd-panel-radius);
     box-shadow: var(--pd-panel-shadow);
+    display: flex; flex-direction: column;
   }
   #panel.align-center { text-align: center; }
   #panel.align-right { text-align: right; }
@@ -38,6 +39,13 @@
   #subtitle:empty { display: none; }
   #divider { margin-top: 12px; height: 1px; background: var(--pd-track); display: none; }
   #panel.divider #divider { display: block; }
+  /* moldura: área rebaixada abaixo do título, onde o mapa/gráfico nativo do Tableau encaixa por cima */
+  #frame {
+    display: none; flex: 1; min-height: 0; margin-top: 12px;
+    border: 1px solid var(--pd-track); border-radius: max(var(--pd-panel-radius) - 8px, 6px);
+    background: color-mix(in srgb, var(--pd-track) 35%, transparent);
+  }
+  #panel.frame #frame { display: block; }
 </style>
 </head>
 <body>
@@ -46,6 +54,7 @@
   <div id="title"></div>
   <div id="subtitle"></div>
   <div id="divider"></div>
+  <div id="frame"></div>
 </div>
 
 <script>
@@ -55,12 +64,12 @@
   var titleEl = document.getElementById('title');
   var subtitleEl = document.getElementById('subtitle');
 
-  var state = { title: '', subtitle: '', showDivider: false, align: 'left', bgColor: '', radius: '' };
+  var state = { title: '', subtitle: '', showDivider: false, frame: false, align: 'left', bgColor: '', radius: '' };
 
   function render() {
     titleEl.textContent = state.title || '';
     subtitleEl.textContent = state.subtitle || '';
-    panel.className = 'align-' + (state.align || 'left') + (state.showDivider ? ' divider' : '');
+    panel.className = 'align-' + (state.align || 'left') + (state.showDivider ? ' divider' : '') + (state.frame ? ' frame' : '');
     // por instância: só sobrescreve o tema quando preenchido
     panel.style.background = state.bgColor || '';
     var radius = parseInt(state.radius, 10);

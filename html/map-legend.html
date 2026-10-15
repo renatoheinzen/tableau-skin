@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Legenda de Mapa</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 10px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+
+  #chart-body {
+    flex: 1; min-height: 0;
+    display: flex; flex-direction: column; gap: 14px;
+    overflow-y: auto; overflow-x: hidden;
+  }
+  #chart-root.accent-laranja { --pd-accent-1: var(--pd-accent-2); }
+  #chart-root.accent-amarelo { --pd-accent-1: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro { --pd-accent-1: var(--pd-accent-4); }
+  .ml-bar { height: 10px; border-radius: 5px; }
+  .ml-bar.steps { display: flex; gap: 2px; background: none !important; }
+  .ml-bar.steps span { flex: 1; border-radius: 3px; }
+  .ml-ends { display: flex; justify-content: space-between; margin-top: 6px; font-size: 11px; color: var(--pd-text-muted); }
+  .ml-ends b { color: var(--pd-text); font-weight: 700; }
+  .ml-list { display: flex; flex-direction: column; gap: 6px; }
+  .ml-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .ml-dot { flex: 0 0 10px; height: 10px; border-radius: 50%; }
+  .ml-pos { flex: 0 0 16px; font-size: 11px; color: var(--pd-text-muted); }
+  .ml-label { flex: 1 1 0; min-width: 0; font-size: 12px; color: var(--pd-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ml-val { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--pd-text); }
+  /* vertical: barra em pé (maior valor no topo), lista ao lado */
+  #chart-root.vertical #chart-body { flex-direction: row; }
+  #chart-root.vertical .ml-scale { display: flex; gap: 8px; flex: 0 0 auto; }
+  #chart-root.vertical .ml-bar { width: 10px; height: auto; align-self: stretch; min-height: 90px; }
+  #chart-root.vertical .ml-bar.steps { flex-direction: column; }
+  #chart-root.vertical .ml-ends { flex-direction: column; justify-content: space-between; margin-top: 0; }
+  #chart-root.vertical .ml-list { flex: 1; min-width: 0; }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataMapLegendState';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+  // mesma escala da Matriz de Calor: da cor do trilho até a cor base
+  var SCALE_BASE = { accent: 'var(--pd-accent-1)', accent2: 'var(--pd-accent-2)', dark: 'var(--pd-text)' };
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Lista Top N: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
+  var state = {
+    displayUnits: '', decimals: '',
+    accent: '', customLabel: '', showLabel: true,
+    dimensionField: '', valueField: '',
+    scale: 'accent', orientation: 'horizontal', steps: '', showTop: false, topN: 5, sortOrder: 'desc'
+  };
+  var lastRows = [];
+
+  function applyLayout() {
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    root.classList.toggle('vertical', state.orientation === 'vertical');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    applyLayout();
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+  // Mapas trazem hierarquias (País > Estado > Cidade) e Latitude/Longitude geradas em Marcas:
+  // a região padrão é o campo de texto mais detalhado (o último) e a medida ignora lat/long
+  function defaultDimensionIndex(columns) {
+    var idx = -1;
+    columns.forEach(function (c, i) { if (c.dataType === 'string') idx = i; });
+    return idx !== -1 ? idx : 0;
+  }
+  function isGeoCoordinate(c) { return /^(latitude|longitude)\b/i.test(c.fieldName); }
+  function defaultMeasureIndex(columns, dimIdx) {
+    var idx = columns.findIndex(function (c, i) { return i !== dimIdx && !isGeoCoordinate(c) && (c.dataType === 'int' || c.dataType === 'float'); });
+    if (idx !== -1) return idx;
+    return dimIdx === 0 && columns.length > 1 ? 1 : 0;
+  }
+
+  function colorAt(t) {
+    var base = SCALE_BASE[state.scale] || SCALE_BASE.accent;
+    return 'color-mix(in srgb, ' + base + ' ' + Math.round(12 + 88 * t) + '%, var(--pd-track))';
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (lastRows.length === 0) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var vertical = state.orientation === 'vertical';
+    var vals = lastRows.map(function (r) { return r.v; });
+    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+    var span = max - min;
+
+    var bar = document.createElement('div');
+    var steps = parseInt(state.steps, 10);
+    if (!isNaN(steps) && steps >= 2) {
+      bar.className = 'ml-bar steps';
+      for (var i = 0; i < steps; i++) {
+        var seg = document.createElement('span');
+        var t = i / (steps - 1);
+        seg.style.background = colorAt(vertical ? 1 - t : t);
+        bar.appendChild(seg);
+      }
+    } else {
+      bar.className = 'ml-bar';
+      bar.style.background = 'linear-gradient(' + (vertical ? 'to top' : 'to right') + ', ' + colorAt(0) + ', ' + colorAt(1) + ')';
+    }
+
+    var ends = document.createElement('div');
+    ends.className = 'ml-ends';
+    var lo = document.createElement('b'); lo.textContent = formatCompact(min);
+    var hi = document.createElement('b'); hi.textContent = formatCompact(max);
+    if (vertical) { ends.appendChild(hi); ends.appendChild(lo); }
+    else { ends.appendChild(lo); ends.appendChild(hi); }
+
+    var scale = document.createElement('div');
+    scale.className = 'ml-scale';
+    if (vertical) {
+      scale.appendChild(bar); scale.appendChild(ends);
+    } else {
+      var wrap = document.createElement('div');
+      wrap.appendChild(bar); wrap.appendChild(ends);
+      scale.appendChild(wrap);
+    }
+    bodyEl.appendChild(scale);
+
+    if (state.showTop) {
+      var n = parseInt(state.topN, 10);
+      var rows = lastRows.slice();
+      if (state.sortOrder === 'asc') rows.sort(function (x, y) { return x.v - y.v; });
+      else rows.sort(function (x, y) { return y.v - x.v; });
+      if (!isNaN(n) && n > 0) rows = rows.slice(0, n);
+      var list = document.createElement('div');
+      list.className = 'ml-list';
+      rows.forEach(function (r, idx) {
+        var row = document.createElement('div');
+        row.className = 'ml-row';
+        var dot = document.createElement('div');
+        dot.className = 'ml-dot';
+        dot.style.background = colorAt(span > 0 ? (r.v - min) / span : 1);
+        var pos = document.createElement('div'); pos.className = 'ml-pos'; pos.textContent = String(idx + 1);
+        var label = document.createElement('div'); label.className = 'ml-label'; label.textContent = r.label; label.title = r.label;
+        var val = document.createElement('div'); val.className = 'ml-val'; val.textContent = r.formatted;
+        row.appendChild(dot); row.appendChild(pos); row.appendChild(label); row.appendChild(val);
+        list.appendChild(row);
+      });
+      bodyEl.appendChild(list);
+    }
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+        titleEl.textContent = 'Arraste campos para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+      var dimIdx = findColumnIndex(sumData.columns, state.dimensionField, defaultDimensionIndex(sumData.columns));
+      var mIdx = findColumnIndex(sumData.columns, state.valueField, defaultMeasureIndex(sumData.columns, dimIdx));
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : sumData.columns[mIdx].fieldName;
+      titleEl.classList.toggle('hidden', state.showLabel === false);
+
+      lastRows = (sumData.data || []).filter(function (row) {
+        return row[mIdx] && typeof row[mIdx].value === 'number' && !isNaN(row[mIdx].value);
+      }).map(function (row) {
+        return { label: row[dimIdx] ? row[dimIdx].formattedValue : '', v: row[mIdx].value, formatted: fmtCell(row[mIdx]) };
+      });
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Legenda de Mapa] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/map-legend-config.html', '', { height: 640, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Legenda de Mapa] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+</body>
+</html>

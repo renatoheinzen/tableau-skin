@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.maplegend" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Legenda de Mapa</name>
+    <description>Legenda (degradê mínimo–máximo e Top N) para o mapa nativo do Tableau, com a escala de cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/map-legend.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAACn0lEQVR4AeyZvU4bQRSFz26EkhdALlCKFOlDk3QpUiakzQskoCAcpUkVkyoJFQ3CCImfF6A1UFLQQQM9BQW4sHgBEILhnrUWzOyg2bHxetYM2gMzd/7ON9e7HpsYhp+pKTUyXVPfZ2qqIToVKU9ELw16o0eDdWSAZn6rbyOjOJGGZRkwIRoT+XLRywS90SO96sak7S5UralFRFiVSEXk+1Wh18Rzh9NbIDYooNrRVooiPdN7ajYBYurYkAbL9pfeyUDfcXJzRfjHSqklDGSJn43iq4BURGW/KmSJ5TX3qewkqX+yiDCeBobg7ziB+GwfApYEYYxASWlYflmBXr8CbPr4AbDppzx6bKrLs9Ym28ZbgWwT+NYegHzLiO4nZEjfEd/qIUO+ZUT3Y83Q0TFg0/YOYNPCOqBLr1dn5QOZRTqAXrcC6QN8rwegkKGCdyC85ArecOflQoact6zgASFDBW+483LOGfryGZj/0xbLziv2eYATEAHevwNePG+LZcZ0j7bvBbpt19cx1Z2A3r7JTmGKZXsVF3ECKs5W9ys5Ae0fZhcyxbK9ios4AW00gN094PyiLZYZ0+3m+VzTTR99HVPdCYgTEODXX4BimTGf5Azkk3mTl6cLZNoNH2POGeIbaTgp5PivQufpoZfMO2XIdCowxXox1OtYAjV7ncSj8U0CHeQ1ZDoVmGJ55+tDv4P4GtjKOzHfSHk66PdJIa8fvR9Z4qszyJe0aOmND9UJxVMCxfJD/QYQb5ElXlmJLqEwOwADj7ukMJCF9xCW5qK1CKg/7grFzUbvZOCKCRAL9f/RDzawXCbRM72nnm+BGEgaFCalnPuekr6Dulpyq0wmnjsc3ANinKm7PMNLeWJMS31T1BT5ctHLJr3RI73qxm4AAAD//zYsIEAAAAAGSURBVAMALu2RuPpVcHUAAAAASUVORK5CYII=</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

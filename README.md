@@ -26,9 +26,10 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Projedata Gráfico de Gantt | worksheet | [`trex/gantt-chart.trex`](trex/gantt-chart.trex) | Gantt: tarefas no tempo (início e fim ou duração), cor por grupo, progresso, marcos e linha de hoje |
 | Projedata Box-plot | worksheet | [`trex/box-plot.trex`](trex/box-plot.trex) | Box-and-whisker: mediana, quartis, bigodes (1,5 × IQR ou mín–máx), média, outliers e pontos, por categoria |
 | Projedata Sankey | worksheet | [`trex/sankey-chart.trex`](trex/sankey-chart.trex) | Diagrama de Sankey: fluxos entre origem, destino e uma 3ª etapa opcional, com cor por origem/destino |
+| Projedata Legenda de Mapa | worksheet | [`trex/map-legend.trex`](trex/map-legend.trex) | Legenda para o mapa nativo do Tableau: degradê mínimo–máximo (ou 5/7 faixas) e lista Top N opcional, com a escala de cores da marca |
 | Projedata Faixa Lateral | dashboard | [`trex/sidebar-nav.trex`](trex/sidebar-nav.trex) | Navegação em faixa lateral |
 | Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação |
-| Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção |
+| Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção, com moldura opcional para encaixar um mapa/gráfico nativo por cima |
 | Projedata Skin Iniflex Pro (escuro) | dashboard | [`trex/skin-pro.trex`](trex/skin-pro.trex) | Fundo de dashboard no tema "Iniflex Pro (escuro)" gerado pelo Skin Builder |
 | Projedata Skin Claro | dashboard | [`trex/skin-light.trex`](trex/skin-light.trex) | Fundo de dashboard tema claro (Iniflex Smart) + logo |
 | Projedata Skin Escuro | dashboard | [`trex/skin-dark.trex`](trex/skin-dark.trex) | Fundo de dashboard tema escuro (Iniflex Pro) + logo |
