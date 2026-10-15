@@ -238,48 +238,9 @@
     var lines = [labelEl.textContent + ': ' + prefix + state.lastRawValue + suffix];
     if (state.compareField && lastCompareFormatted) lines.push('Comparativo: ' + lastCompareFormatted);
     if (!variationEl.classList.contains('hidden')) lines.push('Variação: ' + variationEl.textContent);
-    fallbackTip = lines.join('\n');
-    applyTip();
-    fetchNativeTip();
+    root.title = lines.join('\n');
   }
 
-  // texto da "Dica de ferramenta" configurada na planilha (só em viz extensions); sem ela, vale a dica própria acima
-  var fallbackTip = '';
-  var nativeTip = '';
-  function cleanTip(t) {
-    if (t && typeof t === 'object') t = t.text || t.tooltipText || t.tooltip || '';
-    if (typeof t !== 'string') return '';
-    return t.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')
-            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\r/g, '').trim();
-  }
-  var DEBUG_TIP = true; // TEMPORÁRIO: mostra na dica o que a API devolveu
-  var debugTip = '';
-  function describe(r) {
-    if (r == null) return String(r);
-    return typeof r === 'string' ? 'texto(' + r.length + ')=' + JSON.stringify(r.slice(0, 80)) : typeof r + '=' + JSON.stringify(r).slice(0, 80);
-  }
-  function applyTip() {
-    root.title = (nativeTip || fallbackTip) + (DEBUG_TIP && debugTip ? '\n[debug] ' + debugTip : '');
-  }
-  function fetchNativeTip() {
-    var ws;
-    try { ws = tableau.extensions.worksheetContent.worksheet; } catch (e) { return; }
-    if (!ws || typeof ws.getTooltipTextAsync !== 'function') { debugTip = 'API sem getTooltipTextAsync'; applyTip(); return; }
-    var dbg = [], found = '';
-    [1, 0, 2].reduce(function (p, id) {
-      return p.then(function () {
-        if (found) return;
-        return ws.getTooltipTextAsync(id).then(function (r) {
-          dbg.push(id + ':' + describe(r));
-          var t = cleanTip(r);
-          if (t) found = t;
-        }, function (e) { dbg.push(id + ':erro ' + (e && e.message)); });
-      });
-    }, Promise.resolve()).then(function () {
-      console.log('[Projedata KPI] dica do Tableau:', dbg, found);
-      nativeTip = found; debugTip = dbg.join(' | '); applyTip();
-    });
-  }
   function loadState() {
     try {
       var saved = tableau.extensions.settings.get('projedataKpiState');
