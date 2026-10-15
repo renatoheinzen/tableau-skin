@@ -238,7 +238,35 @@
     var lines = [labelEl.textContent + ': ' + prefix + state.lastRawValue + suffix];
     if (state.compareField && lastCompareFormatted) lines.push('Comparativo: ' + lastCompareFormatted);
     if (!variationEl.classList.contains('hidden')) lines.push('Variação: ' + variationEl.textContent);
-    root.title = lines.join('\n');
+    fallbackTip = lines.join('\n');
+    root.title = nativeTip || fallbackTip;
+    fetchNativeTip();
+  }
+
+  // texto da "Dica de ferramenta" configurada na planilha (só em viz extensions); sem ela, vale a dica própria acima
+  var fallbackTip = '';
+  var nativeTip = '';
+  function cleanTip(t) {
+    if (t && typeof t === 'object') t = t.text || t.tooltipText || t.tooltip || '';
+    if (typeof t !== 'string') return '';
+    return t.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')
+            .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\r/g, '').trim();
+  }
+  function fetchNativeTip() {
+    try {
+      var ws = tableau.extensions.worksheetContent.worksheet;
+      if (!ws || typeof ws.getTooltipTextAsync !== 'function') return;
+      // o KPI tem uma marca só; o tupleId pode ser 1 ou 0 conforme a versão do Tableau
+      ws.getTooltipTextAsync(1).then(function (r) {
+        var t = cleanTip(r);
+        if (t) return t;
+        return ws.getTooltipTextAsync(0).then(cleanTip);
+      }).then(function (t) {
+        console.log('[Projedata KPI] texto da dica do Tableau:', t);
+        nativeTip = t || '';
+        root.title = nativeTip || fallbackTip;
+      }).catch(function (e) { console.log('[Projedata KPI] getTooltipTextAsync indisponível:', e && e.message); });
+    } catch (e) { /* fora do Tableau ou API antiga: mantém a dica própria */ }
   }
 
   function loadState() {
