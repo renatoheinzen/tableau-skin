@@ -400,16 +400,6 @@
     return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
   }
   function add(cls, txt) { var d = document.createElement('div'); d.className = cls; d.textContent = txt; tip.appendChild(d); }
-  // nome de medida do Tableau, ex.: SOMA(iniflexbi.vlr_total_vendas) → "Soma de vlr total vendas"
-  var AGG = { SOMA: 'Soma de ', SUM: 'Soma de ', 'MÉDIA': 'Média de ', MEDIA: 'Média de ', AVG: 'Média de ', CONTAGEM: 'Contagem de ', CNT: 'Contagem de ', COUNT: 'Contagem de ', CNTD: 'Contagem distinta de ', 'MÍN': 'Mínimo de ', MIN: 'Mínimo de ', 'MÁX': 'Máximo de ', MAX: 'Máximo de ', 'MEDIANA': 'Mediana de ' };
-  function pretty(t) {
-    var m = /^([A-Za-zÀ-ú]{2,9})\((.*)\)$/.exec(t || '');
-    if (!m) return t;
-    var n = m[2].replace(/^[A-Za-z0-9_]+\./, '').replace(/_/g, ' ').trim().toLowerCase();
-    if (!n) return t;
-    var pre = AGG[m[1].toUpperCase()] || '';
-    return pre ? pre + n : n.charAt(0).toUpperCase() + n.slice(1);
-  }
   function show(n, e) {
     var lines = n.getAttribute('data-tip').split('\n'), head = lines[0], cat = '', val = '', m;
     if ((m = /^(.*?) · (.*): ([^:]*)$/.exec(head))) { head = m[1]; cat = m[2]; val = m[3]; }
@@ -418,7 +408,7 @@
     var h = document.createElement('div'); h.className = 'tt-h';
     var c = color(n);
     if (c) { var sw = document.createElement('i'); sw.style.background = c; h.appendChild(sw); }
-    var nm = document.createElement('span'); nm.textContent = pretty(head); h.appendChild(nm); tip.appendChild(h);
+    var nm = document.createElement('span'); nm.textContent = head; h.appendChild(nm); tip.appendChild(h);
     if (cat) add('tt-c', cat);
     lines.slice(1).forEach(function (l) { add('tt-c', l); });
     if (val) add('tt-v', val);

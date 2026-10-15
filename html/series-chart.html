@@ -413,16 +413,6 @@
     node.setAttribute('data-n', name); node.setAttribute('data-c', cat);
     node.setAttribute('data-v', val); node.setAttribute('data-k', color);
   }
-  // nome de medida do Tableau, ex.: SOMA(iniflexbi.vlr_total_vendas) → "Soma de vlr total vendas"
-  var AGG = { SOMA: 'Soma de ', SUM: 'Soma de ', 'MÉDIA': 'Média de ', MEDIA: 'Média de ', AVG: 'Média de ', CONTAGEM: 'Contagem de ', CNT: 'Contagem de ', COUNT: 'Contagem de ', CNTD: 'Contagem distinta de ', 'MÍN': 'Mínimo de ', MIN: 'Mínimo de ', 'MÁX': 'Máximo de ', MAX: 'Máximo de ', 'MEDIANA': 'Mediana de ' };
-  function pretty(t) {
-    var m = /^([A-Za-zÀ-ú]{2,9})\((.*)\)$/.exec(t || '');
-    if (!m) return t;
-    var n = m[2].replace(/^[A-Za-z0-9_]+\./, '').replace(/_/g, ' ').trim().toLowerCase();
-    if (!n) return t;
-    var pre = AGG[m[1].toUpperCase()] || '';
-    return pre ? pre + n : n.charAt(0).toUpperCase() + n.slice(1);
-  }
   function tipMove(e) {
     var w = tipEl.offsetWidth, h = tipEl.offsetHeight;
     var x = e.clientX + 14, y = e.clientY + 14;
@@ -436,7 +426,7 @@
     tipEl.innerHTML = '';
     var h = document.createElement('div'); h.className = 'tt-h';
     var sw = document.createElement('i'); sw.style.background = t.getAttribute('data-k');
-    var nm = document.createElement('span'); nm.textContent = pretty(t.getAttribute('data-n'));
+    var nm = document.createElement('span'); nm.textContent = t.getAttribute('data-n');
     h.appendChild(sw); h.appendChild(nm); tipEl.appendChild(h);
     [['data-c', 'tt-c'], ['data-v', 'tt-v']].forEach(function (q) {
       var v = t.getAttribute(q[0]); if (!v) return;
