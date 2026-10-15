@@ -65,6 +65,9 @@
   .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
   .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
   .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
+  /* clique filtra o dashboard (seleção de marcas) */
+  .pd-click { cursor: pointer; }
+  .pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
@@ -174,6 +177,7 @@
       h.className = 'col-head';
       h.textContent = c;
       h.title = c;
+      pdBindClick(h, model.colSel[c]);
       matrixEl.appendChild(h);
     });
 
@@ -184,6 +188,7 @@
       rh.className = 'row-head';
       rh.textContent = r;
       rh.title = r;
+      pdBindClick(rh, model.rowSel[r]);
       matrixEl.appendChild(rh);
 
       model.cols.forEach(function (c) {
@@ -200,6 +205,7 @@
           cell.style.background = 'color-mix(in srgb, ' + base + ' ' + Math.round(12 + 88 * t) + '%, var(--pd-track))';
           toStyle.push(cell);
         }
+        if (data) pdBindClick(cell, data.sel);
         matrixEl.appendChild(cell);
       });
     });
@@ -209,9 +215,85 @@
       var lum = luminanceOf(getComputedStyle(cell).backgroundColor);
       cell.style.color = lum != null && lum < 0.55 ? '#ffffff' : '#161616';
     });
+    pdApplySelection();
   }
 
   var loadTimeoutId = null;
+  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+  var clickDim = { field: '' };
+  var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
+  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+  function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
+  function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
+  // pares {fieldName, value} das colunas idxs de uma linha (ignora campos sem valor)
+  function pdSel(cols, row, idxs) {
+    var out = [];
+    idxs.forEach(function (i) {
+      if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
+    });
+    return out;
+  }
+  // target: valor da dimensão (usa clickDim.field) ou lista de pares {fieldName, value}
+  function pdBindClick(el, target) {
+    if (state.clickFilter === false || target === null || target === undefined) return;
+    var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
+    if (!pairs.length || !pairs[0].fieldName) return;
+    var key = pdKeyOf(pairs), names = pdNames(pairs);
+    clickSets[names] = pairs.map(function (p) { return p.fieldName; });
+    el.setAttribute('data-pd-key', key);
+    el.classList.add('pd-click');
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var T = tableau.SelectionUpdateType, ws = pdWs();
+      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+      var already = !!(selectedKeys && selectedKeys[key]);
+      var p;
+      if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
+      else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
+      else p = ws.selectMarksByValueAsync(pairs, T.Replace);
+      p.catch(function (e) { console.warn('[Projedata] seleção de marcas falhou:', e && (e.message || e)); });
+    });
+  }
+  function pdApplySelection() {
+    var els = document.querySelectorAll('[data-pd-key]');
+    for (var i = 0; i < els.length; i++) {
+      var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
+      els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
+      els[i].classList.toggle('pd-sel', on);
+    }
+    if (!selLoaded && Object.keys(clickSets).length) { selLoaded = true; pdRefreshSelection(); }
+  }
+  function pdRefreshSelection() {
+    if (state.clickFilter === false || !Object.keys(clickSets).length) return;
+    pdWs().getSelectedMarksAsync().then(function (m) {
+      var keys = null, counts = {}, t = m && m.data && m.data[0];
+      if (t && t.data.length) {
+        keys = {};
+        Object.keys(clickSets).forEach(function (names) {
+          var fields = clickSets[names];
+          var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
+          if (!ci.every(function (k) { return k !== -1; })) return;
+          t.data.forEach(function (r) {
+            var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
+            if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
+          });
+        });
+      }
+      if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
+      selectedKeys = keys;
+      selCount = counts;
+      pdApplySelection();
+    }).catch(function () {});
+  }
+  function pdInitClick() {
+    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+    // clique fora das marcas limpa a seleção
+    document.addEventListener('click', function () {
+      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+    });
+    pdRefreshSelection();
+  }
+
   function updateChart() {
     titleEl.textContent = 'Carregando...';
     if (loadTimeoutId) clearTimeout(loadTimeoutId);
@@ -246,28 +328,30 @@
         : cols[valIdx].fieldName;
       titleEl.classList.toggle('hidden', state.showLabel === false);
 
-      var rows = [], colsList = [], cells = {}, colKeys = {};
+      var rows = [], colsList = [], cells = {}, colKeys = {}, rowSel = {}, colSel = {};
       (sumData.data || []).forEach(function (row) {
         var r = row[rowIdx] ? row[rowIdx].formattedValue : '';
         var c = row[colIdx] ? row[colIdx].formattedValue : '';
         var raw = row[valIdx] ? row[valIdx].value : null;
-        if (rows.indexOf(r) === -1) rows.push(r);
+        if (rows.indexOf(r) === -1) { rows.push(r); rowSel[r] = pdSel(cols, row, [rowIdx]); }
         if (colsList.indexOf(c) === -1) {
           colsList.push(c);
+          colSel[c] = pdSel(cols, row, [colIdx]);
           var cRaw = row[colIdx] ? row[colIdx].value : null;
           var cType = cols[colIdx].dataType;
           colKeys[c] = (typeof cRaw === 'number') ? cRaw : ((cType === 'date' || cType === 'date-time') ? Date.parse(cRaw) : NaN);
         }
         cells[r + '\u0001' + c] = {
           value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
-          formatted: fmtCell(row[valIdx])
+          formatted: fmtCell(row[valIdx]),
+          sel: pdSel(cols, row, [rowIdx, colIdx])
         };
       });
       // colunas numéricas/de data (ex.: anos) em ordem crescente; texto mantém a ordem original
       if (colsList.length && colsList.every(function (c) { return !isNaN(colKeys[c]); })) {
         colsList.sort(function (a, b) { return colKeys[a] - colKeys[b]; });
       }
-      model = { rows: rows, cols: colsList, cells: cells };
+      model = { rows: rows, cols: colsList, cells: cells, rowSel: rowSel, colSel: colSel };
       render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
@@ -299,6 +383,7 @@
       clearTimeout(initTimeoutId);
       loadState();
       tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      pdInitClick();
       updateChart();
     }).catch(function (err) {
       clearTimeout(initTimeoutId);

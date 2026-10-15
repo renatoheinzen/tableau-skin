@@ -65,6 +65,11 @@
   .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
   .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
   .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
+  /* clique filtra o dashboard (seleção de marcas) */
+  .pd-click { cursor: pointer; }
+  .rowhit { fill: transparent; stroke: none; }
+  .rowhit.pd-sel { fill: var(--pd-accent-1); fill-opacity: 0.1; }
+  .pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
@@ -230,7 +235,11 @@
     tasks.forEach(function (t, i) {
       var y = axisH + i * rowH, cy = y + rowH / 2, bh = Math.min(rowH - 8, 18);
       var name = t.name.length > labelW / 6.2 ? t.name.slice(0, Math.max(3, Math.floor(labelW / 6.2) - 1)) + '…' : t.name;
+      var hit = el('rect', { class: 'rowhit', x: 0, y: y, width: W, height: rowH });
+      pdBindClick(hit, t.sel);
+      svg.appendChild(hit);
       var nt = el('text', { class: 'task', x: 6, y: cy + 4 }, name);
+      pdBindClick(nt, t.sel);
       nt.appendChild(el('title', {}, t.name));
       svg.appendChild(nt);
 
@@ -240,17 +249,20 @@
         var dm = el('polygon', { class: 'gbar', points: [x, cy - 8, x + 8, cy, x, cy + 8, x - 8, cy].join(' ') });
         dm.style.fill = color;
         dm.appendChild(el('title', {}, tip));
+        pdBindClick(dm, t.sel);
         svg.appendChild(dm);
       } else {
         var bar = el('rect', { class: 'gbar', x: x, y: cy - bh / 2, width: w, height: bh, rx: 3 });
         bar.style.fill = color;
         bar.style.opacity = state.showProgress && t.progress !== null ? 0.4 : 1;
         bar.appendChild(el('title', {}, tip));
+        pdBindClick(bar, t.sel);
         svg.appendChild(bar);
         if (state.showProgress && t.progress !== null) {
           var pr = el('rect', { class: 'gbar', x: x, y: cy - bh / 2, width: w * Math.max(0, Math.min(1, t.progress)), height: bh, rx: 3 });
           pr.style.fill = color;
           pr.appendChild(el('title', {}, tip));
+          pdBindClick(pr, t.sel);
           svg.appendChild(pr);
         }
         if (state.showBarLabels && w > 40) {
@@ -271,9 +283,85 @@
       }
     }
     plotEl.appendChild(svg);
+    pdApplySelection();
   }
 
   var loadTimeoutId = null;
+  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+  var clickDim = { field: '' };
+  var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
+  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+  function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
+  function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
+  // pares {fieldName, value} das colunas idxs de uma linha (ignora campos sem valor)
+  function pdSel(cols, row, idxs) {
+    var out = [];
+    idxs.forEach(function (i) {
+      if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
+    });
+    return out;
+  }
+  // target: valor da dimensão (usa clickDim.field) ou lista de pares {fieldName, value}
+  function pdBindClick(el, target) {
+    if (state.clickFilter === false || target === null || target === undefined) return;
+    var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
+    if (!pairs.length || !pairs[0].fieldName) return;
+    var key = pdKeyOf(pairs), names = pdNames(pairs);
+    clickSets[names] = pairs.map(function (p) { return p.fieldName; });
+    el.setAttribute('data-pd-key', key);
+    el.classList.add('pd-click');
+    el.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var T = tableau.SelectionUpdateType, ws = pdWs();
+      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+      var already = !!(selectedKeys && selectedKeys[key]);
+      var p;
+      if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
+      else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
+      else p = ws.selectMarksByValueAsync(pairs, T.Replace);
+      p.catch(function (e) { console.warn('[Projedata] seleção de marcas falhou:', e && (e.message || e)); });
+    });
+  }
+  function pdApplySelection() {
+    var els = document.querySelectorAll('[data-pd-key]');
+    for (var i = 0; i < els.length; i++) {
+      var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
+      els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
+      els[i].classList.toggle('pd-sel', on);
+    }
+    if (!selLoaded && Object.keys(clickSets).length) { selLoaded = true; pdRefreshSelection(); }
+  }
+  function pdRefreshSelection() {
+    if (state.clickFilter === false || !Object.keys(clickSets).length) return;
+    pdWs().getSelectedMarksAsync().then(function (m) {
+      var keys = null, counts = {}, t = m && m.data && m.data[0];
+      if (t && t.data.length) {
+        keys = {};
+        Object.keys(clickSets).forEach(function (names) {
+          var fields = clickSets[names];
+          var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
+          if (!ci.every(function (k) { return k !== -1; })) return;
+          t.data.forEach(function (r) {
+            var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
+            if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
+          });
+        });
+      }
+      if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
+      selectedKeys = keys;
+      selCount = counts;
+      pdApplySelection();
+    }).catch(function () {});
+  }
+  function pdInitClick() {
+    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+    // clique fora das marcas limpa a seleção
+    document.addEventListener('click', function () {
+      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+    });
+    pdRefreshSelection();
+  }
+
   function updateChart() {
     titleEl.textContent = 'Carregando...';
     if (loadTimeoutId) clearTimeout(loadTimeoutId);
@@ -322,7 +410,7 @@
         var p = progIdx !== -1 && row[progIdx] && typeof row[progIdx].value === 'number' ? row[progIdx].value : null;
         if (p !== null && p > 1) p = p / 100; // aceita 0–1 ou 0–100
         tasks.push({
-          name: row[taskIdx] ? row[taskIdx].formattedValue : '', start: s, end: e, group: g, progress: p, order: i,
+          name: row[taskIdx] ? row[taskIdx].formattedValue : '', sel: pdSel(cols, row, [taskIdx]), start: s, end: e, group: g, progress: p, order: i,
           startText: row[startIdx].formattedValue, endText: endIdx !== -1 && row[endIdx] ? row[endIdx].formattedValue : new Date(e).toLocaleDateString('pt-BR')
         });
       });
@@ -367,6 +455,7 @@
       clearTimeout(initTimeoutId);
       loadState();
       tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      pdInitClick();
       updateChart();
     }).catch(function (err) {
       clearTimeout(initTimeoutId);
