@@ -172,15 +172,22 @@
     return el;
   }
 
-  function buildRing(pct) {
+  function buildRing(pct, r) {
     // círculo de raio 15.9155 → circunferência 100, então o dasharray é direto em %
     var svg = svgEl('svg', { viewBox: '0 0 36 36', class: 'ring-svg' });
-    svg.appendChild(svgEl('circle', { class: 'ring-track', cx: 18, cy: 18, r: 15.9155 }));
-    svg.appendChild(svgEl('circle', {
+    var tipText = (r.label || 'Proporção') + ': ' + formatPct(pct) + ' (' + r.partFormatted + (r.totalFormatted ? ' de ' + r.totalFormatted : '') + ')';
+    var track = svgEl('circle', { class: 'ring-track', cx: 18, cy: 18, r: 15.9155 });
+    var arc = svgEl('circle', {
       class: 'ring-arc', cx: 18, cy: 18, r: 15.9155,
       'stroke-dasharray': Math.max(0, Math.min(100, pct)) + ' 100',
       transform: 'rotate(-90 18 18)'
-    }));
+    });
+    [track, arc].forEach(function (c) {
+      var tt = svgEl('title', {});
+      tt.textContent = tipText;
+      c.appendChild(tt);
+      svg.appendChild(c);
+    });
     if (state.showCenter !== false) {
       var t = svgEl('text', { class: 'ring-center', x: 18, y: 20.4, 'text-anchor': 'middle', 'font-size': 7 });
       t.textContent = formatPct(pct);
@@ -210,7 +217,7 @@
         row.appendChild(label);
       }
 
-      row.appendChild(buildRing(r.pct));
+      row.appendChild(buildRing(r.pct, r));
 
       if (state.showValues !== false) {
         var vals = document.createElement('div');
