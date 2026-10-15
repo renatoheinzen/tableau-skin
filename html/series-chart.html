@@ -50,6 +50,20 @@
   .tick { font-family: inherit; font-size: 10px; fill: var(--pd-text-muted); }
   .val { font-family: inherit; font-size: 10px; font-weight: 700; fill: var(--pd-text); text-anchor: middle; }
   .ser-line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .pd-tip {
+    position: fixed; z-index: 9999; pointer-events: none; display: none;
+    max-width: 260px; box-sizing: border-box; padding: 8px 12px;
+    font-family: var(--pd-font); font-size: 12px; line-height: 1.35; color: var(--pd-text);
+    background: var(--pd-tooltip-bg, var(--pd-surface));
+    border: 1px solid var(--pd-tooltip-border, var(--pd-card-border-color));
+    border-radius: var(--pd-tooltip-radius, 6px);
+    box-shadow: var(--pd-tooltip-shadow, 0 6px 18px rgba(0,0,0,.35));
+  }
+  .pd-tip.on { display: block; }
+  .pd-tip .tt-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+  .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
+  .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -295,7 +309,7 @@
             var r = horiz ? el('rect', { x: Math.min(a, b), y: off, width: Math.abs(b - a) || 1, height: Math.max(1, w1 - 1), rx: 2 })
                           : el('rect', { x: off, y: Math.min(a, b), width: Math.max(1, w1 - 1), height: Math.abs(b - a) || 1, rx: 2 });
             r.style.fill = seriesColor(g.i);
-            r.appendChild(el('title', {}, g.s.name + ' · ' + st.x + ': ' + formatCompact(g.v)));
+            tip(r, g.s.name, st.x, formatCompact(g.v), seriesColor(g.i));
             svg.appendChild(r);
             if (showAll || showTot) {
               svg.appendChild(horiz ? el('text', { class: 'val', x: Math.max(a, b) + 4, y: off + w1 / 2 + 3, 'text-anchor': 'start' }, formatCompact(g.v))
@@ -308,7 +322,7 @@
             var r = horiz ? el('rect', { x: Math.min(a, b), y: c - bw / 2, width: Math.max(1, Math.abs(b - a)), height: bw, rx: 2 })
                           : el('rect', { x: c - bw / 2, y: Math.min(a, b), width: bw, height: Math.max(1, Math.abs(b - a)), rx: 2 });
             r.style.fill = seriesColor(g.i);
-            r.appendChild(el('title', {}, g.s.name + ' · ' + st.x + ': ' + formatCompact(g.v)));
+            tip(r, g.s.name, st.x, formatCompact(g.v), seriesColor(g.i));
             svg.appendChild(r);
             var big = horiz ? Math.abs(b - a) > 34 : Math.abs(b - a) > 14;
             if (showAll && big) {
@@ -341,7 +355,7 @@
         var poly = el('polygon', { points: up[j].concat(dn[j].slice().reverse()).join(' ') });
         poly.style.fill = seriesColor(model.series.indexOf(ser[j]));
         poly.style.opacity = 0.85;
-        poly.appendChild(el('title', {}, ser[j].name));
+        tip(poly, ser[j].name, '', '', seriesColor(model.series.indexOf(ser[j])));
         svg.appendChild(poly);
       }
       if (showTot || showAll) {
@@ -363,7 +377,7 @@
           if (state.showPoints !== false || last) {
             var d = el('circle', { cx: cpos(p.i), cy: vpos(p.v), r: last ? 3.4 : 2.4 });
             d.style.fill = seriesColor(idx);
-            d.appendChild(el('title', {}, s.name + ' · ' + xs[p.i] + ': ' + formatCompact(p.v)));
+            tip(d, s.name, xs[p.i], formatCompact(p.v), seriesColor(idx));
             svg.appendChild(d);
           }
           if (showAll || (showTot && last)) svg.appendChild(el('text', { class: 'val', x: cpos(p.i), y: vpos(p.v) - 7 }, formatCompact(p.v)));
@@ -383,13 +397,45 @@
       lp.forEach(function (p, k) {
         var d = el('circle', { cx: cpos(p.i), cy: ly(p.v), r: 3 });
         d.style.fill = seriesColor(li);
-        d.appendChild(el('title', {}, model.line.name + ' · ' + p.x + ': ' + formatCompact(p.v)));
+        tip(d, model.line.name, p.x, model.line.pctText ? formatPct(p.v) : formatCompact(p.v), seriesColor(li));
         svg.appendChild(d);
         if (showAll || (showTot && k === lp.length - 1)) svg.appendChild(el('text', { class: 'val', x: cpos(p.i), y: ly(p.v) - 7 }, model.line.pctText ? formatPct(p.v) : formatCompact(p.v)));
       });
     }
     plotEl.appendChild(svg);
   }
+
+  // ---- dica de ferramenta própria (substitui o <title> nativo) ----
+  var tipEl = document.createElement('div');
+  tipEl.className = 'pd-tip';
+  document.body.appendChild(tipEl);
+  function tip(node, name, cat, val, color) {
+    node.setAttribute('data-n', name); node.setAttribute('data-c', cat);
+    node.setAttribute('data-v', val); node.setAttribute('data-k', color);
+  }
+  function tipMove(e) {
+    var w = tipEl.offsetWidth, h = tipEl.offsetHeight;
+    var x = e.clientX + 14, y = e.clientY + 14;
+    if (x + w > window.innerWidth - 4) x = e.clientX - w - 14;
+    if (y + h > window.innerHeight - 4) y = e.clientY - h - 14;
+    tipEl.style.left = Math.max(4, x) + 'px'; tipEl.style.top = Math.max(4, y) + 'px';
+  }
+  function tipShow(e) {
+    var t = e.target.closest ? e.target.closest('[data-n]') : null;
+    if (!t) { tipEl.classList.remove('on'); return; }
+    tipEl.innerHTML = '';
+    var h = document.createElement('div'); h.className = 'tt-h';
+    var sw = document.createElement('i'); sw.style.background = t.getAttribute('data-k');
+    var nm = document.createElement('span'); nm.textContent = t.getAttribute('data-n');
+    h.appendChild(sw); h.appendChild(nm); tipEl.appendChild(h);
+    [['data-c', 'tt-c'], ['data-v', 'tt-v']].forEach(function (q) {
+      var v = t.getAttribute(q[0]); if (!v) return;
+      var d = document.createElement('div'); d.className = q[1]; d.textContent = v; tipEl.appendChild(d);
+    });
+    tipEl.classList.add('on'); tipMove(e);
+  }
+  plotEl.addEventListener('mousemove', tipShow);
+  plotEl.addEventListener('mouseleave', function () { tipEl.classList.remove('on'); });
 
   function formatPct(v) { return (v * 100).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + '%'; }
 
