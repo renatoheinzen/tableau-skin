@@ -53,6 +53,20 @@
   .sm-val { font-family: inherit; font-size: 10px; font-weight: 700; fill: var(--pd-text); text-anchor: middle; }
   .sm-x { font-family: inherit; font-size: 9px; fill: var(--pd-text-muted); text-anchor: middle; }
   .sm-base { stroke: var(--pd-track); stroke-width: 1; }
+  .pd-tip {
+    position: fixed; z-index: 9999; pointer-events: none; display: none;
+    max-width: 260px; box-sizing: border-box; padding: 8px 12px;
+    font-family: var(--pd-font); font-size: 12px; line-height: 1.35; color: var(--pd-text);
+    background: var(--pd-tooltip-bg, var(--pd-surface));
+    border: 1px solid var(--pd-tooltip-border, var(--pd-card-border-color));
+    border-radius: var(--pd-tooltip-radius, 6px);
+    box-shadow: var(--pd-tooltip-shadow, 0 6px 18px rgba(0,0,0,.35));
+  }
+  .pd-tip.on { display: block; }
+  .pd-tip .tt-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+  .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
+  .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
 </style>
 </head>
 <body>
@@ -359,5 +373,57 @@
 })();
 </script>
 
+<script>
+// dica de ferramenta própria: converte title (HTML) e <title> (SVG) em um cartão estilizado
+(function () {
+  var tip = document.createElement('div');
+  tip.className = 'pd-tip';
+  document.body.appendChild(tip);
+  function textOf(n) {
+    if (n.namespaceURI === 'http://www.w3.org/2000/svg') {
+      for (var i = 0; i < n.children.length; i++) {
+        if (n.children[i].localName === 'title') { var t = n.children[i].textContent; n.removeChild(n.children[i]); n.setAttribute('data-tip', t); break; }
+      }
+    } else if (n.hasAttribute && n.hasAttribute('title')) {
+      n.setAttribute('data-tip', n.getAttribute('title')); n.removeAttribute('title');
+    }
+    return n.getAttribute ? n.getAttribute('data-tip') : null;
+  }
+  function find(t) {
+    for (var n = t; n && n !== document.body; n = n.parentNode) { if (n.nodeType === 1 && textOf(n)) return n; }
+    return null;
+  }
+  function color(n) {
+    if (n.namespaceURI !== 'http://www.w3.org/2000/svg') return '';
+    var cs = getComputedStyle(n), c = cs.fill;
+    if (!c || c === 'none' || c.indexOf('url(') === 0) c = cs.stroke;
+    return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
+  }
+  function add(cls, txt) { var d = document.createElement('div'); d.className = cls; d.textContent = txt; tip.appendChild(d); }
+  function show(n, e) {
+    var lines = n.getAttribute('data-tip').split('\n'), head = lines[0], cat = '', val = '', m;
+    if ((m = /^(.*?) · (.*): ([^:]*)$/.exec(head))) { head = m[1]; cat = m[2]; val = m[3]; }
+    else if (lines.length === 1 && (m = /^(.*): ([^:]*)$/.exec(head))) { head = m[1]; val = m[2]; }
+    tip.innerHTML = '';
+    var h = document.createElement('div'); h.className = 'tt-h';
+    var c = color(n);
+    if (c) { var sw = document.createElement('i'); sw.style.background = c; h.appendChild(sw); }
+    var nm = document.createElement('span'); nm.textContent = head; h.appendChild(nm); tip.appendChild(h);
+    if (cat) add('tt-c', cat);
+    lines.slice(1).forEach(function (l) { add('tt-c', l); });
+    if (val) add('tt-v', val);
+    tip.classList.add('on'); move(e);
+  }
+  function move(e) {
+    var w = tip.offsetWidth, h = tip.offsetHeight, x = e.clientX + 14, y = e.clientY + 14;
+    if (x + w > window.innerWidth - 4) x = e.clientX - w - 14;
+    if (y + h > window.innerHeight - 4) y = e.clientY - h - 14;
+    tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
+  }
+  document.addEventListener('mouseover', function (e) { var n = find(e.target); if (n) show(n, e); else tip.classList.remove('on'); });
+  document.addEventListener('mousemove', function (e) { if (tip.classList.contains('on')) { var n = find(e.target); if (n) move(e); else tip.classList.remove('on'); } });
+  document.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+})();
+</script>
 </body>
 </html>
