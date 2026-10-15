@@ -239,7 +239,7 @@
     if (state.compareField && lastCompareFormatted) lines.push('Comparativo: ' + lastCompareFormatted);
     if (!variationEl.classList.contains('hidden')) lines.push('Variação: ' + variationEl.textContent);
     fallbackTip = lines.join('\n');
-    root.title = nativeTip || fallbackTip;
+    applyTip();
     fetchNativeTip();
   }
 
@@ -252,23 +252,34 @@
     return t.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').replace(/&nbsp;/g, ' ')
             .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/\r/g, '').trim();
   }
-  function fetchNativeTip() {
-    try {
-      var ws = tableau.extensions.worksheetContent.worksheet;
-      if (!ws || typeof ws.getTooltipTextAsync !== 'function') return;
-      // o KPI tem uma marca só; o tupleId pode ser 1 ou 0 conforme a versão do Tableau
-      ws.getTooltipTextAsync(1).then(function (r) {
-        var t = cleanTip(r);
-        if (t) return t;
-        return ws.getTooltipTextAsync(0).then(cleanTip);
-      }).then(function (t) {
-        console.log('[Projedata KPI] texto da dica do Tableau:', t);
-        nativeTip = t || '';
-        root.title = nativeTip || fallbackTip;
-      }).catch(function (e) { console.log('[Projedata KPI] getTooltipTextAsync indisponível:', e && e.message); });
-    } catch (e) { /* fora do Tableau ou API antiga: mantém a dica própria */ }
+  var DEBUG_TIP = true; // TEMPORÁRIO: mostra na dica o que a API devolveu
+  var debugTip = '';
+  function describe(r) {
+    if (r == null) return String(r);
+    return typeof r === 'string' ? 'texto(' + r.length + ')=' + JSON.stringify(r.slice(0, 80)) : typeof r + '=' + JSON.stringify(r).slice(0, 80);
   }
-
+  function applyTip() {
+    root.title = (nativeTip || fallbackTip) + (DEBUG_TIP && debugTip ? '\n[debug] ' + debugTip : '');
+  }
+  function fetchNativeTip() {
+    var ws;
+    try { ws = tableau.extensions.worksheetContent.worksheet; } catch (e) { return; }
+    if (!ws || typeof ws.getTooltipTextAsync !== 'function') { debugTip = 'API sem getTooltipTextAsync'; applyTip(); return; }
+    var dbg = [], found = '';
+    [1, 0, 2].reduce(function (p, id) {
+      return p.then(function () {
+        if (found) return;
+        return ws.getTooltipTextAsync(id).then(function (r) {
+          dbg.push(id + ':' + describe(r));
+          var t = cleanTip(r);
+          if (t) found = t;
+        }, function (e) { dbg.push(id + ':erro ' + (e && e.message)); });
+      });
+    }, Promise.resolve()).then(function () {
+      console.log('[Projedata KPI] dica do Tableau:', dbg, found);
+      nativeTip = found; debugTip = dbg.join(' | '); applyTip();
+    });
+  }
   function loadState() {
     try {
       var saved = tableau.extensions.settings.get('projedataKpiState');
