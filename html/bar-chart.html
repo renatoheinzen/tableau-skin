@@ -288,6 +288,8 @@
         fill.style.opacity = (0.2 + 0.8 * t).toFixed(2);
       }
 
+      fill.title = r.label + ': ' + (r.overlay != null ? r.formatted + ' (' + r.overlayFormatted + ')' : r.formatted);
+
       // sobreposição: a 2ª medida desenhada dentro da barra da 1ª
       if (r.overlay != null) {
         var baseColor = state.baseColor || 'var(--pd-accent-2)';
@@ -455,7 +457,7 @@
     return null;
   }
   function color(n) {
-    if (n.namespaceURI !== 'http://www.w3.org/2000/svg') return '';
+    if (n.namespaceURI !== 'http://www.w3.org/2000/svg') { var bg = getComputedStyle(n).backgroundColor; return bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : ''; }
     var cs = getComputedStyle(n), c = cs.fill;
     if (!c || c === 'none' || c.indexOf('url(') === 0) c = cs.stroke;
     return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
