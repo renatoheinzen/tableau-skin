@@ -454,7 +454,8 @@
   var availableColumns = [];
   var COL_ALIGN = [['', 'Auto'], ['esq', 'Esq.'], ['centro', 'Centro'], ['dir', 'Dir.']];
   var COL_FORMAT = [['auto', 'Padrão'], ['compact', 'K / M'], ['int', 'Inteiro'], ['dec1', '1 casa'], ['dec2', '2 casas'], ['pct', '%']];
-  var COL_VISUAL = [['', 'Nenhum'], ['bar', 'Barra'], ['heat', 'Calor'], ['sign', 'Sinal']];
+  var COL_VISUAL = [['', 'Nenhum'], ['bar', 'Barra (fundo)'], ['hbar', 'Barra + valor'], ['heat', 'Calor'], ['sign', 'Sinal'], ['badge', 'Selo']];
+  var COL_VISUAL_TEXT = [['', 'Nenhum'], ['badge', 'Selo']];
   var ALIGN_WORDS = { esq: 'esq', esquerda: 'esq', left: 'esq', centro: 'centro', center: 'centro', dir: 'dir', direita: 'dir', right: 'dir' };
 
   function parseColumnsSpec(text) {
@@ -467,7 +468,7 @@
         var k = t.toLowerCase();
         if (ALIGN_WORDS[k]) d.align = ALIGN_WORDS[k];
         else if (COL_FORMAT.some(function (o) { return o[0] === k; })) d.format = k;
-        else if (k === 'bar' || k === 'heat' || k === 'sign') d.visual = k;
+        else if (COL_VISUAL.some(function (o) { return o[0] && o[0] === k; })) d.visual = k;
       });
       out.push(d);
     });
@@ -518,9 +519,9 @@
     title.type = 'text'; title.className = 'col-title'; title.value = d.title; title.placeholder = 'Título (em branco: ' + d.field + ')';
     var al = colSelect(COL_ALIGN, d.align, 'col-align');
     var fm = colSelect(COL_FORMAT, d.format, 'col-format');
-    var vs = colSelect(COL_VISUAL, d.visual, 'col-visual');
-    al.title = 'Alinhamento'; fm.title = 'Formato do valor'; vs.title = 'Visual na célula (barra, mapa de calor ou cor por sinal)';
-    if (isNum === false) { fm.disabled = true; vs.disabled = true; fm.title = vs.title = 'Disponível só para campos numéricos'; }
+    var vs = colSelect(isNum === false ? COL_VISUAL_TEXT : COL_VISUAL, isNum === false && d.visual !== 'badge' ? '' : d.visual, 'col-visual');
+    al.title = 'Alinhamento'; fm.title = 'Formato do valor'; vs.title = 'Visual na célula (barra, mapa de calor, cor por sinal ou selo colorido)';
+    if (isNum === false) { fm.disabled = true; fm.title = 'Disponível só para campos numéricos'; vs.title = 'Selo colorido por valor (A/B/C usam as cores de destaque)'; }
     [title, al, fm, vs].forEach(function (x) { opts.appendChild(x); });
     row.appendChild(opts);
 

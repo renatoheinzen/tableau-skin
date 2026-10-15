@@ -72,6 +72,20 @@
   #chart-root.accent-amarelo td .t-bar { background: var(--pd-accent-3); }
   #chart-root.accent-azul-escuro td .t-bar { background: var(--pd-accent-4); }
   td .t-txt { position: relative; }
+  /* barra sólida + valor ao lado */
+  td .t-ib { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  td .t-ib .t-hbar { flex: 0 0 auto; height: 8px; border-radius: 2px; background: var(--pd-accent-1); }
+  td.al-right .t-ib, td.num .t-ib { justify-content: flex-start; }
+  td.al-center .t-ib { justify-content: center; }
+  #chart-root.accent-laranja td .t-hbar { background: var(--pd-accent-2); }
+  #chart-root.accent-amarelo td .t-hbar { background: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro td .t-hbar { background: var(--pd-accent-4); }
+  /* selo: cor por valor (A/B/C usam as cores de destaque; outros valores, a paleta de séries) */
+  td .t-badge {
+    display: inline-block; min-width: 18px; padding: 1px 8px; box-sizing: border-box;
+    border-radius: 999px; font-size: 0.85em; font-weight: 700; line-height: 1.5; text-align: center;
+    color: var(--b); background: color-mix(in srgb, var(--b) 22%, transparent);
+  }
   td.pos .t-txt { color: var(--pd-positive); font-weight: 700; }
   td.neg .t-txt { color: var(--pd-negative); font-weight: 700; }
   tfoot td { position: sticky; bottom: 0; font-weight: 700; background: var(--pd-card-bg); border-top: 2px solid var(--pd-track); border-bottom: 0; }
@@ -124,7 +138,14 @@
 
   var ALIGN = { esq: 'left', esquerda: 'left', left: 'left', centro: 'center', center: 'center', dir: 'right', direita: 'right', right: 'right' };
   var FORMAT = { auto: 1, compact: 1, int: 1, dec1: 1, dec2: 1, pct: 1 };
-  var VISUAL = { bar: 1, heat: 1, sign: 1 };
+  var VISUAL = { bar: 1, heat: 1, sign: 1, hbar: 1, badge: 1 };
+  // selo: A/B/C (curva ABC) com cores fixas; demais valores recebem a paleta de séries na ordem em que aparecem
+  var BADGE_FIXED = { A: 'var(--pd-accent-1)', B: 'var(--pd-accent-3)', C: 'var(--pd-accent-2)' };
+  function badgeColor(col, text) {
+    var k = String(text).trim();
+    if (BADGE_FIXED[k.toUpperCase()] && col.badgeAbc) return BADGE_FIXED[k.toUpperCase()];
+    return 'var(--pd-series-' + ((col.badgeOrder[k] % 8) + 1) + ')';
+  }
 
   function loadState() {
     try {
@@ -261,6 +282,31 @@
         if (c.visual === 'sign' && c.num) cls += cell.v > 0 ? ' pos' : (cell.v < 0 ? ' neg' : '');
         td.className = cls;
         td.title = cell.text;
+        if (c.visual === 'badge' && cell.text !== '') {
+          var bd = document.createElement('span');
+          bd.className = 't-badge';
+          bd.style.setProperty('--b', badgeColor(c, cell.text));
+          bd.textContent = cell.text;
+          td.appendChild(bd);
+          tr.appendChild(td);
+          return;
+        }
+        if (c.visual === 'hbar' && c.num) {
+          var ib = document.createElement('span');
+          ib.className = 't-ib';
+          var hb = document.createElement('span');
+          hb.className = 't-hbar';
+          // largura proporcional ao maior valor da coluna (até 72px), o valor vem logo depois
+          hb.style.width = (c.max > 0 ? Math.max(0, Math.min(1, cell.v / c.max)) * 72 : 0).toFixed(1) + 'px';
+          var ht = document.createElement('span');
+          ht.className = 't-txt';
+          ht.textContent = cell.text;
+          ib.appendChild(hb);
+          ib.appendChild(ht);
+          td.appendChild(ib);
+          tr.appendChild(td);
+          return;
+        }
         if (c.visual === 'bar' && c.num) {
           var bar = document.createElement('span');
           bar.className = 't-bar';
@@ -434,6 +480,19 @@
           var k = mcols[j].isDate && c ? Date.parse(c.value) : NaN;
           return { v: v, k: k, text: fmtValue(mcols[j], c) };
         });
+      });
+      // selos: ordem dos valores distintos (cor da paleta) e se a coluna é uma curva ABC (só A, B e C)
+      mcols.forEach(function (mc, j) {
+        if (mc.visual !== 'badge') return;
+        mc.badgeOrder = {};
+        var n = 0, abc = true;
+        rows.forEach(function (r) {
+          var k = String(r[j].text).trim();
+          if (k === '') return;
+          if (!(k in mc.badgeOrder)) mc.badgeOrder[k] = n++;
+          if (!/^[ABC]$/i.test(k)) abc = false;
+        });
+        mc.badgeAbc = abc;
       });
       // a linha identifica a marca pelas dimensões (colunas não numéricas) da planilha
       var dimIdxs = [];
