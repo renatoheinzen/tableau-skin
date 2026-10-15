@@ -236,8 +236,8 @@
     valueEl.textContent = prefix + formatDisplayValue() + suffix;
     renderVariation();
     var lines = [labelEl.textContent + ': ' + prefix + state.lastRawValue + suffix];
-    if (state.compareField && lastCompareFormatted) lines.push('Comparativo: ' + lastCompareFormatted);
-    if (!variationEl.classList.contains('hidden')) lines.push('Variação: ' + variationEl.textContent);
+    if (state.compareField && lastCompareFormatted) lines.push(state.compareField + ': ' + lastCompareFormatted);
+    if (!variationEl.classList.contains('hidden')) lines.push(variationEl.textContent);
     root.title = lines.join('\n');
   }
 

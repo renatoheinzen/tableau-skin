@@ -175,7 +175,7 @@
   function buildRing(pct, r) {
     // círculo de raio 15.9155 → circunferência 100, então o dasharray é direto em %
     var svg = svgEl('svg', { viewBox: '0 0 36 36', class: 'ring-svg' });
-    var tipText = (r.label || 'Proporção') + ': ' + formatPct(pct) + (r.totalFormatted ? ' (' + r.partFormatted + ' de ' + r.totalFormatted + ')' : ' do total das linhas (' + r.partFormatted + ')');
+    var tipText = (r.label ? r.label + ': ' : '') + formatPct(pct) + ' (' + r.partFormatted + ' / ' + (r.totalFormatted || ('Σ ' + r.sumText)) + ')';
     var track = svgEl('circle', { class: 'ring-track', cx: 18, cy: 18, r: 15.9155 });
     var arc = svgEl('circle', {
       class: 'ring-arc', cx: 18, cy: 18, r: 15.9155,
@@ -279,6 +279,7 @@
       // sem campo de total: cada anel mostra a fatia da linha no total das linhas
       var sumParts = rows.reduce(function (s, r) { return s + Math.max(r.part, 0); }, 0) || 1;
       rows.forEach(function (r) {
+        r.sumText = sumParts.toLocaleString(undefined, { maximumFractionDigits: 2 });
         r.pct = (r.total != null ? (r.total ? r.part / r.total : 0) : r.part / sumParts) * 100;
       });
 
