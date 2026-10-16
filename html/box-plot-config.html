@@ -426,10 +426,11 @@
     String(text || '').split('\n').forEach(function (line) {
       if (!line.trim()) return;
       var p = line.split('|').map(function (x) { return x.trim(); });
-      var d = { field: p[0], title: p[1] || '', align: '', format: 'auto', visual: '' };
+      var d = { field: p[0], title: p[1] || '', align: '', format: 'auto', visual: '', level: '' };
       p.slice(2).forEach(function (t) {
         var k = t.toLowerCase();
-        if (ALIGN_WORDS[k]) d.align = ALIGN_WORDS[k];
+        if (/^n[1-9]$/.test(k)) d.level = k.charAt(1);
+        else if (ALIGN_WORDS[k]) d.align = ALIGN_WORDS[k];
         else if (COL_FORMAT.some(function (o) { return o[0] === k; })) d.format = k;
         else if (COL_VISUAL.some(function (o) { return o[0] && o[0] === k; })) d.visual = k;
       });
@@ -452,7 +453,9 @@
 
   function notifyChange(list) { list.dispatchEvent(new Event('change', { bubbles: true })); }
 
-  function colRow(list, d, checked, isNum) {
+  var COL_LEVEL = [['', 'Nível: nenhum'], ['1', 'Nível 1'], ['2', 'Nível 2'], ['3', 'Nível 3'], ['4', 'Nível 4'], ['5', 'Nível 5'], ['6', 'Nível 6']];
+
+  function colRow(list, d, checked, isNum, levels) {
     var row = document.createElement('div');
     row.className = 'col-row' + (checked ? '' : ' off');
     row.dataset.field = d.field;
@@ -485,7 +488,16 @@
     var vs = colSelect(isNum === false ? COL_VISUAL_TEXT : COL_VISUAL, isNum === false && d.visual !== 'badge' ? '' : d.visual, 'col-visual');
     al.title = 'Alinhamento'; fm.title = 'Formato do valor'; vs.title = 'Visual na célula (barra, mapa de calor, cor por sinal ou selo colorido)';
     if (isNum === false) { fm.disabled = true; fm.title = 'Disponível só para campos numéricos'; vs.title = 'Selo colorido por valor (A/B/C usam as cores de destaque)'; }
-    [title, al, fm, vs].forEach(function (x) { opts.appendChild(x); });
+    var cells = [title, al, fm, vs];
+    // hierarquia: campos de texto escolhem o nível (1 = mais geral) no lugar do formato, que só vale para números
+    if (levels && isNum === false) {
+      var lv = colSelect(COL_LEVEL, d.level || '', 'col-level');
+      lv.title = 'Nível da hierarquia expansível (1 = o mais geral, como Estado; 2 = Cidade…)';
+      fm.style.display = 'none';
+      cells = [title, al, lv, vs];
+      cells.push(fm);
+    }
+    cells.forEach(function (x) { opts.appendChild(x); });
     row.appendChild(opts);
 
     // arrastar e soltar para reordenar
@@ -507,13 +519,14 @@
   function renderColumns(key) {
     var list = inputs[key];
     list.innerHTML = '';
+    var levels = !!(SCHEMA.filter(function (f) { return f.key === key; })[0] || {}).levels;
     var spec = parseColumnsSpec(state[key]);
     var byName = {};
     availableColumns.forEach(function (c) { byName[c.fieldName.toLowerCase()] = c; });
     var used = {};
     if (spec.length === 0) {
       availableColumns.forEach(function (c) {
-        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, true, c.dataType === 'int' || c.dataType === 'float'));
+        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, true, c.dataType === 'int' || c.dataType === 'float', levels));
       });
     } else {
       spec.forEach(function (d) {
@@ -522,11 +535,11 @@
         if (!c && availableColumns.length) return;
         d.field = c ? c.fieldName : d.field;
         used[d.field.toLowerCase()] = true;
-        list.appendChild(colRow(list, d, true, c ? (c.dataType === 'int' || c.dataType === 'float') : undefined));
+        list.appendChild(colRow(list, d, true, c ? (c.dataType === 'int' || c.dataType === 'float') : undefined, levels));
       });
       availableColumns.forEach(function (c) {
         if (used[c.fieldName.toLowerCase()]) return;
-        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, false, c.dataType === 'int' || c.dataType === 'float'));
+        list.appendChild(colRow(list, { field: c.fieldName, title: '', align: '', format: 'auto', visual: '' }, false, c.dataType === 'int' || c.dataType === 'float', levels));
       });
     }
     if (!list.children.length) {
@@ -548,11 +561,12 @@
         title: row.querySelector('.col-title').value.trim(),
         align: row.querySelector('.col-align').value,
         format: row.querySelector('.col-format').value,
-        visual: row.querySelector('.col-visual').value
+        visual: row.querySelector('.col-visual').value,
+        level: row.querySelector('.col-level') ? row.querySelector('.col-level').value : ''
       };
       if (!d.use) { plain = false; return; }
       order.push(d.field);
-      var extras = [d.align, d.format !== 'auto' ? d.format : '', d.visual].filter(Boolean);
+      var extras = [d.align, d.format !== 'auto' ? d.format : '', d.visual, d.level ? 'n' + d.level : ''].filter(Boolean);
       if (d.title || extras.length) plain = false;
       lines.push([d.field].concat(d.title || extras.length ? [d.title] : [], extras).join(' | '));
     });

@@ -212,10 +212,11 @@
     String(text || '').split('\n').forEach(function (line) {
       if (!line.trim()) return;
       var p = line.split('|').map(function (s) { return s.trim(); });
-      var d = { field: p[0], title: p[1] || '', align: '', format: 'auto', visual: '' };
+      var d = { field: p[0], title: p[1] || '', align: '', format: 'auto', visual: '', level: 0 };
       p.slice(2).forEach(function (t) {
         var k = t.toLowerCase();
-        if (ALIGN[k]) d.align = ALIGN[k];
+        if (/^n[1-9]$/.test(k)) d.level = +k.charAt(1);
+        else if (ALIGN[k]) d.align = ALIGN[k];
         else if (FORMAT[k]) d.format = k;
         else if (VISUAL[k]) d.visual = k;
       });
@@ -264,7 +265,12 @@
   }
 
   // campos de cada nível: os informados em "Níveis" ou, se vazio, as dimensões da planilha na ordem em que chegam
-  function resolveLevels(cols, isNumCol) {
+  function resolveLevels(cols, isNumCol, defs) {
+    // 1º: campos marcados com "Nível N" na lista de colunas (N define a ordem)
+    var marked = defs.filter(function (d) { return d.level > 0 && !isNumCol(d.idx); })
+      .sort(function (a, b) { return a.level - b.level; })
+      .map(function (d) { return d.idx; });
+    if (marked.length) return marked;
     var idxs = [];
     String(state.hierarchyFields || '').split(/[\n,>]+/).forEach(function (nm) {
       nm = nm.trim().toLowerCase();
@@ -634,13 +640,14 @@
       // colunas: as da especificação (nessa ordem) ou todas as da planilha
       var defs = parseSpec(state.columnsSpec).map(function (d) {
         var idx = cols.findIndex(function (c) { return c.fieldName.toLowerCase() === d.field.toLowerCase(); });
-        return idx === -1 ? null : { idx: idx, title: d.title || cols[idx].fieldName, align: d.align, format: d.format, visual: d.visual };
+        return idx === -1 ? null : { idx: idx, title: d.title || cols[idx].fieldName, align: d.align, format: d.format, visual: d.visual, level: d.level };
       }).filter(Boolean);
       if (defs.length === 0) {
         defs = cols.map(function (c, i) { return { idx: i, title: c.fieldName, align: '', format: 'auto', visual: '' }; });
       }
       // hierarquia: as dimensões dos níveis viram a 1ª coluna (com seta); as demais colunas ficam como estão
-      var levelIdxs = state.hierarchy ? resolveLevels(cols, isNumCol) : [];
+      var markedLevels = defs.some(function (d) { return d.level > 0 && !isNumCol(d.idx); });
+      var levelIdxs = (state.hierarchy || markedLevels) ? resolveLevels(cols, isNumCol, defs) : [];
       var tree = levelIdxs.length >= 2;
       if (tree) {
         var restDefs = defs.filter(function (d) { return levelIdxs.indexOf(d.idx) === -1; });
