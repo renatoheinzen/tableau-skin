@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.gaugechart" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Medidor</name>
+    <description>Medidor (gauge) em semicírculo: valor com ponteiro, meta marcada no arco e seta acima/abaixo da meta, com as cores da marca Projedata.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/gauge-chart.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAFh0lEQVR4AeyYa4hVVRTH//faqBWJFdMMPkrp9UEhhbAHPYyKkkyiTIwMynyiFZGfNJToQQVCoL1Gqw+lRfT4oFmf7AFlBaJFL0jI1JmcmUpNGUfH8bZ+d7PnnHvuOXfOmcm4d5jLWXuv/d9r7bP+Z6+99zk3r5jfggWFusUrCouWrChsMtlnUqgSIZZNxEaMMaGrjNCS5YV5dfXaax0vm8N0k9Em1XIRy3RiI0ZijQZmfQG0dEVhjXJaZ0iDSbVfDcRajDkUaQ8hOgrS0lBfTajETOw+2CIhpo4OD9ZaTexwIO58cXHl9BSNmhbjAJf8kHo9aEQaTGr9aoBL3nLutlpn4uOHi4kme2AA1JMhxN4+ALgUKYyGUFEbKMUgoWqfycEZSjtDF4+Xpl4l3XGLNHuGE3Qw+tKOk9XuP5uh4cOkW2+Qli2UXnhCesSO65l2wt10rXTNFCfoYPRhgy0++GYNPMm+34TOHindf7f07HJp+o3SuLHSaUOSbhfg2GCLD76Mcc7IoL+vWr6vjviRQqselS6/TKlI4BMnkGOMlTYWY8bZpMXyaQ3DdjzJZYskUohgwn390RmLMR+ztK2r69tImQmxoMn9cWMq37DzmLSnWdr5o/TVdifoYPThnSTjLW3vmiadeUaSRTKeiRBkFt4rjTgrfsCCfZgQ9Ctv2ebwpPS8fcSvf1va+KETdLBl1ocNtvjEjcY9JlySnVRqQqTZA7Ok4cPjbu9mYtVqiaB/+CXeJoxigy0+u/eGe5ze0iqRdpde6GqH9l7mezdxFnNnx88M6bPBZoDg/j7obLOUQ2xHHNUYeBzvkj7/RjpwyGGn2wO8aJzT05SpCLHzxK2ZQ4elNW9I22yNpLlZ1GZonbRwjkRNX8dR6YOPpZb9tAIhO0al/ATtlRCDTb06GNxrzEzTBun3fR7JXt83U2qsd36spXUbpe3fS102Sw4NygtsEyIFAyRe65XQjJsVe8a8v6V/ZK6/Upo8IQhqy1bp19+ko53Srt0B7jU+rcc0+lZynU/usg1gmDRpYrkFu1Nf04zRzh8l3TkNzcnPu6RPPnM6JWvxjza0Umk8T4JYKVraqkiIVOOwC7uQGuR5GMuic7YsmCOxGeB38B/p9XckxqXtZW9LOQaZ+nO9RXxdkdBEOweibt/9JPEEo3iadi4nzbtHGjnCWXd3S012ZpFmDglK1tH+9qDtNda01+PqioTGWGpEnb7eEUXSt6fZ2ziHs/dgHe6xmfDtaN3+VxQJHkZ5j0MSCXHjaLqxs3EgOtdsJeNByHvtsFeiL+y88e24+vCR8h2PtCNt4+zBEgmNbqS7VNr+LG2nac26XVq9Unp4rkTKyX6k0pvvmZLiOtJRbsRhW446JJGQz3Nn5sqsawcy110hDRuqHjInT0qv2rrhjUApfmRF1MwfxFGcdiKhuK/IDjsjcEorUyaVW7IRxK2NckuHnDjh6nDpd8gw5vVEQnFPsDMjIX+TcN1tMxRu96bzAKI2zHIU8+1EQp9uk8L5iw7mHdPU3+4st4rDyq0CpM12umPHgzY6WICUaomEDtib83MvSVu/dIIOVupeufXuJomdjHWAoINV9irt5Tzi7OMTA0EHK7UKWomEMIEAbwUIOlhWgQAfdAh6Vn/sIdBsb+AIOliSVCSU5FTNeGpC1UwiHNsgofDTqEZ9QM6Q/XtWjc+6TzE1M0P9+CDo001PpdOOvL2JfHQq7/B/jg2XfHe7XrOb2t96Vtb21QqXfFNTrksFPV7bXCx64wAX1pBefCa33j731xpckxexw4Hgi4RQ1j6de4gO9FoSYiZ2H3MPIYBiR0HzTa+FNdVqS2V+MWYL2F8lhACZuq52jbUdY7G1N5s0m1TLRSybiY0YiTUa2L8AAAD//1D1azQAAAAGSURBVAMAi9jvuBP86kEAAAAASUVORK5CYII=</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

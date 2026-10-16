@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Medidor</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    overflow: hidden;
+    background: transparent;
+  }
+  #chart-root {
+    --acc: var(--pd-accent-1);
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    padding: var(--pd-card-padding);
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #chart-root.accent-laranja { --acc: var(--pd-accent-2); }
+  #chart-root.accent-amarelo { --acc: var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro { --acc: var(--pd-accent-4); }
+  #chart-title {
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+    margin-bottom: 4px; text-align: center;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  #chart-title.hidden { display: none !important; }
+  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; text-align: center; }
+  #chart-body { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; }
+  #chart-body svg { width: 100%; height: 100%; display: block; }
+  .g-seg { fill: none; stroke: var(--pd-track); stroke-width: 7; }
+  .g-fill { fill: none; stroke: var(--acc); stroke-width: 7; }
+  .g-tick { fill: var(--pd-text-muted); font-size: 8.5px; font-family: var(--pd-font); }
+  .g-needle { stroke: var(--acc); stroke-width: 2; stroke-linecap: round; }
+  .g-hub { fill: var(--pd-card-bg); stroke: var(--pd-text-muted); stroke-width: 2; }
+  .g-target { fill: var(--pd-text); }
+  .g-value { fill: var(--pd-text); font-size: 17px; font-weight: 600; font-family: var(--pd-font); }
+  .g-arrow.ok { fill: var(--pd-positive); }
+  .g-arrow.bad { fill: var(--pd-negative); }
+  .pd-tip {
+    position: fixed; z-index: 9999; pointer-events: none; display: none;
+    max-width: 260px; box-sizing: border-box; padding: 8px 12px;
+    font-family: var(--pd-font); font-size: 12px; line-height: 1.35; color: var(--pd-text);
+    background: var(--pd-tooltip-bg, var(--pd-surface));
+    border: 1px solid var(--pd-tooltip-border, var(--pd-card-border-color));
+    border-radius: var(--pd-tooltip-radius, 6px);
+    box-shadow: var(--pd-tooltip-shadow, 0 6px 18px rgba(0,0,0,.35));
+  }
+  .pd-tip.on { display: block; }
+  .pd-tip .tt-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+  .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+  .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
+  .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
+</style>
+</head>
+<body>
+
+<div id="chart-root">
+  <div id="chart-title">Carregando...</div>
+  <div id="chart-body"></div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataGaugeState';
+  var NS = 'http://www.w3.org/2000/svg';
+  var root = document.getElementById('chart-root');
+  var titleEl = document.getElementById('chart-title');
+  var bodyEl = document.getElementById('chart-body');
+  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+
+  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+
+  function formatCompact(v) {
+    var dec = parseInt(state.decimals, 10);
+    var hasDec = !isNaN(dec) && dec >= 0;
+    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+    var fixed = DISPLAY_UNITS[state.displayUnits];
+    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+    var abs = Math.abs(v);
+    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+    return v.toLocaleString('pt-BR', opts);
+  }
+
+  // Valor: padrão = texto formatado pelo Tableau (ex.: 87,50%); com unidade/casas escolhidas, usa o formato compacto
+  function fmtCell(cell) {
+    if (!cell) return '';
+    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+    return cell.formattedValue;
+  }
+
+  // Rótulos da escala: números curtos (0,1 / 0,2 ... ou 2 K / 4 K)
+  function tickFmt(v) {
+    var abs = Math.abs(v);
+    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' B';
+    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' M';
+    if (abs >= 1e4) return (v / 1e3).toLocaleString('pt-BR', { maximumFractionDigits: 1 }) + ' K';
+    return v.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+  }
+
+  var state = {
+    accent: '', displayUnits: '', decimals: '',
+    customLabel: '', showLabel: true,
+    valueField: '', targetField: '',
+    minValue: '', maxValue: '', divisions: '10',
+    showTicks: true, showTarget: true, showArrow: true, fillArc: true
+  };
+  var data = null; // { value, valueText, target, targetText }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
+    var customAccent = state.accent && state.accent.charAt(0) === '#';
+    if (state.accent && !customAccent) root.classList.add(state.accent);
+    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+    else root.style.removeProperty('--pd-accent-1');
+    titleEl.classList.toggle('hidden', state.showLabel === false);
+  }
+
+  function parseNum(s) {
+    if (s === null || s === undefined || String(s).trim() === '') return null;
+    var n = parseFloat(String(s).replace(',', '.'));
+    return isNaN(n) ? null : n;
+  }
+
+  function findColumnIndex(columns, fieldName, fallback) {
+    if (fieldName) {
+      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+      if (idx !== -1) return idx;
+    }
+    return fallback;
+  }
+
+  // teto "bonito" para a escala automática (1, 2, 5 x 10^n); até 1 mantém 0–1 (percentuais)
+  function niceCeil(v) {
+    if (v <= 1) return 1;
+    var p = Math.pow(10, Math.floor(Math.log(v) / Math.LN10));
+    var m = v / p;
+    var n = m <= 1 ? 1 : m <= 2 ? 2 : m <= 5 ? 5 : 10;
+    return n * p;
+  }
+
+  function el(name, attrs, text) {
+    var e = document.createElementNS(NS, name);
+    Object.keys(attrs || {}).forEach(function (k) { e.setAttribute(k, attrs[k]); });
+    if (text !== undefined) e.textContent = text;
+    return e;
+  }
+
+  // geometria: fração 0..1 do arco -> ponto (arco de 180°, da esquerda para a direita por cima)
+  var CX = 110, CY = 108, R = 80;
+  function pt(f, r) {
+    var th = Math.PI * (1 - f);
+    return [CX + r * Math.cos(th), CY - r * Math.sin(th)];
+  }
+  function arc(f1, f2, r) {
+    var a = pt(f1, r), b = pt(f2, r);
+    return 'M' + a[0].toFixed(2) + ' ' + a[1].toFixed(2) + ' A' + r + ' ' + r + ' 0 0 1 ' + b[0].toFixed(2) + ' ' + b[1].toFixed(2);
+  }
+
+  function render() {
+    bodyEl.innerHTML = '';
+    if (!data) {
+      var empty = document.createElement('div');
+      empty.id = 'chart-status';
+      empty.textContent = 'Sem dados';
+      bodyEl.appendChild(empty);
+      return;
+    }
+    var min = parseNum(state.minValue);
+    if (min === null) min = 0;
+    var max = parseNum(state.maxValue);
+    if (max === null) max = niceCeil(Math.max(data.value, data.target !== null ? data.target : 0, min + 1e-9));
+    if (max <= min) max = min + 1;
+    var span = max - min;
+    var frac = function (v) { return Math.max(0, Math.min(1, (v - min) / span)); };
+    var fv = frac(data.value);
+
+    var svg = el('svg', { viewBox: '0 0 220 140', preserveAspectRatio: 'xMidYMid meet' });
+
+    var n = parseInt(state.divisions, 10);
+    if (!(n >= 2 && n <= 20)) n = 10;
+    var gap = 0.012; // folga entre segmentos (fração do arco)
+    for (var i = 0; i < n; i++) {
+      var f1 = i / n + (i === 0 ? 0 : gap / 2), f2 = (i + 1) / n - (i === n - 1 ? 0 : gap / 2);
+      svg.appendChild(el('path', { 'class': 'g-seg', d: arc(f1, f2, R) }));
+      if (state.fillArc !== false && fv > f1) svg.appendChild(el('path', { 'class': 'g-fill', d: arc(f1, Math.min(f2, fv), R) }));
+    }
+
+    if (state.showTicks !== false) {
+      for (var j = 0; j <= n; j++) {
+        var p = pt(j / n, R + 15);
+        var t = el('text', { 'class': 'g-tick', x: p[0].toFixed(2), y: (p[1] + 3).toFixed(2), 'text-anchor': 'middle' }, tickFmt(min + span * j / n));
+        svg.appendChild(t);
+      }
+    }
+
+    var hasT = data.target !== null;
+    if (hasT && state.showTarget !== false) {
+      // triângulo na borda externa do arco, apontando para o centro
+      var tf = frac(data.target);
+      var tip = pt(tf, R + 5), b1 = pt(tf - 0.022, R + 12), b2 = pt(tf + 0.022, R + 12);
+      svg.appendChild(el('polygon', { 'class': 'g-target', points: [tip, b1, b2].map(function (q) { return q[0].toFixed(2) + ',' + q[1].toFixed(2); }).join(' ') }));
+    }
+
+    // ponteiro: do hub até perto do arco
+    var needleEnd = pt(fv, R - 22);
+    svg.appendChild(el('line', { 'class': 'g-needle', x1: CX, y1: CY, x2: needleEnd[0].toFixed(2), y2: needleEnd[1].toFixed(2) }));
+    svg.appendChild(el('circle', { 'class': 'g-hub', cx: CX, cy: CY, r: 5 }));
+
+    // valor + seta de meta
+    var arrowCls = hasT && state.showArrow !== false ? (data.value >= data.target ? 'ok' : 'bad') : '';
+    var vt = el('text', { 'class': 'g-value', x: CX, y: CY + 26, 'text-anchor': 'middle' });
+    if (arrowCls) {
+      var ar = el('tspan', { 'class': 'g-arrow ' + arrowCls }, arrowCls === 'ok' ? '\u25B2' : '\u25BC');
+      ar.setAttribute('font-size', '11');
+      vt.appendChild(ar);
+      vt.appendChild(document.createTextNode(' '));
+    }
+    vt.appendChild(document.createTextNode(data.valueText));
+    svg.appendChild(vt);
+
+    var tipLabel = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel.trim() : 'Valor';
+    svg.appendChild(el('title', {}, tipLabel + ': ' + data.valueText + (hasT ? '\nMeta: ' + data.targetText : '')));
+    bodyEl.appendChild(svg);
+  }
+
+  var loadTimeoutId = null;
+  function updateChart() {
+    titleEl.textContent = 'Carregando...';
+    if (loadTimeoutId) clearTimeout(loadTimeoutId);
+    loadTimeoutId = setTimeout(function () {
+      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+      bodyEl.innerHTML = '';
+    }, 8000);
+
+    var worksheet = tableau.extensions.worksheetContent.worksheet;
+    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+      clearTimeout(loadTimeoutId);
+      if (!sumData || !sumData.columns || sumData.columns.length < 1) {
+        titleEl.textContent = 'Arraste o valor e (opcional) a meta para as Marcas';
+        bodyEl.innerHTML = '';
+        return;
+      }
+      var cols = sumData.columns;
+      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+      var valIdx = findColumnIndex(cols, state.valueField, -1);
+      if (valIdx === -1) valIdx = cols.findIndex(isNum);
+      if (valIdx === -1) valIdx = 0;
+      var tgtIdx = state.targetField ? findColumnIndex(cols, state.targetField, -1) : -1;
+      // sem meta escolhida, usa a 2ª medida das Marcas quando existir
+      if (!state.targetField) {
+        var second = cols.findIndex(function (c, i) { return i !== valIdx && isNum(c); });
+        if (second !== -1) tgtIdx = second;
+      }
+
+      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+      titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
+
+      var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : null; };
+      var first = (sumData.data || [])[0];
+      if (!first || num(first[valIdx]) === null) { data = null; render(); return; }
+      data = {
+        value: num(first[valIdx]), valueText: fmtCell(first[valIdx]),
+        target: tgtIdx !== -1 ? num(first[tgtIdx]) : null, targetText: tgtIdx !== -1 ? fmtCell(first[tgtIdx]) : ''
+      };
+      render();
+    }).catch(function (err) {
+      clearTimeout(loadTimeoutId);
+      console.error('[Projedata Medidor] erro ao ler dados da planilha:', err);
+      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+      bodyEl.innerHTML = '';
+    });
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/gauge-chart-config.html', '', { height: 780, width: 340 })
+      .then(function () { loadState(); updateChart(); })
+      .catch(function (error) {
+        console.log('[Projedata Medidor] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+    return;
+  }
+
+  var initTimeoutId = setTimeout(function () {
+    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+  }, 15000);
+
+  try {
+    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+      clearTimeout(initTimeoutId);
+      loadState();
+      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+      updateChart();
+    }).catch(function (err) {
+      clearTimeout(initTimeoutId);
+      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+    });
+  } catch (syncErr) {
+    clearTimeout(initTimeoutId);
+    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+  }
+})();
+</script>
+
+<script>
+// dica de ferramenta própria: converte title (HTML) e <title> (SVG) em um cartão estilizado
+(function () {
+  var tip = document.createElement('div');
+  tip.className = 'pd-tip';
+  document.body.appendChild(tip);
+  function textOf(n) {
+    if (n.namespaceURI === 'http://www.w3.org/2000/svg') {
+      for (var i = 0; i < n.children.length; i++) {
+        if (n.children[i].localName === 'title') { var t = n.children[i].textContent; n.removeChild(n.children[i]); n.setAttribute('data-tip', t); break; }
+      }
+    } else if (n.hasAttribute && n.hasAttribute('title')) {
+      n.setAttribute('data-tip', n.getAttribute('title')); n.removeAttribute('title');
+    }
+    return n.getAttribute ? n.getAttribute('data-tip') : null;
+  }
+  function find(t) {
+    for (var n = t; n && n !== document.body; n = n.parentNode) { if (n.nodeType === 1 && textOf(n)) return n; }
+    return null;
+  }
+  function color(n) {
+    if (n.namespaceURI !== 'http://www.w3.org/2000/svg') return '';
+    var cs = getComputedStyle(n), c = cs.fill;
+    if (!c || c === 'none' || c.indexOf('url(') === 0) c = cs.stroke;
+    return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
+  }
+  function add(cls, txt) { var d = document.createElement('div'); d.className = cls; d.textContent = txt; tip.appendChild(d); }
+  function show(n, e) {
+    var lines = n.getAttribute('data-tip').split('\n'), head = lines[0], cat = '', val = '', m;
+    if ((m = /^(.*?) · (.*): ([^:]*)$/.exec(head))) { head = m[1]; cat = m[2]; val = m[3]; }
+    else if (lines.length === 1 && (m = /^(.*): ([^:]*)$/.exec(head))) { head = m[1]; val = m[2]; }
+    tip.innerHTML = '';
+    var h = document.createElement('div'); h.className = 'tt-h';
+    var c = color(n);
+    if (c) { var sw = document.createElement('i'); sw.style.background = c; h.appendChild(sw); }
+    var nm = document.createElement('span'); nm.textContent = head; h.appendChild(nm); tip.appendChild(h);
+    if (cat) add('tt-c', cat);
+    lines.slice(1).forEach(function (l) { add('tt-c', l); });
+    if (val) add('tt-v', val);
+    tip.classList.add('on'); move(e);
+  }
+  function move(e) {
+    var w = tip.offsetWidth, h = tip.offsetHeight, x = e.clientX + 14, y = e.clientY + 14;
+    if (x + w > window.innerWidth - 4) x = e.clientX - w - 14;
+    if (y + h > window.innerHeight - 4) y = e.clientY - h - 14;
+    tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
+  }
+  document.addEventListener('mouseover', function (e) { var n = find(e.target); if (n) show(n, e); else tip.classList.remove('on'); });
+  document.addEventListener('mousemove', function (e) { if (tip.classList.contains('on')) { var n = find(e.target); if (n) move(e); else tip.classList.remove('on'); } });
+  document.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+})();
+</script>
+
+</body>
+</html>
