@@ -109,6 +109,12 @@
     border: 1px solid currentColor; border-radius: 3px; font-size: 12px; font-weight: 700; opacity: 0.8; vertical-align: middle;
   }
   th .t-expall:hover { opacity: 1; }
+  /* Top N: valor destacado com a cor de destaque */
+  #chart-root tbody tr td.top-hl { background: color-mix(in srgb, var(--pd-accent-1) 38%, transparent) !important; box-shadow: inset 3px 0 0 var(--pd-accent-1); }
+  #chart-root.accent-laranja tbody tr td.top-hl { background: color-mix(in srgb, var(--pd-accent-2) 38%, transparent) !important; box-shadow: inset 3px 0 0 var(--pd-accent-2); }
+  #chart-root.accent-amarelo tbody tr td.top-hl { background: color-mix(in srgb, var(--pd-accent-3) 38%, transparent) !important; box-shadow: inset 3px 0 0 var(--pd-accent-3); }
+  #chart-root.accent-azul-escuro tbody tr td.top-hl { background: color-mix(in srgb, var(--pd-accent-4) 38%, transparent) !important; box-shadow: inset 3px 0 0 var(--pd-accent-4); }
+  td.top-hl .t-txt { font-weight: 800; }
 </style>
 </head>
 <body>
@@ -149,7 +155,8 @@
     columnsSpec: '', headerStyle: 'plain', zebra: true, showGrid: true, density: 'normal',
     rowNumbers: false, showTotals: false, totalLabel: 'Total', wrapText: false,
     sortField: '', sortOrder: 'desc', maxRows: '',
-    hierarchy: false, hierarchyFields: '', hierarchyTitle: '', expandLevels: '0'
+    hierarchy: false, hierarchyFields: '', hierarchyTitle: '', expandLevels: '0',
+    topField: '', topN: '', topMode: 'top'
   };
   var expanded = {};         // chaves dos nós abertos (hierarquia); não é salvo nas configurações
   var expandedInit = false;
@@ -305,6 +312,25 @@
     return { top: top, all: all };
   }
 
+  // Top N: marca, dentro de cada grupo de irmãos (ou na tabela toda, sem hierarquia), as N maiores/menores linhas da coluna escolhida
+  function markTop() {
+    var N = parseInt(state.topN, 10);
+    model.topCol = -1;
+    if (!(N > 0) || !state.topField) return;
+    var ci = model.cols.findIndex(function (c) { return c.field === state.topField; });
+    if (ci === -1 || !model.cols[ci].num) return;
+    model.topCol = ci;
+    var asc = state.topMode === 'bottom';
+    function mark(list) {
+      list.slice().sort(function (a, b) { return asc ? a[ci].v - b[ci].v : b[ci].v - a[ci].v; })
+        .slice(0, N).forEach(function (r) { if (!r[ci].blank) r.isTop = true; });
+    }
+    if (model.tree) {
+      mark(model.treeTop);
+      model.treeAll.forEach(function (n) { if (n.kids.length) mark(n.kids); });
+    } else mark(model.rows);
+  }
+
   function applyExpandDefault() {
     expanded = {};
     var lv = state.expandLevels === 'all' ? 99 : (parseInt(state.expandLevels, 10) || 0);
@@ -409,6 +435,7 @@
         if (c.visual === 'sign' && c.num) cls += cell.v > 0 ? ' pos' : (cell.v < 0 ? ' neg' : '');
         td.className = cls;
         td.title = cell.text;
+        if (r.isTop && ci === model.topCol) td.className += ' top-hl';
         if (model.tree && ci === 0) {
           td.className = 'tree-lbl';
           var wrap = document.createElement('span');
@@ -629,7 +656,7 @@
         var type = cols[d.idx].dataType;
         var vals = data.map(function (row) { var c = row[d.idx]; return c && typeof c.value === 'number' ? c.value : 0; });
         return {
-          title: d.title, num: num, align: d.align, format: d.format, visual: d.visual,
+          field: cols[d.idx].fieldName, title: d.title, num: num, align: d.align, format: d.format, visual: d.visual,
           isDate: type === 'date' || type === 'date-time',
           stats: [{ min: vals.length ? Math.min.apply(null, vals) : 0, max: vals.length ? Math.max.apply(null, vals) : 0 }]
         };
@@ -689,6 +716,7 @@
         });
         if (!expandedInit) { applyExpandDefault(); expandedInit = true; }
       }
+      markTop();
       render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
