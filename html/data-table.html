@@ -93,6 +93,22 @@
   .pd-click { cursor: pointer; }
   tbody tr.pd-sel { background: color-mix(in srgb, var(--pd-accent-1) 12%, transparent); }
   .pd-dim { opacity: 0.35; }
+  /* hierarquia expansível (drill-down) */
+  td.tree-lbl { text-align: left; }
+  td.tree-lbl .t-tree { display: inline-flex; align-items: center; max-width: 100%; }
+  .t-caret {
+    flex: 0 0 auto; display: inline-block; width: 18px; text-align: center; cursor: pointer; user-select: none;
+    color: var(--pd-text-muted); font-size: 0.9em; transition: transform 0.12s;
+  }
+  .t-caret:hover { color: var(--pd-text); }
+  .t-caret.open { transform: rotate(90deg); }
+  .t-caret.leaf { visibility: hidden; cursor: default; }
+  tr.lvl-parent td { font-weight: 700; }
+  th .t-expall {
+    display: inline-block; width: 16px; height: 16px; line-height: 14px; margin-right: 6px; text-align: center;
+    border: 1px solid currentColor; border-radius: 3px; font-size: 12px; font-weight: 700; opacity: 0.8; vertical-align: middle;
+  }
+  th .t-expall:hover { opacity: 1; }
 </style>
 </head>
 <body>
@@ -108,6 +124,7 @@
   var root = document.getElementById('chart-root');
   var titleEl = document.getElementById('chart-title');
   var tbl = document.getElementById('tbl');
+  var bodyEl = document.getElementById('chart-body');
   var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
 
   var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
@@ -131,8 +148,11 @@
     customLabel: '', showLabel: true,
     columnsSpec: '', headerStyle: 'plain', zebra: true, showGrid: true, density: 'normal',
     rowNumbers: false, showTotals: false, totalLabel: 'Total', wrapText: false,
-    sortField: '', sortOrder: 'desc', maxRows: ''
+    sortField: '', sortOrder: 'desc', maxRows: '',
+    hierarchy: false, hierarchyFields: '', hierarchyTitle: '', expandLevels: '0'
   };
+  var expanded = {};         // chaves dos nós abertos (hierarquia); não é salvo nas configurações
+  var expandedInit = false;
   var model = null;          // { cols: [{ title, num, align, format, visual, min, max }], rows: [[{ v, text }]] }
   var userSort = null;       // { idx, dir } definido pelo clique no cabeçalho
 
@@ -211,8 +231,8 @@
     return cell.formattedValue;
   }
 
-  function sortedRows() {
-    var rows = model.rows.slice();
+  function sortedRows(list) {
+    var rows = (list || model.rows).slice();
     var s = userSort || (model.defaultSort ? model.defaultSort : null);
     if (!s) return rows;
     var cmp = function (a, b) {
@@ -227,15 +247,106 @@
     return rows;
   }
 
+  // soma de uma coluna numérica nas linhas-pai: usa prefixo/sufixo/casas decimais de uma amostra já formatada pelo Tableau
+  function sumText(col, total) {
+    var m = /^([^\d\-+]*)(-?[\d.,]*\d)(.*)$/.exec(col.sample || '');
+    if (!m) return total.toLocaleString('pt-BR', { maximumFractionDigits: 2 });
+    var di = m[2].lastIndexOf(',');
+    var dec = di === -1 ? 0 : m[2].length - di - 1;
+    return m[1] + total.toLocaleString('pt-BR', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + m[3];
+  }
+
+  // campos de cada nível: os informados em "Níveis" ou, se vazio, as dimensões da planilha na ordem em que chegam
+  function resolveLevels(cols, isNumCol) {
+    var idxs = [];
+    String(state.hierarchyFields || '').split(/[\n,>]+/).forEach(function (nm) {
+      nm = nm.trim().toLowerCase();
+      if (!nm) return;
+      var i = cols.findIndex(function (c) { return c.fieldName.toLowerCase() === nm; });
+      if (i !== -1 && idxs.indexOf(i) === -1) idxs.push(i);
+    });
+    if (!idxs.length) cols.forEach(function (c, i) { if (!isNumCol(i)) idxs.push(i); });
+    return idxs;
+  }
+
+  // agrupa as linhas por caminho (nível 1 › nível 2 › …); cada nó é um array de células, como uma linha normal
+  function buildTree(levelIdxs, mcols, rows, data, cols) {
+    var L = levelIdxs.length, top = [], byKey = {}, all = [];
+    rows.forEach(function (r, i) {
+      var parent = null, path = '';
+      for (var d = 0; d < L; d++) {
+        var c = data[i][levelIdxs[d]];
+        var label = c ? String(c.formattedValue) : '';
+        path += (d ? '\u0001' : '') + label;
+        var n = byKey[path];
+        if (!n) {
+          n = byKey[path] = [];
+          n.depth = d; n.key = path; n.label = label; n.kids = []; n.leaves = [];
+          n.sel = pdSel(cols, data[i], levelIdxs.slice(0, d + 1));
+          (parent ? parent.kids : top).push(n);
+          all.push(n);
+        }
+        n.leaves.push(r);
+        parent = n;
+      }
+    });
+    all.forEach(function (n) {
+      var isLeaf = n.kids.length === 0;
+      n.push({ v: 0, k: NaN, text: n.label });
+      mcols.forEach(function (c, j) {
+        if (n.leaves.length === 1 && (c.num || isLeaf)) { n.push(n.leaves[0][j]); return; }
+        if (c.num && c.format !== 'pct') {
+          var total = n.leaves.reduce(function (s, r) { return s + r[j].v; }, 0);
+          n.push({ v: total, k: NaN, text: fmtValue(c, { value: total, formattedValue: sumText(c, total) }) });
+        } else if (!c.num && isLeaf) n.push(n.leaves[0][j]);
+        else n.push({ v: 0, k: NaN, text: '', blank: true });
+      });
+    });
+    return { top: top, all: all };
+  }
+
+  function applyExpandDefault() {
+    expanded = {};
+    var lv = state.expandLevels === 'all' ? 99 : (parseInt(state.expandLevels, 10) || 0);
+    model.treeAll.forEach(function (n) { if (n.kids.length && n.depth < lv) expanded[n.key] = true; });
+  }
+
+  function visibleTreeRows() {
+    var tops = sortedRows(model.treeTop);
+    var maxRows = parseInt(state.maxRows, 10);
+    if (maxRows > 0) tops = tops.slice(0, maxRows);
+    var out = [];
+    (function walk(list) {
+      list.forEach(function (n) {
+        out.push(n);
+        if (n.kids.length && expanded[n.key]) walk(sortedRows(n.kids));
+      });
+    })(tops);
+    return { rows: out, tops: tops };
+  }
+
   function render() {
+    var keepScroll = bodyEl.scrollTop;
+    renderTable();
+    bodyEl.scrollTop = keepScroll;
+  }
+
+  function renderTable() {
     tbl.innerHTML = '';
     if (!model || model.cols.length === 0) {
       tbl.innerHTML = '<tr><td id="chart-status">Sem dados</td></tr>';
       return;
     }
-    var rows = sortedRows();
-    var maxRows = parseInt(state.maxRows, 10);
-    if (maxRows > 0) rows = rows.slice(0, maxRows);
+    var rows, totalRows;
+    if (model.tree) {
+      var vt = visibleTreeRows();
+      rows = vt.rows; totalRows = vt.tops;
+    } else {
+      rows = sortedRows();
+      var maxRows = parseInt(state.maxRows, 10);
+      if (maxRows > 0) rows = rows.slice(0, maxRows);
+      totalRows = rows;
+    }
     var cur = userSort || model.defaultSort;
 
     var thead = document.createElement('thead');
@@ -246,6 +357,20 @@
       th.className = c.align ? 'al-' + c.align : (c.num ? 'num' : '');
       th.textContent = c.title;
       th.title = c.title;
+      if (model.tree && i === 0) {
+        var anyOpen = Object.keys(expanded).some(function (k) { return expanded[k]; });
+        var ea = document.createElement('span');
+        ea.className = 't-expall';
+        ea.textContent = anyOpen ? '\u2212' : '+';
+        ea.title = anyOpen ? 'Recolher tudo' : 'Expandir tudo';
+        ea.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          if (anyOpen) expanded = {};
+          else model.treeAll.forEach(function (n) { if (n.kids.length) expanded[n.key] = true; });
+          render();
+        });
+        th.insertBefore(ea, th.firstChild);
+      }
       if (cur && cur.idx === i) {
         var a = document.createElement('span');
         a.className = 'arrow';
@@ -269,6 +394,8 @@
     var tbody = document.createElement('tbody');
     rows.forEach(function (r, ri) {
       var tr = document.createElement('tr');
+      var depth = model.tree ? r.depth : 0;
+      if (model.tree && r.kids.length) tr.className = 'lvl-parent';
       if (state.rowNumbers) {
         var n = document.createElement('td');
         n.className = 'rownum num';
@@ -282,6 +409,33 @@
         if (c.visual === 'sign' && c.num) cls += cell.v > 0 ? ' pos' : (cell.v < 0 ? ' neg' : '');
         td.className = cls;
         td.title = cell.text;
+        if (model.tree && ci === 0) {
+          td.className = 'tree-lbl';
+          var wrap = document.createElement('span');
+          wrap.className = 't-tree';
+          wrap.style.paddingLeft = (r.depth * 18) + 'px';
+          var caret = document.createElement('span');
+          var hasKids = r.kids.length > 0;
+          caret.className = 't-caret' + (hasKids ? (expanded[r.key] ? ' open' : '') : ' leaf');
+          caret.textContent = '\u25B8';
+          if (hasKids) {
+            caret.addEventListener('click', function (ev) {
+              ev.stopPropagation();
+              expanded[r.key] = !expanded[r.key];
+              render();
+            });
+          }
+          var lt = document.createElement('span');
+          lt.className = 't-txt';
+          lt.textContent = cell.text;
+          wrap.appendChild(caret);
+          wrap.appendChild(lt);
+          td.appendChild(wrap);
+          tr.appendChild(td);
+          return;
+        }
+        if (cell.blank) { tr.appendChild(td); return; }
+        var st = c.stats[Math.min(depth, c.stats.length - 1)] || { min: 0, max: 0 };
         if (c.visual === 'badge' && cell.text !== '') {
           var bd = document.createElement('span');
           bd.className = 't-badge';
@@ -297,7 +451,7 @@
           var hb = document.createElement('span');
           hb.className = 't-hbar';
           // largura proporcional ao maior valor da coluna (até 72px), o valor vem logo depois
-          hb.style.width = (c.max > 0 ? Math.max(0, Math.min(1, cell.v / c.max)) * 72 : 0).toFixed(1) + 'px';
+          hb.style.width = (st.max > 0 ? Math.max(0, Math.min(1, cell.v / st.max)) * 72 : 0).toFixed(1) + 'px';
           var ht = document.createElement('span');
           ht.className = 't-txt';
           ht.textContent = cell.text;
@@ -310,7 +464,7 @@
         if (c.visual === 'bar' && c.num) {
           var bar = document.createElement('span');
           bar.className = 't-bar';
-          bar.style.width = (c.max > 0 ? Math.max(0, Math.min(100, cell.v / c.max * 100)) : 0).toFixed(1) + '%';
+          bar.style.width = (st.max > 0 ? Math.max(0, Math.min(100, cell.v / st.max * 100)) : 0).toFixed(1) + '%';
           td.appendChild(bar);
         }
         var txt = document.createElement('span');
@@ -318,7 +472,7 @@
         txt.textContent = cell.text;
         td.appendChild(txt);
         if (c.visual === 'heat' && c.num) {
-          var t = c.max === c.min ? 1 : (cell.v - c.min) / (c.max - c.min);
+          var t = st.max === st.min ? 1 : (cell.v - st.min) / (st.max - st.min);
           td.style.background = 'color-mix(in srgb, var(--pd-accent-1) ' + Math.round(12 + 88 * t) + '%, var(--pd-track))';
           heatCells.push(td);
         }
@@ -338,7 +492,7 @@
         td.className = c.align ? 'al-' + c.align : (c.num ? 'num' : '');
         if (i === 0) td.textContent = state.totalLabel || 'Total';
         else if (c.num && c.format !== 'pct' && c.visual !== 'sign') {
-          var total = rows.reduce(function (s, r) { return s + r[i].v; }, 0);
+          var total = totalRows.reduce(function (s, r) { return s + r[i].v; }, 0);
           td.textContent = fmtValue(c, { value: total, formattedValue: formatCompact(total) });
         }
         ftr.appendChild(td);
@@ -458,6 +612,13 @@
       if (defs.length === 0) {
         defs = cols.map(function (c, i) { return { idx: i, title: c.fieldName, align: '', format: 'auto', visual: '' }; });
       }
+      // hierarquia: as dimensões dos níveis viram a 1ª coluna (com seta); as demais colunas ficam como estão
+      var levelIdxs = state.hierarchy ? resolveLevels(cols, isNumCol) : [];
+      var tree = levelIdxs.length >= 2;
+      if (tree) {
+        var restDefs = defs.filter(function (d) { return levelIdxs.indexOf(d.idx) === -1; });
+        defs = restDefs.length ? restDefs : (parseSpec(state.columnsSpec).length ? defs : []);
+      }
 
       titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
       titleEl.classList.toggle('hidden', state.showLabel === false || !titleEl.textContent);
@@ -470,7 +631,7 @@
         return {
           title: d.title, num: num, align: d.align, format: d.format, visual: d.visual,
           isDate: type === 'date' || type === 'date-time',
-          min: vals.length ? Math.min.apply(null, vals) : 0, max: vals.length ? Math.max.apply(null, vals) : 0
+          stats: [{ min: vals.length ? Math.min.apply(null, vals) : 0, max: vals.length ? Math.max.apply(null, vals) : 0 }]
         };
       });
       var rows = data.map(function (row) {
@@ -480,6 +641,10 @@
           var k = mcols[j].isDate && c ? Date.parse(c.value) : NaN;
           return { v: v, k: k, text: fmtValue(mcols[j], c) };
         });
+      });
+      // amostra formatada de cada coluna (para formatar as somas das linhas-pai)
+      mcols.forEach(function (mc, j) {
+        for (var q = 0; q < rows.length; q++) { if (rows[q][j].text !== '') { mc.sample = rows[q][j].text; break; } }
       });
       // selos: ordem dos valores distintos (cor da paleta) e se a coluna é uma curva ABC (só A, B e C)
       mcols.forEach(function (mc, j) {
@@ -501,9 +666,29 @@
       var defaultSort = null;
       if (state.sortField) {
         var si = defs.findIndex(function (d) { return cols[d.idx].fieldName === state.sortField; });
+        if (tree) si = si !== -1 ? si + 1 : (levelIdxs.some(function (li) { return cols[li].fieldName === state.sortField; }) ? 0 : -1);
         if (si !== -1) defaultSort = { idx: si, dir: state.sortOrder === 'asc' ? 'asc' : 'desc' };
       }
-      model = { cols: mcols, rows: rows, defaultSort: defaultSort };
+      model = { cols: mcols, rows: rows, defaultSort: defaultSort, tree: tree };
+      if (tree) {
+        var tr0 = buildTree(levelIdxs, mcols, rows, data, cols);
+        model.treeTop = tr0.top; model.treeAll = tr0.all;
+        model.cols = [{
+          title: (state.hierarchyTitle && state.hierarchyTitle.trim()) || levelIdxs.map(function (li) { return cols[li].fieldName; }).join(' \u203A '),
+          num: false, align: '', format: 'auto', visual: '', stats: [{ min: 0, max: 0 }]
+        }].concat(mcols);
+        // escala de barras e mapa de calor por nível (o total de um pai não deve achatar as barras dos filhos)
+        mcols.forEach(function (mc, j) {
+          mc.stats = [];
+          model.treeAll.forEach(function (n) {
+            if (n[j + 1].blank) return;
+            var st0 = mc.stats[n.depth] || (mc.stats[n.depth] = { min: Infinity, max: -Infinity });
+            st0.min = Math.min(st0.min, n[j + 1].v); st0.max = Math.max(st0.max, n[j + 1].v);
+          });
+          for (var d0 = 0; d0 < levelIdxs.length; d0++) if (!mc.stats[d0]) mc.stats[d0] = { min: 0, max: 0 };
+        });
+        if (!expandedInit) { applyExpandDefault(); expandedInit = true; }
+      }
       render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
@@ -515,7 +700,7 @@
 
   function openConfigDialog() {
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/data-table-config.html', '', { height: 860, width: 340 })
-      .then(function () { loadState(); updateChart(); })
+      .then(function () { loadState(); expandedInit = false; updateChart(); })
       .catch(function (error) {
         console.log('[Projedata Tabela] dialog fechado:', error && error.message);
       });

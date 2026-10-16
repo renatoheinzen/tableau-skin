@@ -176,6 +176,50 @@
       "hint": "Marque as colunas, arraste para reordenar e ajuste título, alinhamento, formato e visual de cada uma. Tudo marcado e sem ajustes: usa todos os campos da planilha."
     },
     {
+      "key": "hierarchy",
+      "type": "checkbox",
+      "label": "Hierarquia expansível (drill-down com setinha)",
+      "default": false
+    },
+    {
+      "key": "hierarchyFields",
+      "type": "textarea",
+      "rows": 3,
+      "label": "Níveis da hierarquia (um campo por linha)",
+      "placeholder": "Estado\nCidade\nCliente",
+      "hint": "Do mais geral ao mais detalhado, com os mesmos nomes dos campos em Marcas. Vazio: usa as dimensões da planilha na ordem em que chegam. A 1ª coluna mostra os níveis com uma seta; as colunas numéricas das linhas-pai são a soma dos filhos (formato % fica em branco nelas) — use medidas somáveis."
+    },
+    {
+      "key": "hierarchyTitle",
+      "type": "text",
+      "label": "Título da coluna de hierarquia",
+      "placeholder": "Ex: Estado › Cidade › Cliente"
+    },
+    {
+      "key": "expandLevels",
+      "type": "select",
+      "label": "Ao abrir",
+      "default": "0",
+      "options": [
+        [
+          "0",
+          "Tudo recolhido"
+        ],
+        [
+          "1",
+          "Expandir o 1º nível"
+        ],
+        [
+          "2",
+          "Expandir até o 2º nível"
+        ],
+        [
+          "all",
+          "Tudo expandido"
+        ]
+      ]
+    },
+    {
       "key": "headerStyle",
       "type": "select",
       "label": "Cabeçalho",
