@@ -78,11 +78,16 @@
         console.warn('[pd-theme] não consegui ler o parâmetro "' + PARAM + '":', e);
       });
       // rede de segurança: nem toda versão dispara ParameterChanged para extensões de planilha
+      // lenta e sem sobreposição: várias extensões consultando a cada poucos segundos travam a fila da API
+      // e fazem o getSummaryDataAsync estourar o tempo
+      var polling = false;
       setInterval(function () {
+        if (polling || document.hidden) return;
+        polling = true;
         read(src).then(function (p) {
           if (p) apply(modeFor(p.currentValue && (p.currentValue.value != null ? p.currentValue.value : p.currentValue.formattedValue)));
-        }).catch(function () {});
-      }, 3000);
+        }).catch(function () {}).then(function () { polling = false; });
+      }, 15000);
     },
     /* troca o tema (botão das extensões de navegação): grava o outro valor no parâmetro, e as demais extensões seguem */
     toggle: function () {
