@@ -77,6 +77,16 @@
       read(src).then(function (p) { if (p) bind(p); }).catch(function (e) {
         console.warn('[pd-theme] não consegui ler o parâmetro "' + PARAM + '":', e);
       });
+      // o Tableau não dispara ParameterChanged para extensões de planilha, então é preciso consultar.
+      // Uma consulta por vez e pausada com a aba oculta, para não travar a fila da API.
+      var polling = false;
+      setInterval(function () {
+        if (polling || document.hidden) return;
+        polling = true;
+        read(src).then(function (p) {
+          if (p) apply(modeFor(p.currentValue && (p.currentValue.value != null ? p.currentValue.value : p.currentValue.formattedValue)));
+        }).catch(function () {}).then(function () { polling = false; });
+      }, 5000);
     },
     /* troca o tema (botão das extensões de navegação): grava o outro valor no parâmetro, e as demais extensões seguem */
     toggle: function () {
