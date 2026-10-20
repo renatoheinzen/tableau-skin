@@ -2,8 +2,8 @@
 <manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
   <dashboard-extension id="com.projedata.inifexbi.skinpro" extension-version="1.0.0">
     <default-locale>pt_BR</default-locale>
-    <name>Projedata Skin Iniflex Pro (escuro)</name>
-    <description>Fundo do painel no tema &quot;Iniflex Pro (escuro)&quot; da marca Projedata.</description>
+    <name>Projedata Skin Iniflex Pro</name>
+    <description>Fundo do painel no tema &quot;Iniflex Pro&quot; da marca Projedata.</description>
     <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
     <min-api-version>1.9</min-api-version>
 

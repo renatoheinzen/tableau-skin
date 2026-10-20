@@ -3,7 +3,9 @@
    Sem parâmetro (ou fora do Tableau) o tema base continua valendo. Também aceita ?tema=<valor> na URL da página. */
 (function () {
   var PARAM = 'Tema';
-  var VALUES = {"iniflex pro escuro":"base","pro":"base","escuro":"base","dark":"base","iniflex smart claro":"alt","smart":"alt","claro":"alt","light":"alt"}; // valor normalizado do parâmetro → 'base' | 'alt'
+  var VALUES = {"iniflex pro":"base","pro":"base","escuro":"base","dark":"base","iniflex pro claro":"alt","pro claro":"alt","claro":"alt","light":"alt"}; // valor normalizado do parâmetro → 'base' | 'alt'
+  var LABELS = {"base":"Escuro","alt":"Claro"}; // valor gravado no parâmetro quando ele aceita qualquer texto
+  var DARK = {"base":true,"alt":false};     // o tema é escuro? (decide o ícone do botão de trocar tema)
   var listeners = [];
   var mode = 'base';
 
@@ -13,7 +15,7 @@
   function modeFor(v) { return VALUES[norm(v)] || 'base'; }
 
   function apply(next) {
-    if (next === mode && document.documentElement.getAttribute('data-theme') !== null) return;
+    if (next === mode) return;
     mode = next;
     if (mode === 'alt') document.documentElement.setAttribute('data-theme', 'alt');
     else document.documentElement.removeAttribute('data-theme');
@@ -40,6 +42,19 @@
       if (!p) return null;
       return p;
     });
+  }
+
+  // valor a gravar no parâmetro para chegar em `target`: usa a lista de valores permitidos quando ele tem uma
+  function valueFor(p, target) {
+    var av = p && p.allowableValues;
+    if (av && av.type === 'list') {
+      for (var i = 0; i < av.allowableValues.length; i++) {
+        var v = av.allowableValues[i];
+        var raw = v.value != null ? v.value : v.formattedValue;
+        if (modeFor(raw) === target) return raw;
+      }
+    }
+    return LABELS[target];
   }
 
   window.PDTheme = {
@@ -69,6 +84,19 @@
         }).catch(function () {});
       }, 3000);
     },
+    /* troca o tema (botão das extensões de navegação): grava o outro valor no parâmetro, e as demais extensões seguem */
+    toggle: function () {
+      var target = mode === 'alt' ? 'base' : 'alt';
+      var src = source();
+      if (!src || !src.getParametersAsync) { apply(target); return Promise.resolve(); }
+      return read(src).then(function (p) {
+        if (!p) { console.warn('[pd-theme] parâmetro "' + PARAM + '" não existe: o tema só muda nesta extensão'); apply(target); return; }
+        return p.changeValueAsync(valueFor(p, target)).then(function () { apply(target); });
+      }).catch(function (e) { console.warn('[pd-theme] não consegui trocar o tema:', e); });
+    },
+    isDark: function (m) { return !!DARK[m]; },
+    label: function (m) { return LABELS[m]; },
+    _apply: apply,
     onChange: function (fn) { listeners.push(fn); },
     mode: function () { return mode; },
     set: function (v) { apply(modeFor(v)); }
