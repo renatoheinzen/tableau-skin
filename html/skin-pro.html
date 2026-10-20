@@ -2,9 +2,8 @@
 <html lang="pt-BR">
 <head>
 <meta charset="UTF-8">
-<title>Projedata Skin Iniflex Pro</title>
+<title>Projedata Skin Iniflex Pro (escuro)</title>
 <script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
-<script src="../assets/pd-theme.js"></script>
 <style>
   html, body {
     margin: 0;
@@ -36,15 +35,12 @@
   <img id="logo" alt="">
 </div>
 <script>
-  // base = tema do tokens.css; alt = tema alternativo (seletor claro/escuro), ou null
-  var THEMES = {
-    base: { color: '#0C0F3D', layers: 'none', overlay: '', bgUrl: '', logoUrl: '' },
-    alt: {"color":"#EBF0F5","layers":"none","overlay":"rgba(209, 216, 237, 0.55)","bgUrl":"","logoUrl":""}
-  };
+  var BG_URL = '';
+  var OVERLAY = '';
+  var LOGO_URL = '';
 
   var root = document.getElementById('skin-root');
   var logo = document.getElementById('logo');
-  var current = 0;
 
   function loadFresh(url) {
     return fetch(url, { cache: 'no-store' }).then(function (r) {
@@ -55,50 +51,33 @@
     });
   }
 
-  function applySkin(mode) {
-    var t = (mode === 'alt' && THEMES.alt) ? THEMES.alt : THEMES.base;
-    var token = ++current; // ignora respostas de uma troca anterior
-    root.style.backgroundColor = t.color;
-    root.style.backgroundImage = t.layers;
-
-    if (t.bgUrl) {
-      loadFresh(t.bgUrl).then(function (objectUrl) {
-        if (token !== current) return;
-        // o overlay tonaliza a imagem pra ela nunca ficar branco puro,
-        // senão os cards brancos dos KPIs/gráficos perdem a borda
-        var layers = 'url(' + objectUrl + ')';
-        if (t.overlay) layers = 'linear-gradient(' + t.overlay + ', ' + t.overlay + '), ' + layers;
-        // a imagem fica por cima do degradê/manchas
-        root.style.backgroundImage = layers + (t.layers && t.layers !== 'none' ? ', ' + t.layers : '');
-      }).catch(function () {
-        // sem imagem de fundo definida ainda, mantém a cor sólida
-      });
-    }
-
-    if (t.logoUrl) {
-      loadFresh(t.logoUrl).then(function (objectUrl) {
-        if (token !== current) return;
-        logo.src = objectUrl;
-        logo.style.display = '';
-      }).catch(function () {
-        logo.style.display = 'none';
-      });
-    } else {
-      logo.style.display = 'none';
-    }
+  if (BG_URL) {
+    loadFresh(BG_URL).then(function (objectUrl) {
+      // o overlay tonaliza a imagem pra ela nunca ficar branco puro,
+      // senão os cards brancos dos KPIs/gráficos perdem a borda
+      var layers = 'url(' + objectUrl + ')';
+      if (OVERLAY) layers = 'linear-gradient(' + OVERLAY + ', ' + OVERLAY + '), ' + layers;
+      // a imagem fica por cima do degradê/manchas definidos no CSS
+      var base = getComputedStyle(root).backgroundImage;
+      root.style.backgroundImage = layers + (base && base !== 'none' ? ', ' + base : '');
+    }).catch(function () {
+      // sem imagem de fundo definida ainda, mantém a cor sólida
+    });
   }
 
-  applySkin('base');
-  if (window.PDTheme) {
-    PDTheme.onChange(applySkin);
-    if (PDTheme.mode() === 'alt') applySkin('alt');
+  if (LOGO_URL) {
+    loadFresh(LOGO_URL).then(function (objectUrl) {
+      logo.src = objectUrl;
+    }).catch(function () {
+      logo.style.display = 'none';
+    });
+  } else {
+    logo.style.display = 'none';
   }
 
   if (typeof tableau !== 'undefined' && tableau.extensions) {
-    tableau.extensions.initializeAsync().then(function () {
-      if (window.PDTheme) PDTheme.start();
-    }).catch(function (err) {
-      console.warn('[Projedata Skin Iniflex Pro] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
+    tableau.extensions.initializeAsync().catch(function (err) {
+      console.warn('[Projedata Skin Iniflex Pro (escuro)] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
     });
   }
 </script>
