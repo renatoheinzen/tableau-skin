@@ -28,8 +28,9 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 | Projedata Box-plot | worksheet | [`trex/box-plot.trex`](trex/box-plot.trex) | Box-and-whisker: mediana, quartis, bigodes (1,5 × IQR ou mín–máx), média, outliers e pontos, por categoria |
 | Projedata Sankey | worksheet | [`trex/sankey-chart.trex`](trex/sankey-chart.trex) | Diagrama de Sankey: fluxos entre origem, destino e uma 3ª etapa opcional, com cor por origem/destino |
 | Projedata Legenda de Mapa | worksheet | [`trex/map-legend.trex`](trex/map-legend.trex) | Legenda para o mapa nativo do Tableau: degradê mínimo–máximo (ou 5/7 faixas) e lista Top N opcional, com a escala de cores da marca |
+| Projedata Painel de Filtros | worksheet | [`trex/filter-panel.trex`](trex/filter-panel.trex) | Filtros e parâmetros a partir dos campos nas Marcas (lista, escolha única, data de/até); abre pelo botão Filtros do Cabeçalho com Abas |
 | Projedata Faixa Lateral | dashboard | [`trex/sidebar-nav.trex`](trex/sidebar-nav.trex) | Navegação em faixa lateral |
-| Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação |
+| Projedata Cabeçalho com Abas | dashboard | [`trex/header-tabs.trex`](trex/header-tabs.trex) | Cabeçalho com abas de navegação e botão Filtros (mostra/esconde a planilha do Painel de Filtros) |
 | Projedata Painel de Seção | dashboard | [`trex/panel.trex`](trex/panel.trex) | Painel de fundo para agrupar uma seção, com moldura opcional para encaixar um mapa/gráfico nativo por cima |
 | Projedata Skin Iniflex Pro (escuro) | dashboard | [`trex/skin-pro.trex`](trex/skin-pro.trex) | Fundo de dashboard no tema "Iniflex Pro (escuro)" gerado pelo Skin Builder |
 | Projedata Skin Claro | dashboard | [`trex/skin-light.trex`](trex/skin-light.trex) | Fundo de dashboard tema claro (Iniflex Smart) + logo |
@@ -54,6 +55,13 @@ O jeito de carregar depende do **Tipo** da extensão na tabela acima.
 1. Baixe o `.trex`.
 2. No dashboard, arraste um objeto **Extensão** → **Acessar extensões locais** e selecione o `.trex`.
 3. Para as Skins, converta o container de layout raiz do dashboard para **Flutuante** e envie a extensão para trás (**Organizar → Enviar para trás**) — objetos flutuantes nunca ficam atrás de conteúdo lado a lado, então o container precisa ser flutuante também.
+
+**Painel de Filtros + botão Filtros do cabeçalho**
+
+1. Crie uma planilha (ex.: `Filtros`), arraste para **Marcas → Detalhes** os campos que serão filtros (data como **data exata**) e troque o tipo de marca para o `filter-panel.trex`.
+2. Arraste os mesmos campos para **Filtros** dessa planilha e, em cada um, *Aplicar a planilhas* → **Todas que usam esta fonte de dados**. É assim que o filtro chega aos outros visuais (o painel mostra ⚠ no campo que ainda não está em Filtros).
+3. Em **Formatar extensão**, escolha rótulo, ordem e tipo de cada campo e marque os parâmetros. *Mostrar diagnóstico* lista campos, filtros e as chamadas ao Tableau quando algo não filtra.
+4. No dashboard, deixe a planilha **flutuante** abaixo do cabeçalho e, no Cabeçalho com Abas, escolha-a em **Planilha de filtros**: o botão Filtros mostra/esconde a planilha e conta os filtros ativos.
 
 **Publicação:** publique o workbook. Se o Tableau Server/Cloud bloquear a extensão, adicione `https://renatoheinzen.github.io` (com e sem `https://`) na lista de extensões permitidas do site.
 

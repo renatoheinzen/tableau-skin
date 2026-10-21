@@ -31,6 +31,12 @@
   #list { flex: 1 1 auto; overflow-y: auto; padding: 0 16px 10px; }
   #status { font-size: 12px; color: var(--pd-text-muted); padding: 10px 0; }
   #status:empty { display: none; }
+  .note { margin-top: 10px; padding: 6px 8px; border-radius: 6px; font-size: 11px; color: var(--pd-text-muted); background: var(--pd-track); }
+  .note.err { color: var(--pd-negative); }
+  .diag {
+    margin: 14px 0 0; padding: 8px; border-radius: 6px; background: var(--pd-track); color: var(--pd-text-muted);
+    font: 10px/1.45 Consolas, monospace; white-space: pre-wrap; word-break: break-word; user-select: text;
+  }
 
   .flt { margin-top: 12px; }
   .flt-head { display: flex; align-items: baseline; gap: 8px; }
@@ -95,10 +101,14 @@
 
   var state = {
     title: 'Filtros', fields: '', parameters: '', applyMode: 'button',
-    applyLabel: 'Aplicar', clearLabel: 'Limpar'
+    applyLabel: 'Aplicar', clearLabel: 'Limpar', debug: false
   };
   var items = [];      // filtros na tela: { kind, field, label, read(), clear(), changed() }
   var applying = false;
+  var noRows = false;   // os filtros atuais não deixam nenhum registro
+  var errors = [];      // erros da última aplicação (aparecem no painel)
+  var calls = [];       // diagnóstico: chamadas feitas ao Tableau na última aplicação
+  var snapshot = { columns: [], filters: [] }; // diagnóstico: o que a planilha devolveu na última leitura
 
   function worksheet() { return tableau.extensions.worksheetContent.worksheet; }
 
@@ -154,6 +164,32 @@
     });
   }
 
+  // A planilha é filtrada pelos próprios filtros: se o filtro a deixa sem linhas, o Tableau devolve os dados
+  // sem colunas. Os campos então vêm das últimas colunas lidas ou, depois de recarregar, dos filtros da planilha.
+  var lastColumns = [];
+  function defsFromFilters(filters) {
+    var spec = parseSpec(state.fields);
+    var list = spec.length
+      ? spec.map(function (s) {
+          var f = matchFilter(filters, baseField(s.column).field);
+          return f && { f: f, title: s.title, kind: s.kind };
+        }).filter(Boolean)
+      : filters.map(function (f) { return { f: f, title: '', kind: '' }; });
+    return list.map(function (x) {
+      return { ci: -1, field: x.f.fieldName, label: x.title || x.f.fieldName, kind: x.kind || (x.f.filterType === 'range' ? 'date' : 'list') };
+    });
+  }
+
+  // filtro da planilha para o campo: nome igual, sem diferença de maiúsculas, ou sem o prefixo "fonte."
+  function matchFilter(filters, field) {
+    var low = field.toLowerCase();
+    var tail = function (s) { return s.toLowerCase().split('.').pop(); };
+    return filters.filter(function (f) { return f.fieldName === field; })[0]
+      || filters.filter(function (f) { return f.fieldName.toLowerCase() === low; })[0]
+      || filters.filter(function (f) { return tail(f.fieldName) === tail(field); })[0]
+      || null;
+  }
+
   function rawValue(v) { return v == null ? '' : String(v.value != null ? v.value : v.formattedValue); }
   function shownValue(v) { return v == null ? '' : String(v.formattedValue != null ? v.formattedValue : v.value); }
   function isoDate(v) {
@@ -175,10 +211,15 @@
       ws.getParametersAsync ? ws.getParametersAsync().catch(function () { return []; }) : Promise.resolve([])
     ]).then(function (r) {
       var data = r[0], filters = r[1], params = r[2];
-      var defs = defsFromColumns(data.columns || []);
+      var columns = data.columns || [];
+      if (columns.length) lastColumns = columns; else columns = lastColumns;
+      var defs = columns.length ? defsFromColumns(columns) : defsFromFilters(filters);
+      noRows = !(data.data || []).length;
+      snapshot = { columns: data.columns || [], rows: (data.data || []).length, filters: filters, defs: defs };
       return Promise.all(defs.map(function (d) {
-        var tf = filters.filter(function (f) { return f.fieldName === d.field; })[0];
-        var m = { kind: d.kind, field: d.field, label: d.label, hasFilter: !!tf, values: [], selected: [], from: '', to: '', min: '', max: '' };
+        var tf = matchFilter(filters, d.field);
+        // aplica no nome que o filtro da planilha usa (pode diferir do nome da coluna)
+        var m = { kind: d.kind, field: tf ? tf.fieldName : d.field, label: d.label, hasFilter: !!tf, values: [], selected: [], from: '', to: '', min: '', max: '' };
         // valores pelos dados da planilha (podem estar reduzidos pelo próprio filtro)
         var seen = {};
         (data.data || []).forEach(function (row) {
@@ -323,9 +364,12 @@
     if (!models.length) {
       setStatus('Arraste para as Marcas (Detalhes) os campos que serão filtros.');
       actionsEl.hidden = true;
+      renderDiag();
       return;
     }
     actionsEl.hidden = false;
+    errors.forEach(function (e) { listEl.appendChild(el('div', 'note err', e)); });
+    if (noRows) listEl.appendChild(el('div', 'note', 'Nenhum registro com os filtros atuais.'));
     models.forEach(function (m) {
       var item = { m: m, dirty: false };
       item.changed = function () {
@@ -352,30 +396,75 @@
       listEl.appendChild(box);
       items.push(item);
     });
+    renderDiag();
+  }
+
+  /* ---------- diagnóstico (opção na janela de propriedades) ---------- */
+  function describeValue(v) {
+    if (v == null) return '(vazio)';
+    var x = v.value !== undefined ? v.value : v;
+    return (x instanceof Date ? 'Date ' + x.toISOString() : JSON.stringify(x)) + (v.formattedValue != null ? ' "' + v.formattedValue + '"' : '');
+  }
+  function describeFilter(f) {
+    var s = f.fieldName + ' [' + f.filterType + ']';
+    if (f.filterType === 'range') s += ' min=' + describeValue(f.minValue) + ' max=' + describeValue(f.maxValue);
+    if (f.filterType === 'categorical') s += f.isAllSelected ? ' (todos)' : ' ' + (f.appliedValues || []).length + ' valor(es)' + (f.isExcludeMode ? ' excluindo' : '');
+    return s;
+  }
+  function renderDiag() {
+    if (!state.debug) return;
+    var lines = ['Planilha: ' + (worksheet().name || '?') + ' · ' + (snapshot.rows || 0) + ' linha(s)'];
+    lines.push('Colunas (Marcas):');
+    (snapshot.columns || []).forEach(function (c) { lines.push('  ' + c.fieldName + ' [' + c.dataType + ']'); });
+    lines.push('Filtros da planilha:');
+    (snapshot.filters || []).forEach(function (f) { lines.push('  ' + describeFilter(f)); });
+    if (!(snapshot.filters || []).length) lines.push('  (nenhum)');
+    lines.push('Filtros do painel:');
+    (snapshot.defs || []).forEach(function (d) { lines.push('  ' + d.label + ' → ' + d.field + ' (' + d.kind + ')'); });
+    if (calls.length) {
+      lines.push('Última aplicação:');
+      calls.forEach(function (c) { lines.push('  ' + c); });
+    }
+    listEl.appendChild(el('pre', 'diag', lines.join('\n')));
   }
 
   /* ---------- aplicar ---------- */
+  function call(desc, fn) {
+    calls.push(desc);
+    return fn();
+  }
+
   function applyItem(item) {
     var ws = worksheet(), m = item.m, v = item.read();
-    if (m.kind === 'parameter') return v === '' || v === m.current ? Promise.resolve() : m.param.changeValueAsync(v);
-    if (m.kind === 'date') {
-      if (!v.from && !v.to) return ws.clearFilterAsync(m.field);
-      var range = {};
-      range.min = utcDate(v.from || m.min || v.to);
-      range.max = utcDate(v.to || m.max || v.from, true);
-      return ws.applyRangeFilterAsync(m.field, range);
+    if (m.kind === 'parameter') {
+      if (v === '' || v === m.current) return Promise.resolve();
+      return call('changeValueAsync("' + m.field + '", ' + JSON.stringify(v) + ')', function () { return m.param.changeValueAsync(v); });
     }
-    if (!v.length) return ws.clearFilterAsync(m.field);
-    return ws.applyFilterAsync(m.field, v, tableau.FilterUpdateType ? tableau.FilterUpdateType.Replace : 'replace', { isExcludeMode: false });
+    if (m.kind === 'date') {
+      if (!v.from && !v.to) return call('clearFilterAsync("' + m.field + '")', function () { return ws.clearFilterAsync(m.field); });
+      // só as pontas preenchidas: a outra fica aberta
+      var range = {};
+      if (v.from) range.min = utcDate(v.from);
+      if (v.to) range.max = utcDate(v.to, true);
+      return call('applyRangeFilterAsync("' + m.field + '", ' + JSON.stringify(range) + ')', function () { return ws.applyRangeFilterAsync(m.field, range); });
+    }
+    if (!v.length) return call('clearFilterAsync("' + m.field + '")', function () { return ws.clearFilterAsync(m.field); });
+    return call('applyFilterAsync("' + m.field + '", ' + JSON.stringify(v) + ', replace)', function () {
+      return ws.applyFilterAsync(m.field, v, tableau.FilterUpdateType ? tableau.FilterUpdateType.Replace : 'replace', { isExcludeMode: false });
+    });
   }
 
   function apply(list) {
     applying = true;
+    errors = []; calls = [];
     // um por vez: chamadas simultâneas na mesma planilha podem se atropelar
     return list.reduce(function (p, item) {
       return p.then(function () {
         return applyItem(item).catch(function (err) {
-          console.warn('[Projedata Filtros] não aplicado:', item.m.field, err && err.message);
+          var msg = (err && (err.message || err.toString())) || 'erro desconhecido';
+          console.warn('[Projedata Filtros] não aplicado:', item.m.field, msg);
+          errors.push('Não foi possível aplicar "' + item.m.label + '": ' + msg);
+          calls.push('  → erro: ' + msg);
         });
       });
     }, Promise.resolve()).then(function () {
