@@ -165,18 +165,20 @@
   }
 
   // A planilha é filtrada pelos próprios filtros: se o filtro a deixa sem linhas, o Tableau devolve os dados
-  // sem colunas. Os campos então vêm das últimas colunas lidas ou, depois de recarregar, dos filtros da planilha.
+  // sem colunas. Os campos então vêm das últimas colunas lidas ou da lista salva na janela de propriedades
+  // (campo | rótulo | tipo); sem lista salva, dos filtros da planilha.
   var lastColumns = [];
-  function defsFromFilters(filters) {
+  function defsWithoutData(filters) {
     var spec = parseSpec(state.fields);
     var list = spec.length
       ? spec.map(function (s) {
-          var f = matchFilter(filters, baseField(s.column).field);
-          return f && { f: f, title: s.title, kind: s.kind };
-        }).filter(Boolean)
-      : filters.map(function (f) { return { f: f, title: '', kind: '' }; });
+          var b = baseField(s.column);
+          var f = matchFilter(filters, b.field);
+          return { field: f ? f.fieldName : b.field, title: s.title, kind: s.kind || (b.datePart || (f && f.filterType === 'range') ? 'date' : 'list') };
+        })
+      : filters.map(function (f) { return { field: f.fieldName, title: '', kind: f.filterType === 'range' ? 'date' : 'list' }; });
     return list.map(function (x) {
-      return { ci: -1, field: x.f.fieldName, label: x.title || x.f.fieldName, kind: x.kind || (x.f.filterType === 'range' ? 'date' : 'list') };
+      return { ci: -1, field: x.field, label: x.title || x.field, kind: x.kind };
     });
   }
 
@@ -213,7 +215,7 @@
       var data = r[0], filters = r[1], params = r[2];
       var columns = data.columns || [];
       if (columns.length) lastColumns = columns; else columns = lastColumns;
-      var defs = columns.length ? defsFromColumns(columns) : defsFromFilters(filters);
+      var defs = columns.length ? defsFromColumns(columns) : defsWithoutData(filters);
       noRows = !(data.data || []).length;
       snapshot = { columns: data.columns || [], rows: (data.data || []).length, filters: filters, defs: defs };
       return Promise.all(defs.map(function (d) {
@@ -362,8 +364,13 @@
     listEl.innerHTML = '';
     items = [];
     if (!models.length) {
-      setStatus('Arraste para as Marcas (Detalhes) os campos que serão filtros.');
-      actionsEl.hidden = true;
+      // sem campos, mas com filtros na planilha: deixa o Limpar para sair do filtro que esvaziou a planilha
+      var stuck = (snapshot.filters || []).length > 0;
+      setStatus(stuck
+        ? 'Nenhum registro com os filtros atuais. Use Limpar para remover os filtros.'
+        : 'Arraste para as Marcas (Detalhes) os campos que serão filtros.');
+      actionsEl.hidden = !stuck;
+      applyBtn.hidden = true;
       renderDiag();
       return;
     }
@@ -436,6 +443,7 @@
 
   function applyItem(item) {
     var ws = worksheet(), m = item.m, v = item.read();
+    if (m.kind === 'clear') return call('clearFilterAsync("' + m.field + '")', function () { return ws.clearFilterAsync(m.field); });
     if (m.kind === 'parameter') {
       if (v === '' || v === m.current) return Promise.resolve();
       return call('changeValueAsync("' + m.field + '", ' + JSON.stringify(v) + ')', function () { return m.param.changeValueAsync(v); });
@@ -477,6 +485,13 @@
     apply(items.filter(function (i) { return i.dirty; }));
   });
   clearBtn.addEventListener('click', function () {
+    if (!items.length) {
+      // painel sem campos: remove todos os filtros da planilha
+      apply((snapshot.filters || []).map(function (f) {
+        return { m: { kind: 'clear', field: f.fieldName, label: f.fieldName }, read: function () { return null; } };
+      }));
+      return;
+    }
     items.forEach(function (i) { if (i.m.kind !== 'parameter') { i.clear(); i.dirty = true; } });
     apply(items.filter(function (i) { return i.dirty; }));
   });

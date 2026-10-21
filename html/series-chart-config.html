@@ -678,7 +678,13 @@
     }
   }
 
+  function isDateColumn(name) {
+    var c = availableColumns.filter(function (x) { return x.fieldName === name; })[0];
+    return (c && (c.dataType === 'date' || c.dataType === 'date-time')) || /^(YEAR|QUARTER|MONTH|WEEK|DAY|MDY|TDAY|TWEEK|TMONTH|TQUARTER|TYEAR)\(/i.test(name);
+  }
+
   function serializeColumns(key) {
+    var kinds = !!(SCHEMA.filter(function (f) { return f.key === key; })[0] || {}).filterKinds;
     var list = inputs[key];
     var rows = Array.prototype.slice.call(list.querySelectorAll('.col-row'));
     var lines = [], plain = true, order = [];
@@ -695,13 +701,16 @@
       };
       if (!d.use) { plain = false; return; }
       order.push(d.field);
+      // filtros: o tipo automático é gravado já resolvido (data ou lista), porque o painel precisa da lista
+      // de campos mesmo quando o filtro deixa a planilha sem dados (e sem colunas)
+      if (kinds && !d.kind) d.kind = isDateColumn(d.field) ? 'data' : 'lista';
       var extras = [d.align, d.format !== 'auto' ? d.format : '', d.visual, d.level ? 'n' + d.level : '', d.kind].filter(Boolean);
       if (d.title || extras.length) plain = false;
       lines.push([d.field].concat(d.title || extras.length ? [d.title] : [], extras).join(' | '));
     });
     // tudo marcado, na ordem da planilha e sem ajustes: guarda vazio (automático, acompanha campos novos)
     var sameOrder = order.length === availableColumns.length && order.every(function (f, i) { return availableColumns[i].fieldName === f; });
-    if (!lines.length || (plain && sameOrder)) return '';
+    if (!lines.length || (plain && sameOrder && !kinds)) return '';
     return lines.join('\n');
   }
 
