@@ -1,0 +1,437 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<title>Projedata Painel de Filtros</title>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<link rel="stylesheet" href="../assets/tokens.css">
+<style>
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; width: 100%; height: 100%;
+    font-family: var(--pd-font);
+    color: var(--pd-text);
+    overflow: hidden;
+    background: transparent;
+  }
+  #root {
+    width: 100%; height: 100%;
+    display: flex; flex-direction: column;
+    background: var(--pd-card-bg);
+    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+    border-radius: var(--pd-card-radius);
+    box-shadow: var(--pd-card-shadow);
+  }
+  #title {
+    padding: 14px 16px 2px;
+    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+  }
+  #title:empty { display: none; }
+  #list { flex: 1 1 auto; overflow-y: auto; padding: 0 16px 10px; }
+  #status { font-size: 12px; color: var(--pd-text-muted); padding: 10px 0; }
+  #status:empty { display: none; }
+
+  .flt { margin-top: 12px; }
+  .flt-head { display: flex; align-items: baseline; gap: 8px; }
+  .flt-label { flex: 1; min-width: 0; font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .flt-warn { color: var(--pd-accent-3); font-size: 12px; cursor: help; }
+  .flt-clear { font-size: 11px; color: var(--pd-text-muted); cursor: pointer; text-decoration: underline; }
+  .flt-clear:hover { color: var(--pd-text); }
+
+  input[type="text"], input[type="date"], input[type="number"], select {
+    width: 100%; padding: 6px 8px; margin-top: 6px;
+    border: 1px solid var(--pd-card-border-color); border-radius: 6px;
+    background: var(--pd-track); color: var(--pd-text);
+    font-family: inherit; font-size: 12px;
+    color-scheme: light dark;
+  }
+  .dates { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .dates span { display: block; font-size: 10px; color: var(--pd-text-muted); margin-top: 6px; }
+  .dates input { margin-top: 2px; }
+
+  .opts {
+    margin-top: 6px; max-height: 160px; overflow-y: auto;
+    border: 1px solid var(--pd-card-border-color); border-radius: 6px;
+    background: var(--pd-track); padding: 3px 0;
+  }
+  .opt { display: flex; align-items: center; gap: 8px; padding: 4px 10px; font-size: 12px; cursor: pointer; }
+  .opt:hover { background: color-mix(in srgb, var(--pd-accent-1) 14%, transparent); }
+  .opt input { margin: 0; accent-color: var(--pd-accent-1); }
+  .opt.all { font-weight: 600; border-bottom: 1px solid var(--pd-card-border-color); margin-bottom: 2px; }
+  .opt[hidden] { display: none; }
+
+  #actions { display: flex; gap: 8px; padding: 10px 16px 14px; border-top: 1px solid var(--pd-card-border-color); }
+  #actions[hidden] { display: none; }
+  #actions button {
+    flex: 1; padding: 8px; border: none; border-radius: 6px;
+    font-family: inherit; font-weight: 700; font-size: 12px; cursor: pointer;
+  }
+  #apply-btn { background: var(--pd-accent-1); color: #fff; }
+  #apply-btn:hover { filter: brightness(0.9); }
+  #apply-btn[hidden] { display: none; }
+  #clear-btn { background: var(--pd-track); color: var(--pd-text); }
+</style>
+</head>
+<body>
+
+<div id="root">
+  <div id="title"></div>
+  <div id="list"><div id="status">Carregando…</div></div>
+  <div id="actions">
+    <button id="clear-btn" type="button"></button>
+    <button id="apply-btn" type="button"></button>
+  </div>
+</div>
+
+<script>
+(function () {
+  var STATE_KEY = 'projedataFilterPanelState';
+  var titleEl = document.getElementById('title');
+  var listEl = document.getElementById('list');
+  var actionsEl = document.getElementById('actions');
+  var applyBtn = document.getElementById('apply-btn');
+  var clearBtn = document.getElementById('clear-btn');
+
+  var state = {
+    title: 'Filtros', fields: '', parameters: '', applyMode: 'button',
+    applyLabel: 'Aplicar', clearLabel: 'Limpar'
+  };
+  var items = [];      // filtros na tela: { kind, field, label, read(), clear(), changed() }
+  var applying = false;
+
+  function worksheet() { return tableau.extensions.worksheetContent.worksheet; }
+
+  function el(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function setStatus(text) {
+    listEl.innerHTML = '';
+    var s = el('div', '', text);
+    s.id = 'status';
+    listEl.appendChild(s);
+  }
+
+  /* ---------- campos ----------
+     Os filtros são os campos colocados nas Marcas da planilha. A janela de propriedades guarda
+     "campo | título | tipo" por linha (vazio = todos, com o tipo pelo tipo de dado). */
+  var DATE_PARTS = /^(YEAR|QUARTER|MONTH|WEEK|DAY|MDY|TDAY|TWEEK|TMONTH|TQUARTER|TYEAR|ATTR)\((.+)\)$/i;
+  var KINDS = { lista: 'list', unico: 'single', data: 'date' };
+
+  // "YEAR(data_pedido)" filtra pelo campo data_pedido
+  function baseField(name) {
+    var m = DATE_PARTS.exec(name);
+    return m ? { field: m[2], datePart: m[1].toUpperCase() !== 'ATTR' } : { field: name, datePart: false };
+  }
+
+  function parseSpec(text) {
+    var out = [];
+    String(text || '').split(/\r?\n/).forEach(function (line) {
+      if (!line.trim()) return;
+      var p = line.split('|').map(function (x) { return x.trim(); });
+      var kind = '';
+      p.slice(2).forEach(function (t) { if (KINDS[t.toLowerCase()]) kind = KINDS[t.toLowerCase()]; });
+      out.push({ column: p[0], title: p[1] || '', kind: kind });
+    });
+    return out;
+  }
+
+  function defsFromColumns(columns) {
+    var byName = {};
+    columns.forEach(function (c, i) { byName[c.fieldName.toLowerCase()] = i; });
+    var spec = parseSpec(state.fields);
+    if (!spec.length) spec = columns.map(function (c) { return { column: c.fieldName, title: '', kind: '' }; });
+    return spec.filter(function (s) { return byName[s.column.toLowerCase()] !== undefined; }).map(function (s) {
+      var ci = byName[s.column.toLowerCase()];
+      var c = columns[ci];
+      var b = baseField(c.fieldName);
+      var isDate = c.dataType === 'date' || c.dataType === 'date-time' || b.datePart;
+      return { ci: ci, field: b.field, label: s.title || b.field, kind: s.kind || (isDate ? 'date' : 'list') };
+    });
+  }
+
+  function rawValue(v) { return v == null ? '' : String(v.value != null ? v.value : v.formattedValue); }
+  function shownValue(v) { return v == null ? '' : String(v.formattedValue != null ? v.formattedValue : v.value); }
+  function isoDate(v) {
+    var x = v && v.value != null ? v.value : v;
+    var d = x instanceof Date ? x : x != null && x !== '' ? new Date(x) : null;
+    return d && !isNaN(d) ? d.toISOString().slice(0, 10) : '';
+  }
+  function utcDate(iso, endOfDay) {
+    var p = iso.split('-').map(Number);
+    return new Date(Date.UTC(p[0], p[1] - 1, p[2], endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0));
+  }
+
+  /* ---------- leitura: valores possíveis (domínio do filtro ou dados da planilha) e seleção atual ---------- */
+  function readModel() {
+    var ws = worksheet();
+    return Promise.all([
+      ws.getSummaryDataAsync({ ignoreSelection: true }),
+      ws.getFiltersAsync().catch(function () { return []; }),
+      ws.getParametersAsync ? ws.getParametersAsync().catch(function () { return []; }) : Promise.resolve([])
+    ]).then(function (r) {
+      var data = r[0], filters = r[1], params = r[2];
+      var defs = defsFromColumns(data.columns || []);
+      return Promise.all(defs.map(function (d) {
+        var tf = filters.filter(function (f) { return f.fieldName === d.field; })[0];
+        var m = { kind: d.kind, field: d.field, label: d.label, hasFilter: !!tf, values: [], selected: [], from: '', to: '', min: '', max: '' };
+        // valores pelos dados da planilha (podem estar reduzidos pelo próprio filtro)
+        var seen = {};
+        (data.data || []).forEach(function (row) {
+          var c = row[d.ci];
+          if (!c) return;
+          if (d.kind === 'date') {
+            var iso = isoDate(c);
+            if (iso && (!m.min || iso < m.min)) m.min = iso;
+            if (iso && (!m.max || iso > m.max)) m.max = iso;
+          } else {
+            var k = rawValue(c);
+            if (!seen[k]) { seen[k] = true; m.values.push({ value: k, label: shownValue(c) }); }
+          }
+        });
+        if (!tf) return m;
+        if (d.kind === 'date' && tf.filterType === 'range') {
+          m.from = isoDate(tf.minValue); m.to = isoDate(tf.maxValue);
+          return tf.getDomainAsync().then(function (dom) {
+            m.min = isoDate(dom.min) || m.min; m.max = isoDate(dom.max) || m.max;
+            return m;
+          }).catch(function () { return m; });
+        }
+        if (tf.filterType !== 'categorical') return m;
+        m.selected = tf.isAllSelected ? [] : (tf.appliedValues || []).map(rawValue);
+        // domínio completo: com o filtro aplicado, a planilha só tem os valores escolhidos
+        var DB = tableau.FilterDomainType ? tableau.FilterDomainType.Database : 'database';
+        return tf.getDomainAsync(DB).then(function (dom) {
+          if (dom && dom.values && dom.values.length) m.values = dom.values.map(function (v) { return { value: rawValue(v), label: shownValue(v) }; });
+          return m;
+        }).catch(function () { return m; });
+      })).then(function (models) {
+        var wanted = String(state.parameters || '').split(/\r?\n/).map(function (x) { return x.trim(); }).filter(Boolean);
+        wanted.forEach(function (name) {
+          var p = params.filter(function (x) { return x.name === name; })[0];
+          if (!p) return;
+          var allowed = p.allowableValues && p.allowableValues.type === 'list' ? p.allowableValues.allowableValues : null;
+          models.push({
+            kind: 'parameter', param: p, field: name, label: name,
+            values: (allowed || []).map(function (v) { return { value: rawValue(v), label: shownValue(v) }; }),
+            current: rawValue(p.currentValue), dataType: p.dataType
+          });
+        });
+        return models;
+      });
+    });
+  }
+
+  /* ---------- tela ---------- */
+  function listFilter(m, box, item) {
+    var chosen = {};
+    m.selected.forEach(function (v) { chosen[v] = true; });
+    if (m.kind === 'single') {
+      var sel = el('select');
+      sel.appendChild(new Option('(Todos)', ''));
+      m.values.forEach(function (v) { sel.appendChild(new Option(v.label, v.value, false, !!chosen[v.value])); });
+      box.appendChild(sel);
+      sel.addEventListener('change', item.changed);
+      item.read = function () { return sel.value ? [sel.value] : []; };
+      item.clear = function () { sel.value = ''; };
+      return;
+    }
+    var search = null;
+    if (m.values.length > 8) {
+      search = el('input');
+      search.type = 'text'; search.placeholder = 'Pesquisar…';
+      box.appendChild(search);
+    }
+    var opts = el('div', 'opts');
+    var allRow = el('label', 'opt all');
+    var all = el('input'); all.type = 'checkbox';
+    allRow.appendChild(all); allRow.appendChild(document.createTextNode('(Todos)'));
+    opts.appendChild(allRow);
+    var boxes = m.values.map(function (v) {
+      var row = el('label', 'opt');
+      var cb = el('input'); cb.type = 'checkbox'; cb.value = v.value; cb.checked = !!chosen[v.value];
+      row.appendChild(cb); row.appendChild(document.createTextNode(v.label));
+      row.dataset.q = v.label.toLowerCase();
+      opts.appendChild(row);
+      cb.addEventListener('change', function () { syncAll(); item.changed(); });
+      return cb;
+    });
+    // nada marcado = todos (sem filtro)
+    function syncAll() { all.checked = !boxes.some(function (b) { return b.checked; }); }
+    all.addEventListener('change', function () { boxes.forEach(function (b) { b.checked = false; }); all.checked = true; item.changed(); });
+    syncAll();
+    if (search) search.addEventListener('input', function () {
+      var q = search.value.trim().toLowerCase();
+      boxes.forEach(function (b) { b.parentNode.hidden = q && b.parentNode.dataset.q.indexOf(q) === -1; });
+    });
+    box.appendChild(opts);
+    item.read = function () {
+      var sel = boxes.filter(function (b) { return b.checked; }).map(function (b) { return b.value; });
+      return sel.length === boxes.length ? [] : sel;
+    };
+    item.clear = function () { boxes.forEach(function (b) { b.checked = false; }); syncAll(); };
+  }
+
+  function dateFilter(m, box, item) {
+    var g = el('div', 'dates');
+    function input(label, value) {
+      var w = el('label');
+      var i = el('input'); i.type = 'date'; i.value = value || '';
+      if (m.min) i.min = m.min;
+      if (m.max) i.max = m.max;
+      i.addEventListener('change', item.changed);
+      w.appendChild(el('span', '', label)); w.appendChild(i);
+      g.appendChild(w);
+      return i;
+    }
+    // intervalo igual ao domínio inteiro = sem filtro
+    var from = input('De', m.from && m.from !== m.min ? m.from : '');
+    var to = input('Até', m.to && m.to !== m.max ? m.to : '');
+    box.appendChild(g);
+    item.read = function () { return { from: from.value, to: to.value }; };
+    item.clear = function () { from.value = ''; to.value = ''; };
+  }
+
+  function parameterFilter(m, box, item) {
+    var ctl;
+    if (m.values.length) {
+      ctl = el('select');
+      m.values.forEach(function (v) { ctl.appendChild(new Option(v.label, v.value, false, v.value === m.current)); });
+    } else {
+      ctl = el('input');
+      ctl.type = m.dataType === 'date' || m.dataType === 'date-time' ? 'date' : (m.dataType === 'int' || m.dataType === 'float' ? 'number' : 'text');
+      ctl.value = ctl.type === 'date' ? isoDate(m.current) : m.current;
+    }
+    box.appendChild(ctl);
+    var initial = ctl.value;
+    ctl.addEventListener('change', item.changed);
+    item.read = function () { return ctl.value; };
+    item.clear = function () { ctl.value = initial; };
+  }
+
+  function render(models) {
+    titleEl.textContent = state.title || '';
+    applyBtn.textContent = state.applyLabel || 'Aplicar';
+    clearBtn.textContent = state.clearLabel || 'Limpar';
+    applyBtn.hidden = state.applyMode === 'instant';
+    listEl.innerHTML = '';
+    items = [];
+    if (!models.length) {
+      setStatus('Arraste para as Marcas (Detalhes) os campos que serão filtros.');
+      actionsEl.hidden = true;
+      return;
+    }
+    actionsEl.hidden = false;
+    models.forEach(function (m) {
+      var item = { m: m, dirty: false };
+      item.changed = function () {
+        item.dirty = true;
+        if (state.applyMode === 'instant') { clearTimeout(item.t); item.t = setTimeout(function () { apply([item]); }, 250); }
+      };
+      var box = el('div', 'flt');
+      var head = el('div', 'flt-head');
+      head.appendChild(el('div', 'flt-label', m.label));
+      if (m.kind !== 'parameter' && !m.hasFilter) {
+        var w = el('span', 'flt-warn', '⚠');
+        w.title = 'O campo "' + m.field + '" ainda não está em Filtros nesta planilha. Arraste-o para Filtros e use "Aplicar a planilhas" para que ele filtre o dashboard.';
+        head.appendChild(w);
+      }
+      if (m.kind !== 'parameter') {
+        var clr = el('span', 'flt-clear', 'limpar');
+        clr.addEventListener('click', function () { item.clear(); item.changed(); });
+        head.appendChild(clr);
+      }
+      box.appendChild(head);
+      if (m.kind === 'date') dateFilter(m, box, item);
+      else if (m.kind === 'parameter') parameterFilter(m, box, item);
+      else listFilter(m, box, item);
+      listEl.appendChild(box);
+      items.push(item);
+    });
+  }
+
+  /* ---------- aplicar ---------- */
+  function applyItem(item) {
+    var ws = worksheet(), m = item.m, v = item.read();
+    if (m.kind === 'parameter') return v === '' || v === m.current ? Promise.resolve() : m.param.changeValueAsync(v);
+    if (m.kind === 'date') {
+      if (!v.from && !v.to) return ws.clearFilterAsync(m.field);
+      var range = {};
+      range.min = utcDate(v.from || m.min || v.to);
+      range.max = utcDate(v.to || m.max || v.from, true);
+      return ws.applyRangeFilterAsync(m.field, range);
+    }
+    if (!v.length) return ws.clearFilterAsync(m.field);
+    return ws.applyFilterAsync(m.field, v, tableau.FilterUpdateType ? tableau.FilterUpdateType.Replace : 'replace', { isExcludeMode: false });
+  }
+
+  function apply(list) {
+    applying = true;
+    // um por vez: chamadas simultâneas na mesma planilha podem se atropelar
+    return list.reduce(function (p, item) {
+      return p.then(function () {
+        return applyItem(item).catch(function (err) {
+          console.warn('[Projedata Filtros] não aplicado:', item.m.field, err && err.message);
+        });
+      });
+    }, Promise.resolve()).then(function () {
+      applying = false;
+      return refresh();
+    });
+  }
+
+  applyBtn.addEventListener('click', function () {
+    apply(items.filter(function (i) { return i.dirty; }));
+  });
+  clearBtn.addEventListener('click', function () {
+    items.forEach(function (i) { if (i.m.kind !== 'parameter') { i.clear(); i.dirty = true; } });
+    apply(items.filter(function (i) { return i.dirty; }));
+  });
+
+  function refresh() {
+    return readModel().then(render).catch(function (err) {
+      setStatus('Erro ao ler a planilha: ' + (err && err.message || err));
+    });
+  }
+
+  function loadState() {
+    try {
+      var saved = tableau.extensions.settings.get(STATE_KEY);
+      if (saved) state = Object.assign(state, JSON.parse(saved));
+    } catch (e) { /* sem config salva ainda */ }
+  }
+
+  function openConfigDialog() {
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/filter-panel-config.html', '', { height: 720, width: 340 })
+      .then(function () { loadState(); refresh(); })
+      .catch(function (error) {
+        console.log('[Projedata Filtros] dialog fechado:', error && error.message);
+      });
+  }
+
+  if (typeof tableau === 'undefined' || !tableau.extensions) {
+    setStatus('Falha ao carregar script da API do Tableau');
+    return;
+  }
+
+  tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+    loadState();
+    var ws = worksheet();
+    var t = null;
+    // filtros alterados por fora (outra planilha, filtro nativo): relê, sem atropelar o que está sendo aplicado
+    function later() { if (applying) return; clearTimeout(t); t = setTimeout(refresh, 200); }
+    ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, later);
+    if (tableau.TableauEventType.FilterChanged) ws.addEventListener(tableau.TableauEventType.FilterChanged, later);
+    refresh();
+  }).catch(function (err) {
+    setStatus('Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido'));
+  });
+})();
+</script>
+
+</body>
+</html>

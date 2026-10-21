@@ -1,0 +1,20 @@
+<?xml version='1.0' encoding='utf-8' ?>
+<manifest manifest-version="0.1" xmlns="http://www.tableau.com/xml/extension_manifest">
+  <worksheet-extension id="com.projedata.inifexbi.filterpanel" extension-version="1.0.0">
+    <default-locale>pt_BR</default-locale>
+    <name>Projedata Painel de Filtros</name>
+    <description>Painel de filtros e parâmetros a partir dos campos colocados nas Marcas da planilha, no estilo da marca Projedata. Abre pelo botão Filtros do Cabeçalho com Abas.</description>
+    <author name="Projedata" email="" organization="Projedata" website="https://www.projedata.com.br" />
+    <min-api-version>1.9</min-api-version>
+
+    <source-location>
+      <url>https://renatoheinzen.github.io/tableau-skin/html/filter-panel.html</url>
+    </source-location>
+
+    <icon>iVBORw0KGgoAAAANSUhEUgAAADQAAAA0CAYAAADFeBvrAAAC9ElEQVR4AeyZzU4TURiG347hEkgXxIvgOsStN6AQCXgD4lLdGzEmiNHEqCgiKviz8S9BMRrDQqMIDWq0iwaNCrgiOn7P1EFsoZnpnKmdWjJv55tz5nzf+5wzc0haT1v89fX5Hf1D/v6BIX/K9NHkN4nwMoU3PG5hXVVAAwf9fR2d+mAdJ21Aj6nL1CwHXnrwhke8Vhqzvj9Ng0P+ceV0ylrypmY/8ngNPG9yugFEhy8NburLRIhnvIdmAyCWjo6wMWtnvMOAby94uXI6zEWmZQyweDs6tddA8qasH3lYPHvmdmWdJPQPi0ndYUMLnLsBYm9vAZYAoQugIGqVj/8XaM9uadg2938hakd9giKv0OUpaWEpalp39xXeSdSOmjEyEAnPXJJW1ogao7XvEjXjVIsFtGoFRi/GSZ/s3rPj0rfVeDliAZF66b10fpIoXU3ckuYL8WvEBqLE7HPp3iOidET++4/ry10XEKWu3pZeLRC5VcE2gSRPQN1AYFy4Jn3+QlSfKkd9XZHOTVS2xrtOBISBJLNZaXXsevIJSgSEIf43YYQ4iSbvSC/fJMlQHpsYiDQzz5JtEjNPpbszZEouJ0DYYJN4MU8UT2zNYzfijal1tzMgily5KZU+EUUTG8r4dLR7o97lFAiDQEUtDkycCYiS1ykQBV8vShglriXAXWwClTWcA1Hg4RM+a+vBbO3+entTAarXjItxbSAXs5hmjvYKpTm7LnK3V8jFLKaZo71Cac6ui9ztFXIxi2nmiLxCrkwsvpWOnXaVrTpPw4BCEGCIq624aUkdCPNAIGI3trfPkhoQ5oFAxNtbcNsDUNFtynK2RoOUq6oI0Nzvi1Y4zXk/JftqoxVYJFi8H8tiEy21AFIJFm9kJLcuX4cyD2QMsPAO6cTR3GjOfkLNKhTeYcB/AEQwfCR3gA7iLAnPeA89bwDREHT46rU4C+9UyV6V3sCzGQ6Pv4BoZOnWl7XTdox+u+aL2qKdm+XAyzTe8IjXSmO/AAAA//8nYBu2AAAABklEQVQDAARYYbji8+JpAAAAAElFTkSuQmCC</icon>
+
+    <context-menu>
+      <configure-context-menu-item />
+    </context-menu>
+  </worksheet-extension>
+</manifest>

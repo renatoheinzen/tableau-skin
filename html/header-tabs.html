@@ -53,6 +53,31 @@
   #bar.align-center #right { order: 3; flex: 1 1 0; text-align: right; }
   #bar.align-left #tabs { order: 2; margin-left: 12px; }
   #bar.align-left #right { order: 3; flex: 1 1 0; text-align: right; }
+
+  /* botão de filtros (sempre no fim da barra) */
+  #filters { order: 9; display: flex; align-items: center; gap: 16px; flex: 0 0 auto; align-self: stretch; }
+  #filters[hidden] { display: none; }
+  #filters .sep { width: 1px; align-self: stretch; margin: 12px 0; background: var(--pd-nav-border); }
+  #filters-btn {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 14px; font-family: inherit; font-size: 12px; font-weight: 700; letter-spacing: 1.2px; text-transform: uppercase;
+    color: var(--pd-nav-text); background: transparent;
+    border: 1px solid var(--pd-nav-border); border-radius: var(--pd-nav-radius);
+    cursor: pointer; white-space: nowrap;
+  }
+  #filters-btn:hover, #filters-btn.open { background: var(--pd-nav-active-bg); color: var(--pd-nav-active-text); }
+  #filters-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  #filters-count {
+    min-width: 18px; height: 18px; padding: 0 5px; box-sizing: border-box; border-radius: 9px;
+    background: var(--pd-accent-2); color: #fff; font-size: 11px; letter-spacing: 0; line-height: 18px; text-align: center;
+  }
+  #filters-count:empty { display: none; }
+  /* barra estreita: o botão fica só com o ícone e o contador */
+  @media (max-width: 720px) {
+    #filters { gap: 10px; }
+    #filters-btn { padding: 8px 10px; gap: 6px; }
+    #filters-label { display: none; }
+  }
 </style>
 </head>
 <body>
@@ -61,6 +86,13 @@
   <div id="left"><div id="title"></div><div id="subtitle"></div></div>
   <div id="right"></div>
   <div id="tabs"></div>
+  <div id="filters" hidden>
+    <div class="sep"></div>
+    <button id="filters-btn" type="button">
+      <svg viewBox="0 0 24 24"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+      <span id="filters-label"></span><span id="filters-count"></span>
+    </button>
+  </div>
 </div>
 
 <script>
@@ -71,13 +103,20 @@
   var subtitleEl = document.getElementById('subtitle');
   var rightEl = document.getElementById('right');
   var tabsEl = document.getElementById('tabs');
+  var filtersEl = document.getElementById('filters');
+  var filtersBtn = document.getElementById('filters-btn');
+  var filtersLabelEl = document.getElementById('filters-label');
+  var filtersCountEl = document.getElementById('filters-count');
 
   var state = {
     title: '', subtitle: '', tabs: 'Visão geral\nDesempenho\nVendas', activeTab: 1,
-    tabStyle: 'pill', tabsAlign: 'right', rightText: '', parameterName: '', bgColor: ''
+    tabStyle: 'pill', tabsAlign: 'right', rightText: '', parameterName: '', bgColor: '',
+    filterSheet: '', filtersLabel: 'Filtros', hideOnApply: true
   };
   var tabs = [];
   var active = 0;
+  var activeFilters = 0;
+  var panelOpen = false;
 
   // Linha: Rótulo | valor (parâmetro ou link http/https)
   function parseTabs(text) {
@@ -106,6 +145,11 @@
       el.addEventListener('click', function () { activate(i); });
       tabsEl.appendChild(el);
     });
+
+    filtersEl.hidden = !state.filterSheet;
+    filtersBtn.classList.toggle('open', panelOpen);
+    filtersLabelEl.textContent = state.filtersLabel || 'Filtros';
+    filtersCountEl.textContent = activeFilters ? String(activeFilters) : '';
   }
 
   function setParameter(value) {
@@ -148,6 +192,80 @@
     }).catch(function () { /* sem parâmetros (ex.: fora do Tableau) */ });
   }
 
+  /* ---------- filtros ----------
+     O botão mostra/esconde a planilha do Painel de Filtros (flutuante no dashboard), como um popover.
+     O contador soma os filtros ativos dessa planilha. */
+  function filterZone() {
+    var d = dashboard();
+    if (!d || !state.filterSheet) return null;
+    return (d.objects || []).filter(function (o) {
+      return o.worksheet && o.worksheet.name === state.filterSheet;
+    })[0] || null;
+  }
+
+  function filterSheet() {
+    var d = dashboard();
+    if (!d || !state.filterSheet) return null;
+    return (d.worksheets || []).filter(function (w) { return w.name === state.filterSheet; })[0] || null;
+  }
+
+  function setPanel(show) {
+    var d = dashboard(), z = filterZone();
+    if (!d || !z || !d.setZoneVisibilityAsync) return Promise.resolve();
+    var V = tableau.ZoneVisibilityType || { Show: 'show', Hide: 'hide' };
+    var m = {};
+    m[z.id] = show ? V.Show : V.Hide;
+    return d.setZoneVisibilityAsync(m).then(function () {
+      panelOpen = show;
+      render();
+    }).catch(function (err) {
+      // só zonas flutuantes podem ser escondidas
+      console.warn('[Projedata Cabeçalho] não foi possível mostrar/esconder a planilha de filtros (ela precisa ser flutuante):', err && err.message);
+    });
+  }
+
+  function isoDate(v) {
+    var d = v && v.value instanceof Date ? v.value : v && v.value != null ? new Date(v.value) : null;
+    return d && !isNaN(d) ? d.toISOString().slice(0, 10) : '';
+  }
+
+  function isActive(f) {
+    if (f.filterType === 'categorical') return !f.isAllSelected && (f.appliedValues || []).length > 0;
+    if (f.filterType !== 'range') return false;
+    return f.getDomainAsync().then(function (dom) {
+      return isoDate(f.minValue) > isoDate(dom.min) || isoDate(f.maxValue) < isoDate(dom.max);
+    }).catch(function () { return false; });
+  }
+
+  function refreshCount() {
+    var w = filterSheet();
+    if (!w) return Promise.resolve();
+    return w.getFiltersAsync().then(function (list) {
+      return Promise.all(list.map(isActive));
+    }).then(function (flags) {
+      activeFilters = flags.filter(Boolean).length;
+      render();
+    }).catch(function () { /* sem acesso aos filtros */ });
+  }
+
+  document.getElementById('filters-btn').addEventListener('click', function () { setPanel(!panelOpen); });
+
+  // o contador acompanha os filtros; com "esconder ao aplicar", a planilha fecha quando um filtro muda
+  var listening = false;
+  function listenFilters() {
+    var w = filterSheet();
+    if (listening || !w || !tableau.TableauEventType || !tableau.TableauEventType.FilterChanged) return;
+    listening = true;
+    var t = null;
+    w.addEventListener(tableau.TableauEventType.FilterChanged, function () {
+      clearTimeout(t);
+      t = setTimeout(function () {
+        refreshCount();
+        if (panelOpen && state.hideOnApply) setPanel(false);
+      }, 300);
+    });
+  }
+
   function loadState() {
     try {
       var saved = tableau.extensions.settings.get(STATE_KEY);
@@ -157,10 +275,14 @@
     var n = parseInt(state.activeTab, 10);
     active = !isNaN(n) && n >= 1 && n <= tabs.length ? n - 1 : 0;
     render();
+    // a planilha de filtros começa escondida e abre pelo botão
+    if (state.filterSheet) setPanel(false);
+    refreshCount();
+    listenFilters();
   }
 
   function openConfigDialog() {
-    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/header-tabs-config.html', '', { height: 700, width: 340 })
+    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/header-tabs-config.html', '', { height: 760, width: 340 })
       .then(function () { loadState(); syncFromParameter(); })
       .catch(function (error) {
         console.log('[Projedata Cabeçalho] dialog fechado:', error && error.message);
