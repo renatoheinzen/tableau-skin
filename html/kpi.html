@@ -12,71 +12,101 @@
     overflow: hidden;
     background: transparent;
   }
+  /* #kpi-root é a grade; cada .kpi-card é um KPI (um só, ou um por valor do campo "Repetir por") */
   #kpi-root {
     width: 100%; height: 100%;
+    box-sizing: border-box;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  #kpi-root.repeat {
+    gap: 12px;
+    padding: 2px;
+    grid-template-rows: none;
+    grid-auto-rows: minmax(84px, 1fr);
+    overflow-y: auto;
+  }
+  #kpi-root.repeat.repeat-row {
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(130px, 1fr);
+    grid-template-columns: none;
+    grid-template-rows: minmax(0, 1fr);
+    overflow-x: auto; overflow-y: hidden;
+  }
+  .kpi-card {
     display: flex;
     flex-direction: column;
     justify-content: center;
     box-sizing: border-box;
+    min-width: 0; min-height: 0;
+    overflow: hidden;
+    container-type: inline-size;
     padding: var(--pd-card-padding);
     background: var(--pd-card-bg);
     border: var(--pd-card-border-width) solid var(--pd-card-border-color);
     border-radius: var(--pd-card-radius);
     box-shadow: var(--pd-card-shadow);
   }
-  #kpi-root.align-center { align-items: center; text-align: center; }
-  #kpi-root.align-left { align-items: flex-start; text-align: left; }
+  #kpi-root.align-center .kpi-card { align-items: center; text-align: center; }
+  #kpi-root.align-left .kpi-card { align-items: flex-start; text-align: left; }
 
-  #kpi-body { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
-  #kpi-root.align-center #kpi-body { align-items: center; }
-  #kpi-root.align-left #kpi-body { align-items: flex-start; }
+  .kpi-body { display: flex; flex-direction: column; min-width: 0; max-width: 100%; }
+  #kpi-root.align-center .kpi-body { align-items: center; }
+  #kpi-root.align-left .kpi-body { align-items: flex-start; }
 
   /* ícone opcional (tile arredondado ou solto), à esquerda ou acima do valor */
-  #kpi-icon { display: none; flex: 0 0 auto; align-items: center; justify-content: center; color: var(--pd-accent-1); }
-  #kpi-root.has-icon #kpi-icon { display: flex; }
-  #kpi-icon svg { width: 55%; height: 55%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
-  #kpi-icon.tile { border-radius: 12px; background: rgba(128, 128, 128, 0.12); background: color-mix(in srgb, currentColor 14%, transparent); }
-  #kpi-icon.plain svg { width: 100%; height: 100%; }
-  #kpi-root.size-small #kpi-icon { width: 30px; height: 30px; }
-  #kpi-root.size-medium #kpi-icon { width: 42px; height: 42px; }
-  #kpi-root.size-large #kpi-icon { width: 56px; height: 56px; }
-  #kpi-root.has-icon.icon-left { flex-direction: row; align-items: center; gap: 14px; }
-  #kpi-root.has-icon.icon-left.align-center { justify-content: center; }
-  #kpi-root.has-icon.icon-top #kpi-icon { margin-bottom: 8px; }
+  .kpi-icon { display: none; flex: 0 0 auto; align-items: center; justify-content: center; color: var(--pd-accent-1); }
+  #kpi-root.has-icon .kpi-icon { display: flex; }
+  .kpi-icon svg { width: 55%; height: 55%; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .kpi-icon.tile { border-radius: 12px; background: rgba(128, 128, 128, 0.12); background: color-mix(in srgb, currentColor 14%, transparent); }
+  .kpi-icon.plain svg { width: 100%; height: 100%; }
+  #kpi-root.size-small .kpi-icon { width: 30px; height: 30px; }
+  #kpi-root.size-medium .kpi-icon { width: 42px; height: 42px; }
+  #kpi-root.size-large .kpi-icon { width: 56px; height: 56px; }
+  #kpi-root.has-icon.icon-left .kpi-card { flex-direction: row; align-items: center; gap: 14px; }
+  #kpi-root.has-icon.icon-left.align-center .kpi-card { justify-content: center; }
+  #kpi-root.has-icon.icon-top .kpi-icon { margin-bottom: 8px; }
 
   /* legenda embaixo do valor em vez de em cima */
-  #kpi-root.label-bottom #kpi-label { order: 2; margin-bottom: 0; margin-top: 4px; }
+  #kpi-root.label-bottom .kpi-label { order: 2; margin-bottom: 0; margin-top: 4px; }
 
-  #kpi-label {
+  .kpi-label {
+    max-width: 100%;
     font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
     text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing); margin-bottom: 4px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #kpi-label.hidden { display: none !important; }
+  .kpi-label.hidden { display: none !important; }
 
-  #kpi-value {
+  .kpi-value {
+    max-width: 100%;
     font-weight: 700; color: var(--pd-accent-1);
     line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #kpi-root.accent-laranja #kpi-value { color: var(--pd-accent-2); }
-  #kpi-root.accent-amarelo #kpi-value { color: var(--pd-accent-3); }
-  #kpi-root.accent-azul-escuro #kpi-value { color: var(--pd-accent-4); }
-  #kpi-root.accent-laranja #kpi-icon { color: var(--pd-accent-2); }
-  #kpi-root.accent-amarelo #kpi-icon { color: var(--pd-accent-3); }
-  #kpi-root.accent-azul-escuro #kpi-icon { color: var(--pd-accent-4); }
+  #kpi-root.accent-laranja .kpi-value { color: var(--pd-accent-2); }
+  #kpi-root.accent-amarelo .kpi-value { color: var(--pd-accent-3); }
+  #kpi-root.accent-azul-escuro .kpi-value { color: var(--pd-accent-4); }
+  #kpi-root.accent-laranja .kpi-icon { color: var(--pd-accent-2); }
+  #kpi-root.accent-amarelo .kpi-icon { color: var(--pd-accent-3); }
+  #kpi-root.accent-azul-escuro .kpi-icon { color: var(--pd-accent-4); }
+  /* uma cor por card (série do tema) */
+  #kpi-root .kpi-card.colored .kpi-value, #kpi-root .kpi-card.colored .kpi-icon { color: var(--kpi-color); }
 
-  #kpi-root.size-small #kpi-value { font-size: clamp(14px, 5vw, 24px); }
-  #kpi-root.size-medium #kpi-value { font-size: clamp(20px, 8vw, 40px); }
-  #kpi-root.size-large #kpi-value { font-size: clamp(28px, 11vw, 56px); }
+  /* tamanho relativo à largura do card (cqw); vw fica de reserva para navegadores sem container queries */
+  #kpi-root.size-small .kpi-value { font-size: clamp(14px, 5vw, 24px); font-size: clamp(14px, 9cqw, 24px); }
+  #kpi-root.size-medium .kpi-value { font-size: clamp(20px, 8vw, 40px); font-size: clamp(18px, 13cqw, 40px); }
+  #kpi-root.size-large .kpi-value { font-size: clamp(28px, 11vw, 56px); font-size: clamp(22px, 17cqw, 56px); }
 
-  #kpi-variation {
+  .kpi-variation {
+    max-width: 100%;
     font-size: 13px; font-weight: 700; margin-top: 4px;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
-  #kpi-variation.hidden { display: none !important; }
-  #kpi-variation.up { color: var(--pd-positive); }
-  #kpi-variation.down { color: var(--pd-negative); }
-  #kpi-variation.flat { color: var(--pd-text-muted); }
+  .kpi-variation.hidden { display: none !important; }
+  .kpi-variation.up { color: var(--pd-positive); }
+  .kpi-variation.down { color: var(--pd-negative); }
+  .kpi-variation.flat { color: var(--pd-text-muted); }
   .pd-tip {
     position: fixed; z-index: 9999; pointer-events: none; display: none;
     max-width: 260px; box-sizing: border-box; padding: 8px 12px;
@@ -95,27 +125,17 @@
 </head>
 <body>
 
-<div id="kpi-root" class="size-medium align-left">
-  <div id="kpi-icon"></div>
-  <div id="kpi-body">
-    <div id="kpi-label">Carregando...</div>
-    <div id="kpi-value">—</div>
-    <div id="kpi-variation" class="hidden"></div>
-  </div>
-</div>
+<div id="kpi-root" class="size-medium align-left"></div>
 
 <script>
 (function () {
   var root = document.getElementById('kpi-root');
-  var labelEl = document.getElementById('kpi-label');
-  var valueEl = document.getElementById('kpi-value');
-  var variationEl = document.getElementById('kpi-variation');
-  var iconEl = document.getElementById('kpi-icon');
 
   var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
   var SIZE_CLASSES = ['size-small', 'size-medium', 'size-large'];
   var ALIGN_CLASSES = ['align-left', 'align-center'];
-  var LAYOUT_CLASSES = ['icon-left', 'icon-top', 'label-bottom'];
+  var LAYOUT_CLASSES = ['icon-left', 'icon-top', 'label-bottom', 'has-icon', 'repeat', 'repeat-row'];
+  var SERIES_COUNT = 8;
 
   // Ícones de traço (24×24)
   var ICONS = {
@@ -144,16 +164,13 @@
     icon: '', iconStyle: 'tile', iconPosition: 'left', labelPosition: 'top', iconColor: '',
     prefix: '', suffix: '', valueField: '', prefixField: '', suffixField: '',
     compareField: '', displayUnits: '',
+    repeatField: '', repeatColumns: '', repeatSort: '', repeatMax: '', repeatTotal: false, repeatColors: false,
     fontSize: 'size-medium', align: 'align-left',
     bgColor: '',
-    borderColor: '', borderWidth: 0, borderRadius: 0,
-    lastRawValue: ''
+    borderColor: '', borderWidth: 0, borderRadius: 0
   };
-  var lastPrefixValue = '';
-  var lastSuffixValue = '';
-  var lastRawNumber = null;
-  var lastCompareNumber = null;
-  var lastCompareFormatted = '';
+  // itens do último carregamento: { label, formatted, raw, compareRaw, compareFormatted, prefix, suffix, total }
+  var lastItems = null;
 
   var DISPLAY_UNITS = {
     K: { divisor: 1e3, suffix: ' K' },
@@ -162,44 +179,87 @@
     T: { divisor: 1e12, suffix: ' T' }
   };
 
-  function formatDisplayValue() {
+  function formatDisplayValue(item) {
     var unit = DISPLAY_UNITS[state.displayUnits];
-    if (!unit || lastRawNumber == null) return state.lastRawValue;
-    var divided = (lastRawNumber / unit.divisor).toLocaleString('pt-BR', {
+    if (!unit || item.raw == null) return item.formatted;
+    var divided = (item.raw / unit.divisor).toLocaleString('pt-BR', {
       minimumFractionDigits: 1, maximumFractionDigits: 1
     });
     return divided + unit.suffix;
   }
 
-  function fieldValue(sumData, fieldName) {
-    if (!fieldName) return '';
-    var idx = sumData.columns.findIndex(function (c) { return c.fieldName === fieldName; });
-    if (idx === -1 || !sumData.data[0] || !sumData.data[0][idx]) return '';
-    return sumData.data[0][idx].formattedValue;
-  }
-
-  function fieldRawValue(sumData, fieldName) {
-    if (!fieldName) return null;
-    var idx = sumData.columns.findIndex(function (c) { return c.fieldName === fieldName; });
-    if (idx === -1 || !sumData.data[0] || !sumData.data[0][idx]) return null;
-    var raw = sumData.data[0][idx].value;
+  function numberOf(cell) {
+    var raw = cell ? cell.value : null;
     return (typeof raw === 'number' && !isNaN(raw)) ? raw : null;
   }
 
-  function renderVariation() {
-    if (!state.compareField || lastRawNumber == null || lastCompareNumber == null || lastCompareNumber === 0) {
-      variationEl.classList.add('hidden');
-      return;
+  // Formata uma soma no mesmo padrão de um valor já formatado pelo Tableau (ex.: "R$ 1.234,50", "12%")
+  function formatLike(sample, n) {
+    var m = /^([^\d-]*)(-?[\d.,\s]*\d)(.*)$/.exec(sample || '');
+    var dec = m && /,(\d{1,2})$/.exec(m[2]);
+    var digits = dec ? dec[1].length : 0;
+    var num = n.toLocaleString('pt-BR', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+    return m ? m[1] + num + m[3] : num;
+  }
+
+  function variationOf(item) {
+    if (!state.compareField || item.raw == null || item.compareRaw == null || item.compareRaw === 0) return null;
+    var diffPct = ((item.raw - item.compareRaw) / Math.abs(item.compareRaw)) * 100;
+    return {
+      text: (diffPct > 0 ? '▲' : (diffPct < 0 ? '▼' : '—')) + ' ' + Math.abs(diffPct).toFixed(1).replace('.', ',') + '%',
+      cls: diffPct > 0 ? 'up' : (diffPct < 0 ? 'down' : 'flat')
+    };
+  }
+
+  function el(cls, text) {
+    var d = document.createElement('div');
+    d.className = cls;
+    if (text != null) d.textContent = text;
+    return d;
+  }
+
+  function buildCard(item, index) {
+    var card = el('kpi-card');
+    var iconPath = ICONS[state.icon];
+    if (iconPath) {
+      var icon = el('kpi-icon ' + (state.iconStyle === 'plain' ? 'plain' : 'tile'));
+      icon.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + iconPath + '</svg>';
+      icon.style.color = state.iconColor || '';
+      card.appendChild(icon);
     }
-    var diffPct = ((lastRawNumber - lastCompareNumber) / Math.abs(lastCompareNumber)) * 100;
-    var arrow = diffPct > 0 ? '▲' : (diffPct < 0 ? '▼' : '—');
-    var cls = diffPct > 0 ? 'up' : (diffPct < 0 ? 'down' : 'flat');
-    variationEl.textContent = arrow + ' ' + Math.abs(diffPct).toFixed(1).replace('.', ',') + '%';
-    variationEl.className = cls;
+    var body = el('kpi-body');
+    var label = el('kpi-label', item.label);
+    if (state.showLabel === false) label.classList.add('hidden');
+    body.appendChild(label);
+    var prefix = state.prefixField ? (item.prefix || '') : (state.prefix || '');
+    var suffix = state.suffixField ? (item.suffix || '') : (state.suffix || '');
+    body.appendChild(el('kpi-value', item.status ? item.formatted : prefix + formatDisplayValue(item) + suffix));
+    var variation = item.status ? null : variationOf(item);
+    if (variation) body.appendChild(el('kpi-variation ' + variation.cls, variation.text));
+    card.appendChild(body);
+
+    // cor da série: cards da repetição (o total fica com a cor de destaque)
+    if (state.repeatColors && state.repeatField && !item.total && index != null) {
+      card.classList.add('colored');
+      card.style.setProperty('--kpi-color', 'var(--pd-series-' + ((index % SERIES_COUNT) + 1) + ')');
+    }
+    card.style.background = state.bgColor || '';
+    var borderWidth = parseInt(state.borderWidth, 10) || 0;
+    card.style.border = borderWidth > 0 ? (borderWidth + 'px solid ' + (state.borderColor || '#000000')) : '';
+    var borderRadius = parseInt(state.borderRadius, 10) || 0;
+    card.style.borderRadius = borderRadius > 0 ? (borderRadius + 'px') : '';
+
+    if (!item.status) {
+      var lines = [item.label + ': ' + prefix + item.formatted + suffix];
+      if (state.compareField && item.compareFormatted) lines.push(state.compareField + ': ' + item.compareFormatted);
+      if (variation) lines.push(variation.text);
+      card.title = lines.join('\n');
+    }
+    return card;
   }
 
   function applyLayout() {
-    ACCENT_CLASSES.concat(SIZE_CLASSES, ALIGN_CLASSES).forEach(function (c) { root.classList.remove(c); });
+    ACCENT_CLASSES.concat(SIZE_CLASSES, ALIGN_CLASSES, LAYOUT_CLASSES).forEach(function (c) { root.classList.remove(c); });
     // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
     var customAccent = state.accent && state.accent.charAt(0) === '#';
     if (state.accent && !customAccent) root.classList.add(state.accent);
@@ -207,38 +267,34 @@
     else root.style.removeProperty('--pd-accent-1');
     root.classList.add(state.fontSize || 'size-medium');
     root.classList.add(state.align || 'align-left');
-    labelEl.classList.toggle('hidden', state.showLabel === false);
-
-    LAYOUT_CLASSES.forEach(function (c) { root.classList.remove(c); });
-    var iconPath = ICONS[state.icon];
-    root.classList.toggle('has-icon', !!iconPath);
-    if (iconPath) {
-      iconEl.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true">' + iconPath + '</svg>';
-      iconEl.className = state.iconStyle === 'plain' ? 'plain' : 'tile';
-      iconEl.style.color = state.iconColor || '';
+    if (ICONS[state.icon]) {
+      root.classList.add('has-icon');
       root.classList.add(state.iconPosition === 'top' ? 'icon-top' : 'icon-left');
-    } else {
-      iconEl.innerHTML = '';
     }
     if (state.labelPosition === 'bottom') root.classList.add('label-bottom');
-    root.style.background = state.bgColor || '';
-    var borderWidth = parseInt(state.borderWidth, 10) || 0;
-    root.style.border = borderWidth > 0 ? (borderWidth + 'px solid ' + (state.borderColor || '#000000')) : '';
-    var borderRadius = parseInt(state.borderRadius, 10) || 0;
-    root.style.borderRadius = borderRadius > 0 ? (borderRadius + 'px') : '';
-    renderValue();
+    render();
   }
 
-  function renderValue() {
-    if (state.lastRawValue === '' || state.lastRawValue == null) return;
-    var prefix = state.prefixField ? lastPrefixValue : (state.prefix || '');
-    var suffix = state.suffixField ? lastSuffixValue : (state.suffix || '');
-    valueEl.textContent = prefix + formatDisplayValue() + suffix;
-    renderVariation();
-    var lines = [labelEl.textContent + ': ' + prefix + state.lastRawValue + suffix];
-    if (state.compareField && lastCompareFormatted) lines.push(state.compareField + ': ' + lastCompareFormatted);
-    if (!variationEl.classList.contains('hidden')) lines.push(variationEl.textContent);
-    root.title = lines.join('\n');
+  function render() {
+    if (!lastItems) return;
+    root.innerHTML = '';
+    // grade de cards quando há "Repetir por" (mensagens de estado ocupam o card inteiro)
+    var repeat = !!state.repeatField && !lastItems[0].status;
+    var cols = parseInt(state.repeatColumns, 10);
+    root.classList.toggle('repeat', repeat);
+    root.classList.toggle('repeat-row', repeat && state.repeatColumns === 'row');
+    root.style.gridTemplateColumns = !repeat || state.repeatColumns === 'row' ? ''
+      : (cols > 0 ? 'repeat(' + cols + ', minmax(0, 1fr))' : 'repeat(auto-fit, minmax(min(100%, 150px), 1fr))');
+    var n = 0;
+    lastItems.forEach(function (item) {
+      root.appendChild(buildCard(item, item.total ? null : n++));
+    });
+  }
+
+  // mensagem de estado (carregando, erro, sem dados) num único card
+  function showStatus(label, value) {
+    lastItems = [{ label: label, formatted: value == null ? '—' : value, status: true }];
+    render();
   }
 
   function loadState() {
@@ -249,15 +305,72 @@
     applyLayout();
   }
 
+  function colIndex(columns, fieldName) {
+    if (!fieldName) return -1;
+    return columns.findIndex(function (c) { return c.fieldName === fieldName; });
+  }
+
+  function cellText(row, idx) {
+    return idx !== -1 && row[idx] ? row[idx].formattedValue : '';
+  }
+
+  // um KPI por valor do campo "Repetir por"; linhas repetidas do mesmo valor são somadas
+  function buildRepeatItems(sumData, valueIdx, repeatIdx, compareIdx, prefixIdx, suffixIdx, totalLabel) {
+    var groups = [];
+    var byKey = {};
+    sumData.data.forEach(function (row) {
+      var key = cellText(row, repeatIdx);
+      var g = byKey[key];
+      if (!g) {
+        g = byKey[key] = { label: key || '(vazio)', rows: 0, raw: null, compareRaw: null, formatted: cellText(row, valueIdx),
+          compareFormatted: cellText(row, compareIdx), prefix: cellText(row, prefixIdx), suffix: cellText(row, suffixIdx) };
+        groups.push(g);
+      }
+      g.rows++;
+      var v = numberOf(row[valueIdx]);
+      if (v != null) g.raw = (g.raw || 0) + v;
+      var c = compareIdx === -1 ? null : numberOf(row[compareIdx]);
+      if (c != null) g.compareRaw = (g.compareRaw || 0) + c;
+    });
+    groups.forEach(function (g) {
+      if (g.rows > 1 && g.raw != null) g.formatted = formatLike(g.formatted, g.raw);
+      if (g.rows > 1 && g.compareRaw != null) g.compareFormatted = formatLike(g.compareFormatted, g.compareRaw);
+    });
+
+    var total = null;
+    if (state.repeatTotal && groups.length) {
+      total = { label: totalLabel, total: true, raw: null, compareRaw: null, prefix: groups[0].prefix, suffix: groups[0].suffix };
+      groups.forEach(function (g) {
+        if (g.raw != null) total.raw = (total.raw || 0) + g.raw;
+        if (g.compareRaw != null) total.compareRaw = (total.compareRaw || 0) + g.compareRaw;
+      });
+      total.formatted = total.raw == null ? '—' : formatLike(groups[0].formatted, total.raw);
+      total.compareFormatted = total.compareRaw == null ? '' : formatLike(groups[0].compareFormatted, total.compareRaw);
+    }
+
+    if (state.repeatSort === 'desc' || state.repeatSort === 'asc') {
+      var dir = state.repeatSort === 'desc' ? -1 : 1;
+      groups.sort(function (a, b) {
+        if (a.raw == null) return 1;
+        if (b.raw == null) return -1;
+        return (a.raw - b.raw) * dir;
+      });
+    } else if (state.repeatSort === 'label') {
+      groups.sort(function (a, b) { return a.label.localeCompare(b.label, 'pt-BR', { numeric: true }); });
+    }
+    var max = parseInt(state.repeatMax, 10);
+    if (max > 0) groups = groups.slice(0, max);
+    return total ? [total].concat(groups) : groups;
+  }
+
   var loadTimeoutId = null;
   function updateKpi() {
-    labelEl.textContent = 'Carregando...';
+    if (!lastItems || lastItems[0].status) showStatus('Carregando...');
     console.log('[Projedata KPI] iniciando leitura de dados...');
 
     if (loadTimeoutId) clearTimeout(loadTimeoutId);
     loadTimeoutId = setTimeout(function () {
-      labelEl.textContent = 'Tempo excedido — abra o console (F12)';
-      valueEl.textContent = '—';
+      showStatus('Tempo excedido — abra o console (F12)');
       console.warn('[Projedata KPI] getSummaryDataAsync não respondeu em 8s.');
     }, 8000);
 
@@ -267,43 +380,49 @@
       console.log('[Projedata KPI] dados recebidos:', sumData);
 
       if (!sumData || !sumData.columns || sumData.columns.length === 0) {
-        labelEl.textContent = 'Arraste um campo para as Marcas';
-        valueEl.textContent = '—';
+        showStatus('Arraste um campo para as Marcas');
         return;
       }
 
+      var columns = sumData.columns;
+      var repeatIdx = colIndex(columns, state.repeatField);
       // sem campo escolhido, prefere a primeira medida (numérica); só usa a 1ª coluna se não houver nenhuma
-      var valueIdx = -1;
-      if (state.valueField) {
-        valueIdx = sumData.columns.findIndex(function (c) { return c.fieldName === state.valueField; });
-      }
+      var valueIdx = colIndex(columns, state.valueField);
       if (valueIdx === -1) {
-        valueIdx = sumData.columns.findIndex(function (c) { return c.dataType === 'int' || c.dataType === 'float'; });
-        if (valueIdx === -1) valueIdx = 0;
+        valueIdx = columns.findIndex(function (c, i) { return i !== repeatIdx && (c.dataType === 'int' || c.dataType === 'float'); });
+        if (valueIdx === -1) valueIdx = repeatIdx === 0 && columns.length > 1 ? 1 : 0;
       }
-      var columnName = sumData.columns[valueIdx].fieldName;
-      labelEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : columnName;
-      labelEl.classList.toggle('hidden', state.showLabel === false);
+      var columnName = columns[valueIdx].fieldName;
+      var label = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : columnName;
 
-      if (sumData.data && sumData.data.length > 0) {
-        var valueCell = sumData.data[0][valueIdx];
-        state.lastRawValue = valueCell.formattedValue;
-        lastRawNumber = (typeof valueCell.value === 'number' && !isNaN(valueCell.value)) ? valueCell.value : null;
-        lastPrefixValue = fieldValue(sumData, state.prefixField);
-        lastSuffixValue = fieldValue(sumData, state.suffixField);
-        lastCompareNumber = fieldRawValue(sumData, state.compareField);
-        lastCompareFormatted = fieldValue(sumData, state.compareField);
-        renderValue();
-      } else {
-        state.lastRawValue = '';
-        valueEl.textContent = 'Sem dados';
-        variationEl.classList.add('hidden');
+      if (!sumData.data || sumData.data.length === 0) {
+        lastItems = [{ label: label, formatted: 'Sem dados', status: true }];
+        render();
+        return;
       }
+
+      var compareIdx = colIndex(columns, state.compareField);
+      var prefixIdx = colIndex(columns, state.prefixField);
+      var suffixIdx = colIndex(columns, state.suffixField);
+      if (state.repeatField && repeatIdx === -1) {
+        console.warn('[Projedata KPI] campo "Repetir por" não está nas Marcas:', state.repeatField);
+      }
+
+      if (repeatIdx !== -1) {
+        lastItems = buildRepeatItems(sumData, valueIdx, repeatIdx, compareIdx, prefixIdx, suffixIdx, label);
+      } else {
+        var row = sumData.data[0];
+        lastItems = [{
+          label: label, formatted: row[valueIdx].formattedValue, raw: numberOf(row[valueIdx]),
+          compareRaw: compareIdx === -1 ? null : numberOf(row[compareIdx]), compareFormatted: cellText(row, compareIdx),
+          prefix: cellText(row, prefixIdx), suffix: cellText(row, suffixIdx)
+        }];
+      }
+      render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
       console.error('[Projedata KPI] erro ao ler dados da planilha:', err);
-      labelEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
-      valueEl.textContent = '—';
+      showStatus('Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)'));
     });
   }
 
@@ -321,16 +440,16 @@
       });
   }
 
+  showStatus('Carregando...');
+
   if (typeof tableau === 'undefined' || !tableau.extensions) {
-    labelEl.textContent = 'Falha ao carregar script da API do Tableau';
-    valueEl.textContent = '—';
+    showStatus('Falha ao carregar script da API do Tableau');
     console.error('[Projedata KPI] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
     return;
   }
 
   var initTimeoutId = setTimeout(function () {
-    labelEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
-    valueEl.textContent = '—';
+    showStatus('Timeout: initializeAsync não respondeu em 15s');
     console.warn('[Projedata KPI] initializeAsync não respondeu — normal se aberto fora do Tableau.');
   }, 15000);
 
@@ -343,18 +462,17 @@
       updateKpi();
     }).catch(function (err) {
       clearTimeout(initTimeoutId);
-      labelEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
-      valueEl.textContent = '—';
+      showStatus('Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido'));
       console.warn('Extensions API não inicializou:', err);
     });
   } catch (syncErr) {
     clearTimeout(initTimeoutId);
-    labelEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
-    valueEl.textContent = '—';
+    showStatus('Erro síncrono: ' + (syncErr && syncErr.message || syncErr));
     console.error('[Projedata KPI] erro síncrono ao chamar initializeAsync:', syncErr);
   }
 })();
 </script>
+
 
 <script>
 // dica de ferramenta própria: converte title (HTML) e <title> (SVG) em um cartão estilizado

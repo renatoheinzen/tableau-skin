@@ -6,7 +6,7 @@ Extensões de dashboard do Tableau com a identidade visual da Projedata (Iniflex
 
 | Extensão | Tipo | Manifesto | O que faz |
 |---|---|---|---|
-| Projedata KPI Card | worksheet | [`trex/kpi.trex`](trex/kpi.trex) | Card de KPI estilizado (cor de destaque, rótulo, prefixo/sufixo, tamanho, alinhamento configuráveis via clique direito → Formatar extensão) |
+| Projedata KPI Card | worksheet | [`trex/kpi.trex`](trex/kpi.trex) | Card de KPI estilizado (cor de destaque, rótulo, prefixo/sufixo, tamanho, alinhamento configuráveis via clique direito → Formatar extensão); com "Repetir por", um card por valor de um campo (ex.: vendas por situação), com card de total opcional |
 | Projedata Gráfico de Barras | worksheet | [`trex/bar-chart.trex`](trex/bar-chart.trex) | Gráfico de barras estilizado (cor de destaque, campos de categoria/valor, orientação vertical/horizontal, ordenação, limite de barras configuráveis via clique direito → Formatar extensão) |
 | Projedata Gráfico de Pizza | worksheet | [`trex/pie-chart.trex`](trex/pie-chart.trex) | Gráfico de pizza/donut com a paleta de série da marca |
 | Projedata Gráfico de Linha | worksheet | [`trex/line-chart.trex`](trex/line-chart.trex) | Gráfico de linha estilizado |

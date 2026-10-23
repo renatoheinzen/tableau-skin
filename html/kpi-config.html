@@ -326,6 +326,97 @@
       "hint": "Se selecionado, mostra ▲/▼ com a variação % em relação a esse campo (ex: período anterior ou meta)."
     },
     {
+      "key": "repeatField",
+      "type": "dimension",
+      "label": "Repetir por (um KPI por valor)",
+      "emptyLabel": "Nenhum (um único KPI)",
+      "hint": "Ex.: Situação da atividade. Coloque o campo em Marcas; aparece um card para cada valor que a base trouxer, com o valor como rótulo."
+    },
+    {
+      "key": "repeatColumns",
+      "type": "select",
+      "label": "Repetição — colunas",
+      "default": "",
+      "options": [
+        [
+          "",
+          "Automático (pela largura)"
+        ],
+        [
+          "row",
+          "Todos em uma linha"
+        ],
+        [
+          "1",
+          "1"
+        ],
+        [
+          "2",
+          "2"
+        ],
+        [
+          "3",
+          "3"
+        ],
+        [
+          "4",
+          "4"
+        ],
+        [
+          "5",
+          "5"
+        ],
+        [
+          "6",
+          "6"
+        ]
+      ]
+    },
+    {
+      "key": "repeatSort",
+      "type": "select",
+      "label": "Repetição — ordem",
+      "default": "",
+      "options": [
+        [
+          "",
+          "Ordem dos dados"
+        ],
+        [
+          "desc",
+          "Maior → menor"
+        ],
+        [
+          "asc",
+          "Menor → maior"
+        ],
+        [
+          "label",
+          "Alfabética"
+        ]
+      ]
+    },
+    {
+      "key": "repeatMax",
+      "type": "number",
+      "label": "Repetição — quantidade máxima de cards",
+      "min": 0,
+      "placeholder": "Vazio: todos"
+    },
+    {
+      "key": "repeatTotal",
+      "type": "checkbox",
+      "label": "Repetição — incluir card de total (primeiro)",
+      "default": false,
+      "hint": "Soma de todos os valores; usa o rótulo customizado (ou o nome do campo de valor)."
+    },
+    {
+      "key": "repeatColors",
+      "type": "checkbox",
+      "label": "Repetição — uma cor por card (série do tema)",
+      "default": false
+    },
+    {
       "key": "fontSize",
       "type": "select",
       "label": "Tamanho da fonte",
