@@ -227,6 +227,47 @@
       "default": true
     },
     {
+      "key": "colorMode",
+      "type": "select",
+      "label": "Cor por card",
+      "default": "",
+      "options": [
+        [
+          "",
+          "Uma só (cor de destaque)"
+        ],
+        [
+          "cycle",
+          "Cada card numa cor do tema"
+        ],
+        [
+          "field",
+          "Vinda de um campo"
+        ]
+      ],
+      "hint": "Colore a barra lateral e o valor em destaque de cada card."
+    },
+    {
+      "key": "colorField",
+      "type": "field",
+      "label": "Campo da cor (com \"Vinda de um campo\")",
+      "emptyLabel": "Nenhum",
+      "hint": "O campo deve devolver #RRGGBB ou 1 a 4 (cor de destaque do tema). Ex.: um cálculo no Tableau que devolve a cor de cada status."
+    },
+    {
+      "key": "showTotal",
+      "type": "checkbox",
+      "label": "Mostrar o total geral no rodapé",
+      "default": false,
+      "hint": "Soma o campo do valor em destaque de todos os registros."
+    },
+    {
+      "key": "totalLabel",
+      "type": "text",
+      "label": "Rótulo do total",
+      "placeholder": "Em branco: Total"
+    },
+    {
       "key": "columns",
       "type": "select",
       "label": "Colunas",

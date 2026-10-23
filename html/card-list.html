@@ -66,6 +66,12 @@
   #chart-root.accent-laranja .card-value .num { color: var(--pd-accent-2); }
   #chart-root.accent-amarelo .card-value .num { color: var(--pd-accent-3); }
   #chart-root.accent-azul-escuro .card-value .num { color: var(--pd-accent-4); }
+  /* cor por registro (colorMode): vem do ciclo de cores do tema ou de um campo */
+  #chart-root.accent-bar .card.has-color::before { background: var(--card-color); }
+  #chart-root .card.has-color .card-value .num { color: var(--card-color); }
+  /* rodapé com o total geral */
+  .card.total { align-items: center; margin-top: 2px; }
+  .card.total .card-title { font-size: 12px; text-transform: var(--pd-title-transform); letter-spacing: 0.5px; color: var(--pd-text-muted); }
   /* clique filtra o dashboard (seleção de marcas) */
   .pd-click { cursor: pointer; }
   .pd-dim { opacity: 0.35; }
@@ -114,9 +120,21 @@
     accent: '', customLabel: '', showLabel: true,
     titleField: '', subtitleField: '', valueField: '',
     detail1Field: '', detail2Field: '', detail3Field: '', detail4Field: '',
-    showDetailLabels: true, accentBar: true, columns: '1', maxItems: 5, sortOrder: ''
+    showDetailLabels: true, accentBar: true, columns: '1', maxItems: 5, sortOrder: '',
+    colorMode: '', colorField: '', showTotal: false, totalLabel: ''
   };
   var lastCards = [];
+  var lastTotal = null;
+
+  // Cor do card: "#RRGGBB" ou "1".."4" (cor de destaque do tema) vindos do campo; ou ciclo das 4 cores do tema
+  function cardColor(raw, i) {
+    if (state.colorMode === 'cycle') return 'var(--pd-accent-' + (i % 4 + 1) + ')';
+    if (state.colorMode !== 'field' || raw === null || raw === undefined) return '';
+    var s = String(raw).trim();
+    if (/^#[0-9a-f]{3,8}$/i.test(s)) return s;
+    if (/^[1-4]$/.test(s)) return 'var(--pd-accent-' + s + ')';
+    return '';
+  }
 
   function applyLayout() {
     ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
@@ -158,6 +176,10 @@
     lastCards.forEach(function (c) {
       var card = document.createElement('div');
       card.className = 'card';
+      if (c.color) {
+        card.classList.add('has-color');
+        card.style.setProperty('--card-color', c.color);
+      }
 
       var main = document.createElement('div');
       main.className = 'card-main';
@@ -209,6 +231,26 @@
       pdBindClick(card, c.sel);
       bodyEl.appendChild(card);
     });
+    if (state.showTotal && lastTotal !== null) {
+      var tot = document.createElement('div');
+      tot.className = 'card total';
+      if (String(state.columns) === '2') tot.style.gridColumn = '1 / -1';
+      var tmain = document.createElement('div');
+      tmain.className = 'card-main';
+      var tt = document.createElement('div');
+      tt.className = 'card-title';
+      tt.textContent = state.totalLabel && state.totalLabel.trim() !== '' ? state.totalLabel : 'Total';
+      tmain.appendChild(tt);
+      tot.appendChild(tmain);
+      var tval = document.createElement('div');
+      tval.className = 'card-value';
+      var tnum = document.createElement('div');
+      tnum.className = 'num';
+      tnum.textContent = lastTotal;
+      tval.appendChild(tnum);
+      tot.appendChild(tval);
+      bodyEl.appendChild(tot);
+    }
     pdApplySelection();
   }
 
@@ -309,6 +351,7 @@
       var titleIdx = findColumnIndex(cols, state.titleField, 0);
       var subIdx = state.subtitleField ? findColumnIndex(cols, state.subtitleField, -1) : -1;
       var valIdx = state.valueField ? findColumnIndex(cols, state.valueField, -1) : -1;
+      var colorIdx = state.colorMode === 'field' && state.colorField ? findColumnIndex(cols, state.colorField, -1) : -1;
       var detailIdxs = [state.detail1Field, state.detail2Field, state.detail3Field, state.detail4Field]
         .map(function (f) { return f ? findColumnIndex(cols, f, -1) : -1; })
         .filter(function (i) { return i !== -1; });
@@ -325,6 +368,7 @@
           value: valIdx !== -1 ? fmtCell(row[valIdx]) : null,
           valueLabel: valIdx !== -1 ? cols[valIdx].fieldName : '',
           sortValue: typeof raw === 'number' && !isNaN(raw) ? raw : 0,
+          colorRaw: colorIdx !== -1 && row[colorIdx] ? row[colorIdx].value : null,
           details: detailIdxs.map(function (i) {
             return { label: cols[i].fieldName, value: row[i] ? row[i].formattedValue : '' };
           })
@@ -334,8 +378,16 @@
       if (state.sortOrder === 'desc') cards.sort(function (a, b) { return b.sortValue - a.sortValue; });
       else if (state.sortOrder === 'asc') cards.sort(function (a, b) { return a.sortValue - b.sortValue; });
 
+      // total geral de todos os registros (antes de limitar a quantidade), só se há campo de valor
+      lastTotal = null;
+      if (state.showTotal && valIdx !== -1) {
+        var sum = cards.reduce(function (s, c) { return s + c.sortValue; }, 0);
+        lastTotal = formatCompact(sum);
+      }
+
       var max = parseInt(state.maxItems, 10);
       if (!isNaN(max) && max > 0) cards = cards.slice(0, max);
+      cards.forEach(function (c, i) { c.color = cardColor(c.colorRaw, i); });
 
       lastCards = cards;
       render();
