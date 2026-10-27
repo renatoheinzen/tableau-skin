@@ -115,6 +115,13 @@
   #chart-root.accent-amarelo tbody tr td.top-hl { background: color-mix(in srgb, var(--pd-accent-3) 38%, transparent) !important; box-shadow: inset 3px 0 0 var(--pd-accent-3); }
   #chart-root.accent-azul-escuro tbody tr td.top-hl { background: color-mix(in srgb, var(--pd-accent-4) 38%, transparent) !important; box-shadow: inset 3px 0 0 var(--pd-accent-4); }
   td.top-hl .t-txt { font-weight: 800; }
+  /* regras condicionais: cor da linha ou da célula e ícone */
+  #chart-root tbody tr.fx-row td, #chart-root tbody td.fx-cell { background: color-mix(in srgb, var(--fx) 30%, var(--pd-card-bg)) !important; }
+  .t-ico {
+    display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto; width: 16px; height: 16px; margin-right: 6px;
+    font-size: 13px; font-weight: 800; line-height: 1; color: var(--ic); vertical-align: middle;
+  }
+  .t-ico.disc { border-radius: 50%; background: var(--ic); color: #fff; font-size: 10px; }
 </style>
 </head>
 <body>
@@ -156,7 +163,7 @@
     rowNumbers: false, showTotals: false, totalLabel: 'Total', wrapText: false,
     sortField: '', sortOrder: 'desc', maxRows: '',
     hierarchy: false, hierarchyFields: '', hierarchyTitle: '', expandLevels: '0',
-    topField: '', topN: '', topMode: 'top'
+    topField: '', topN: '', topMode: 'top', rulesSpec: ''
   };
   var expanded = {};         // chaves dos nós abertos (hierarquia); não é salvo nas configurações
   var expandedInit = false;
@@ -223,6 +230,78 @@
       out.push(d);
     });
     return out;
+  }
+
+  /* ===== Regras condicionais =====
+     "Campo | operador | valor | alvo | efeito", uma por linha.
+     operador: contém, =, !=, >, >=, <, <=. alvo: "linha" ou o campo/título de uma coluna.
+     efeito: cor (laranja, verde, vermelho, amarelo, azul, cinza) ou "ícone:erro|alerta|ok|info|sobe|desce".
+     O campo testado pode não estar nas colunas visíveis. Não vale na hierarquia expansível. */
+  var FX_COLORS = { laranja: '#f59e0b', verde: '#52b04a', vermelho: '#e5484d', amarelo: '#facc15', azul: '#3b82f6', cinza: '#9ca3af' };
+  var FX_ICONS = {
+    erro: { g: '✕', c: '#e5484d', disc: true }, alerta: { g: '!', c: '#f5a623' }, ok: { g: '✔', c: '#52b04a' },
+    info: { g: 'i', c: '#3b82f6', disc: true }, sobe: { g: '▲', c: '#52b04a' }, desce: { g: '▼', c: '#e5484d' }
+  };
+  function fxNorm(s) { return String(s || '').trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+
+  function parseRules(text, cols, defs) {
+    var out = [];
+    String(text || '').split('\n').forEach(function (line) {
+      if (!line.trim()) return;
+      var p = line.split('|').map(function (s) { return s.trim(); });
+      if (p.length < 5) return;
+      var ti = cols.findIndex(function (c) { return fxNorm(c.fieldName) === fxNorm(p[0]); });
+      if (ti === -1) return;
+      var op = fxNorm(p[1]);
+      if (op === 'igual') op = '=';
+      if (['contem', '=', '!=', '>', '>=', '<', '<='].indexOf(op) === -1) return;
+      var eff = fxNorm(p[4]), icon = '', color = '';
+      if (/^icone\s*:/.test(eff)) icon = eff.replace(/^icone\s*:\s*/, '');
+      else color = eff;
+      if (icon ? !FX_ICONS[icon] : !FX_COLORS[color]) return;
+      var target = fxNorm(p[3]), col = -1;
+      if (target !== 'linha') {
+        col = defs.findIndex(function (d) { return fxNorm(cols[d.idx].fieldName) === target || fxNorm(d.title) === target; });
+        if (col === -1) return;
+      }
+      if (col === -1 && icon) return; // ícone só em coluna
+      out.push({ idx: ti, op: op, val: p[2], col: col, icon: icon, color: color });
+    });
+    return out;
+  }
+
+  function ruleMatch(r, cell) {
+    if (!cell) return false;
+    var txt = fxNorm(cell.formattedValue), want = fxNorm(r.val);
+    if (r.op === 'contem') return txt.indexOf(want) !== -1;
+    var a = typeof cell.value === 'number' ? cell.value : parseFloat(cell.value), b = parseFloat(String(r.val).replace(',', '.'));
+    var num = !isNaN(a) && !isNaN(b);
+    if (r.op === '=') return num ? a === b : txt === want;
+    if (r.op === '!=') return num ? a !== b : txt !== want;
+    if (!num) return false;
+    return r.op === '>' ? a > b : r.op === '>=' ? a >= b : r.op === '<' ? a < b : a <= b;
+  }
+
+  // resultado das regras para uma linha de dados: { row: cor, cells: { índice da coluna: { color, icon } } }; null quando nada casa
+  function evalRules(rules, dataRow) {
+    var fx = null;
+    rules.forEach(function (r) {
+      if (!ruleMatch(r, dataRow[r.idx])) return;
+      fx = fx || { row: '', cells: {} };
+      if (r.col === -1) { fx.row = r.color; return; }
+      var c = fx.cells[r.col] || (fx.cells[r.col] = {});
+      if (r.icon) c.icon = r.icon; else c.color = r.color;
+    });
+    return fx;
+  }
+
+  function iconEl(name) {
+    var ic = FX_ICONS[name];
+    var el = document.createElement('span');
+    el.className = 't-ico' + (ic.disc ? ' disc' : '');
+    el.style.setProperty('--ic', ic.c);
+    el.textContent = ic.g;
+    return el;
   }
 
   function fmtValue(col, cell) {
@@ -428,6 +507,8 @@
       var tr = document.createElement('tr');
       var depth = model.tree ? r.depth : 0;
       if (model.tree && r.kids.length) tr.className = 'lvl-parent';
+      var fx = model.tree ? null : r.fx;
+      if (fx && fx.row) { tr.className = (tr.className + ' fx-row').trim(); tr.style.setProperty('--fx', FX_COLORS[fx.row]); }
       if (state.rowNumbers) {
         var n = document.createElement('td');
         n.className = 'rownum num';
@@ -442,6 +523,8 @@
         td.className = cls;
         td.title = cell.text;
         if (r.isTop && ci === model.topCol) td.className += ' top-hl';
+        var cfx = fx && fx.cells[ci];
+        if (cfx && cfx.color) { td.className += ' fx-cell'; td.style.setProperty('--fx', FX_COLORS[cfx.color]); }
         if (model.tree && ci === 0) {
           td.className = 'tree-lbl';
           var wrap = document.createElement('span');
@@ -500,6 +583,7 @@
           bar.style.width = (st.max > 0 ? Math.max(0, Math.min(100, cell.v / st.max * 100)) : 0).toFixed(1) + '%';
           td.appendChild(bar);
         }
+        if (cfx && cfx.icon) td.appendChild(iconEl(cfx.icon));
         var txt = document.createElement('span');
         txt.className = 't-txt';
         txt.textContent = cell.text;
@@ -697,6 +781,8 @@
       var dimIdxs = [];
       cols.forEach(function (cc, i) { if (!isNumCol(i)) dimIdxs.push(i); });
       rows.forEach(function (r, i) { r.sel = pdSel(cols, data[i], dimIdxs); });
+      var rules = tree ? [] : parseRules(state.rulesSpec, cols, defs);
+      if (rules.length) rows.forEach(function (r, i) { r.fx = evalRules(rules, data[i]); });
       var defaultSort = null;
       if (state.sortField) {
         var si = defs.findIndex(function (d) { return cols[d.idx].fieldName === state.sortField; });
