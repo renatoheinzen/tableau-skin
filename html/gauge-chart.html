@@ -143,6 +143,10 @@
     if (fieldName) {
       var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
       if (idx !== -1) return idx;
+      // o Tableau entrega cálculo agregado como AGG(nome) ou AGREG(nome), conforme o idioma: casa também sem o prefixo
+      var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
+      idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
+      if (idx !== -1) return idx;
     }
     return fallback;
   }
