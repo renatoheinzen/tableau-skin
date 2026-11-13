@@ -143,8 +143,7 @@
     d.getParametersAsync().then(function (params) {
       var p = params.filter(function (x) { return x.name === state.parameterName; })[0];
       if (p) return p.changeValueAsync(value);
-      console.warn('[Projedata Faixa Lateral] parâmetro não encontrado:', state.parameterName);
-    }).catch(function (err) { console.warn('[Projedata Faixa Lateral] erro ao alterar o parâmetro:', err); });
+    }).catch(function () {});
   }
 
   function activate(i) {
@@ -192,14 +191,12 @@
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/sidebar-nav-config.html', '', { height: 700, width: 340 })
       .then(function () { loadState(); syncFromParameter(); })
       .catch(function (error) {
-        console.log('[Projedata Faixa Lateral] dialog fechado:', error && error.message);
       });
   }
 
   render();
 
   if (typeof tableau === 'undefined' || !tableau.extensions) {
-    console.error('[Projedata Faixa Lateral] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
     return;
   }
 
@@ -207,7 +204,6 @@
     loadState();
     syncFromParameter();
   }).catch(function (err) {
-    console.warn('[Projedata Faixa Lateral] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
   });
 })();
 </script>

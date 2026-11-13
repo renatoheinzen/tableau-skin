@@ -88,21 +88,18 @@
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/panel-config.html', '', { height: 460, width: 340 })
       .then(function () { loadState(); })
       .catch(function (error) {
-        console.log('[Projedata Painel] dialog fechado:', error && error.message);
       });
   }
 
   render();
 
   if (typeof tableau === 'undefined' || !tableau.extensions) {
-    console.error('[Projedata Painel] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
     return;
   }
 
   tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
     loadState();
   }).catch(function (err) {
-    console.warn('[Projedata Painel] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
   });
 })();
 </script>

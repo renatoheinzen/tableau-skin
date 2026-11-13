@@ -470,7 +470,6 @@
       return p.then(function () {
         return applyItem(item).catch(function (err) {
           var msg = (err && (err.message || err.toString())) || 'erro desconhecido';
-          console.warn('[Projedata Filtros] não aplicado:', item.m.field, msg);
           errors.push('Não foi possível aplicar "' + item.m.label + '": ' + msg);
           calls.push('  → erro: ' + msg);
         });
@@ -513,7 +512,6 @@
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/filter-panel-config.html', '', { height: 720, width: 340 })
       .then(function () { loadState(); refresh(); })
       .catch(function (error) {
-        console.log('[Projedata Filtros] dialog fechado:', error && error.message);
       });
   }
 

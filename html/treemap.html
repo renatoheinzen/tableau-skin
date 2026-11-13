@@ -313,7 +313,7 @@
       if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
       else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
       else p = ws.selectMarksByValueAsync(pairs, T.Replace);
-      p.catch(function (e) { console.warn('[Projedata] seleção de marcas falhou:', e && (e.message || e)); });
+      p.catch(function () {});
     });
   }
   function pdApplySelection() {
@@ -419,7 +419,6 @@
       render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
-      console.error('[Projedata Treemap] erro ao ler dados da planilha:', err);
       titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
       bodyEl.innerHTML = '';
     });
@@ -429,7 +428,6 @@
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/treemap-config.html', '', { height: 760, width: 340 })
       .then(function () { loadState(); updateChart(); })
       .catch(function (error) {
-        console.log('[Projedata Treemap] dialog fechado:', error && error.message);
       });
   }
 

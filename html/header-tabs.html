@@ -158,8 +158,7 @@
     d.getParametersAsync().then(function (params) {
       var p = params.filter(function (x) { return x.name === state.parameterName; })[0];
       if (p) return p.changeValueAsync(value);
-      console.warn('[Projedata Cabeçalho] parâmetro não encontrado:', state.parameterName);
-    }).catch(function (err) { console.warn('[Projedata Cabeçalho] erro ao alterar o parâmetro:', err); });
+    }).catch(function () {});
   }
 
   function activate(i) {
@@ -220,7 +219,6 @@
       render();
     }).catch(function (err) {
       // só zonas flutuantes podem ser escondidas
-      console.warn('[Projedata Cabeçalho] não foi possível mostrar/esconder a planilha de filtros (ela precisa ser flutuante):', err && err.message);
     });
   }
 
@@ -285,14 +283,12 @@
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/header-tabs-config.html', '', { height: 760, width: 340 })
       .then(function () { loadState(); syncFromParameter(); })
       .catch(function (error) {
-        console.log('[Projedata Cabeçalho] dialog fechado:', error && error.message);
       });
   }
 
   render();
 
   if (typeof tableau === 'undefined' || !tableau.extensions) {
-    console.error('[Projedata Cabeçalho] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
     return;
   }
 
@@ -300,7 +296,6 @@
     loadState();
     syncFromParameter();
   }).catch(function (err) {
-    console.warn('[Projedata Cabeçalho] initializeAsync não respondeu (normal se aberto fora do Tableau):', err);
   });
 })();
 </script>

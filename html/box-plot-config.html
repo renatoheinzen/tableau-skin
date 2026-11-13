@@ -718,7 +718,6 @@
     tableau.extensions.settings.saveAsync().then(function () {
       tableau.extensions.ui.closeDialog('saved');
     }).catch(function (err) {
-      console.error('[Projedata Box-plot config] erro ao salvar:', err);
       alert('Erro ao salvar configurações. Veja o console (F12).');
     });
   });
@@ -746,7 +745,6 @@
     populateFields(r[0].columns);
     populateForm();
   }).catch(function (err) {
-    console.error('[Projedata Box-plot config] erro ao inicializar dialog ou ler campos:', err);
     populateFields([]);
     populateForm();
   });

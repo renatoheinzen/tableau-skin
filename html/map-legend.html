@@ -258,7 +258,6 @@
       render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
-      console.error('[Projedata Legenda de Mapa] erro ao ler dados da planilha:', err);
       titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
       bodyEl.innerHTML = '';
     });
@@ -268,7 +267,6 @@
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/map-legend-config.html', '', { height: 640, width: 340 })
       .then(function () { loadState(); updateChart(); })
       .catch(function (error) {
-        console.log('[Projedata Legenda de Mapa] dialog fechado:', error && error.message);
       });
   }
 

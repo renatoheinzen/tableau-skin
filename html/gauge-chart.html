@@ -287,7 +287,6 @@
       render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
-      console.error('[Projedata Medidor] erro ao ler dados da planilha:', err);
       titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
       bodyEl.innerHTML = '';
     });
@@ -297,7 +296,6 @@
     tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/gauge-chart-config.html', '', { height: 780, width: 340 })
       .then(function () { loadState(); updateChart(); })
       .catch(function (error) {
-        console.log('[Projedata Medidor] dialog fechado:', error && error.message);
       });
   }
 

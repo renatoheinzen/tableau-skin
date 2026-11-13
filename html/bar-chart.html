@@ -369,7 +369,7 @@
       if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
       else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
       else p = ws.selectMarksByValueAsync(pairs, T.Replace);
-      p.catch(function (e) { console.warn('[Projedata] seleção de marcas falhou:', e && (e.message || e)); });
+      p.catch(function () {});
     });
   }
   function pdApplySelection() {
@@ -414,19 +414,16 @@
 
   function updateChart() {
     titleEl.textContent = 'Carregando...';
-    console.log('[Projedata Gráfico de Barras] iniciando leitura de dados...');
 
     if (loadTimeoutId) clearTimeout(loadTimeoutId);
     loadTimeoutId = setTimeout(function () {
       titleEl.textContent = 'Tempo excedido — abra o console (F12)';
       bodyEl.innerHTML = '';
-      console.warn('[Projedata Gráfico de Barras] getSummaryDataAsync não respondeu em 8s.');
     }, 8000);
 
     var worksheet = tableau.extensions.worksheetContent.worksheet;
     worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
       clearTimeout(loadTimeoutId);
-      console.log('[Projedata Gráfico de Barras] dados recebidos:', sumData);
 
       if (!sumData || !sumData.columns || sumData.columns.length === 0) {
         titleEl.textContent = 'Arraste campos para as Marcas';
@@ -473,7 +470,6 @@
       renderBars(rows);
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
-      console.error('[Projedata Gráfico de Barras] erro ao ler dados da planilha:', err);
       titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
       bodyEl.innerHTML = '';
     });
@@ -487,19 +483,16 @@
         updateChart();
       })
       .catch(function (error) {
-        console.log('[Projedata Gráfico de Barras] dialog fechado:', error && error.message);
       });
   }
 
   if (typeof tableau === 'undefined' || !tableau.extensions) {
     titleEl.textContent = 'Falha ao carregar script da API do Tableau';
-    console.error('[Projedata Gráfico de Barras] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
     return;
   }
 
   var initTimeoutId = setTimeout(function () {
     titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
-    console.warn('[Projedata Gráfico de Barras] initializeAsync não respondeu — normal se aberto fora do Tableau.');
   }, 15000);
 
   try {
@@ -513,12 +506,10 @@
     }).catch(function (err) {
       clearTimeout(initTimeoutId);
       titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
-      console.warn('Extensions API não inicializou:', err);
     });
   } catch (syncErr) {
     clearTimeout(initTimeoutId);
     titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
-    console.error('[Projedata Gráfico de Barras] erro síncrono ao chamar initializeAsync:', syncErr);
   }
 })();
 </script>

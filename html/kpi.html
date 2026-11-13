@@ -366,18 +366,15 @@
   var loadTimeoutId = null;
   function updateKpi() {
     if (!lastItems || lastItems[0].status) showStatus('Carregando...');
-    console.log('[Projedata KPI] iniciando leitura de dados...');
 
     if (loadTimeoutId) clearTimeout(loadTimeoutId);
     loadTimeoutId = setTimeout(function () {
       showStatus('Tempo excedido — abra o console (F12)');
-      console.warn('[Projedata KPI] getSummaryDataAsync não respondeu em 8s.');
     }, 8000);
 
     var worksheet = tableau.extensions.worksheetContent.worksheet;
     worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
       clearTimeout(loadTimeoutId);
-      console.log('[Projedata KPI] dados recebidos:', sumData);
 
       if (!sumData || !sumData.columns || sumData.columns.length === 0) {
         showStatus('Arraste um campo para as Marcas');
@@ -405,7 +402,6 @@
       var prefixIdx = colIndex(columns, state.prefixField);
       var suffixIdx = colIndex(columns, state.suffixField);
       if (state.repeatField && repeatIdx === -1) {
-        console.warn('[Projedata KPI] campo "Repetir por" não está nas Marcas:', state.repeatField);
       }
 
       if (repeatIdx !== -1) {
@@ -421,7 +417,6 @@
       render();
     }).catch(function (err) {
       clearTimeout(loadTimeoutId);
-      console.error('[Projedata KPI] erro ao ler dados da planilha:', err);
       showStatus('Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)'));
     });
   }
@@ -436,7 +431,6 @@
       })
       .catch(function (error) {
         // ErrorCodes.DialogClosedByUser é disparado quando o usuário fecha sem salvar — ignorar
-        console.log('[Projedata KPI] dialog fechado:', error && error.message);
       });
   }
 
@@ -444,13 +438,11 @@
 
   if (typeof tableau === 'undefined' || !tableau.extensions) {
     showStatus('Falha ao carregar script da API do Tableau');
-    console.error('[Projedata KPI] window.tableau não existe — o script tableau.extensions.1.latest.js não carregou.');
     return;
   }
 
   var initTimeoutId = setTimeout(function () {
     showStatus('Timeout: initializeAsync não respondeu em 15s');
-    console.warn('[Projedata KPI] initializeAsync não respondeu — normal se aberto fora do Tableau.');
   }, 15000);
 
   try {
@@ -463,12 +455,10 @@
     }).catch(function (err) {
       clearTimeout(initTimeoutId);
       showStatus('Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido'));
-      console.warn('Extensions API não inicializou:', err);
     });
   } catch (syncErr) {
     clearTimeout(initTimeoutId);
     showStatus('Erro síncrono: ' + (syncErr && syncErr.message || syncErr));
-    console.error('[Projedata KPI] erro síncrono ao chamar initializeAsync:', syncErr);
   }
 })();
 </script>
