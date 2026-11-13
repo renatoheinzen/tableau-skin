@@ -3,567 +3,505 @@
 <head>
 <meta charset="UTF-8">
 <title>Projedata Gráfico de Barras</title>
-<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api@1.17.0/lib/tableau.extensions.1.latest.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
-  html, body {
-    margin: 0; padding: 0; width: 100%; height: 100%;
-    font-family: var(--pd-font);
-    overflow: hidden;
-    background: transparent;
-  }
-  #chart-root {
-    width: 100%; height: 100%;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: var(--pd-card-padding);
-    background: var(--pd-card-bg);
-    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
-    border-radius: var(--pd-card-radius);
-    box-shadow: var(--pd-card-shadow);
-  }
-
-  #chart-title {
-    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
-    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing); margin-bottom: 8px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  #chart-title.hidden { display: none !important; }
-
-  #chart-body {
-    flex: 1;
-    min-height: 0;
-  }
-
-  #chart-status {
-    font-size: 13px; color: var(--pd-text-muted); padding: 8px 0;
-  }
-
-  .bar-fill {
-    background: var(--pd-accent-1);
-  }
-  #chart-root.accent-laranja .bar-fill { background: var(--pd-accent-2); }
-  #chart-root.accent-amarelo .bar-fill { background: var(--pd-accent-3); }
-  #chart-root.accent-azul-escuro .bar-fill { background: var(--pd-accent-4); }
-
-  /* Orientação vertical (colunas) */
-  #chart-body.vertical {
-    display: flex;
-    align-items: flex-end;
-    gap: 10px;
-    height: 100%;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-  #chart-body.vertical .bar-item {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: flex-end;
-    height: 100%;
-    min-width: 28px;
-    flex: 1 0 auto;
-  }
-  #chart-body.vertical .bar-value {
-    font-size: 11px; font-weight: 700; color: var(--pd-text);
-    margin-bottom: 3px; white-space: nowrap;
-  }
-  #chart-body.vertical .bar-track {
-    width: 100%;
-    display: flex;
-    align-items: flex-end;
-    flex: 1;
-  }
-  #chart-body.vertical .bar-fill {
-    width: 100%;
-    border-radius: 3px 3px 0 0;
-    min-height: 2px;
-    transition: height 0.2s ease;
-  }
-  #chart-body.vertical .bar-label {
-    font-size: 11px; color: var(--pd-text-muted); margin-top: 6px;
-    max-width: 100%; overflow: hidden; text-overflow: ellipsis;
-    white-space: nowrap; text-align: center;
-  }
-
-  /* Orientação horizontal (barras) */
-  #chart-body.horizontal {
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    height: 100%;
-    overflow-y: auto;
-    overflow-x: hidden;
-  }
-  #chart-body.horizontal .bar-item {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-  }
-  #chart-body.horizontal .bar-label {
-    font-size: 11px; color: var(--pd-text-muted);
-    width: 90px; flex: 0 0 90px;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  #chart-body.horizontal .bar-track {
-    flex: 1;
-    background: var(--pd-track);
-    border-radius: 3px;
-    overflow: hidden;
-  }
-  #chart-body.horizontal .bar-fill {
-    height: 18px;
-    border-radius: 3px;
-    min-width: 2px;
-    transition: width 0.2s ease;
-  }
-  #chart-body.horizontal .bar-value {
-    font-size: 11px; font-weight: 700; color: var(--pd-text);
-    width: 60px; flex: 0 0 60px; text-align: left;
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-
-  /* Sobreposição de 2 medidas: a 2ª aparece dentro da barra da 1ª */
-  .bar-fill { position: relative; overflow: hidden; }
-  .bar-overlay { position: absolute; background: var(--pd-accent-1); transition: all 0.2s ease; }
-  #chart-body.vertical .bar-overlay { left: 0; right: 0; bottom: 0; }
-  #chart-body.horizontal .bar-overlay { left: 0; top: 0; bottom: 0; }
-  .bar-value .ov { display: block; color: var(--pd-accent-1); }
-  #chart-body.horizontal .bar-value.has-ov { width: 100px; flex-basis: 100px; }
-  #chart-body.horizontal .bar-value .ov { display: inline; margin-left: 4px; }
-  .pd-tip {
-    position: fixed; z-index: 9999; pointer-events: none; display: none;
-    max-width: 260px; box-sizing: border-box; padding: 8px 12px;
-    font-family: var(--pd-font); font-size: 12px; line-height: 1.35; color: var(--pd-text);
-    background: var(--pd-tooltip-bg, var(--pd-surface));
-    border: 1px solid var(--pd-tooltip-border, var(--pd-card-border-color));
-    border-radius: var(--pd-tooltip-radius, 6px);
-    box-shadow: var(--pd-tooltip-shadow, 0 6px 18px rgba(0,0,0,.35));
-  }
-  .pd-tip.on { display: block; }
-  .pd-tip .tt-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
-  .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
-  .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
-  .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
-  /* clique filtra o dashboard (seleção de marcas) */
-  .pd-click { cursor: pointer; }
-  .pd-dim { opacity: 0.35; }
+html, body {
+margin: 0; padding: 0; width: 100%; height: 100%;
+font-family: var(--pd-font);
+overflow: hidden;
+background: transparent;
+}
+#chart-root {
+width: 100%; height: 100%;
+display: flex;
+flex-direction: column;
+box-sizing: border-box;
+padding: var(--pd-card-padding);
+background: var(--pd-card-bg);
+border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+border-radius: var(--pd-card-radius);
+box-shadow: var(--pd-card-shadow);
+}
+#chart-title {
+font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing); margin-bottom: 8px;
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#chart-title.hidden { display: none !important; }
+#chart-body {
+flex: 1;
+min-height: 0;
+}
+#chart-status {
+font-size: 13px; color: var(--pd-text-muted); padding: 8px 0;
+}
+.bar-fill {
+background: var(--pd-accent-1);
+}
+#chart-root.accent-laranja .bar-fill { background: var(--pd-accent-2); }
+#chart-root.accent-amarelo .bar-fill { background: var(--pd-accent-3); }
+#chart-root.accent-azul-escuro .bar-fill { background: var(--pd-accent-4); }
+#chart-body.vertical {
+display: flex;
+align-items: flex-end;
+gap: 10px;
+height: 100%;
+overflow-x: auto;
+overflow-y: hidden;
+}
+#chart-body.vertical .bar-item {
+display: flex;
+flex-direction: column;
+align-items: center;
+justify-content: flex-end;
+height: 100%;
+min-width: 28px;
+flex: 1 0 auto;
+}
+#chart-body.vertical .bar-value {
+font-size: 11px; font-weight: 700; color: var(--pd-text);
+margin-bottom: 3px; white-space: nowrap;
+}
+#chart-body.vertical .bar-track {
+width: 100%;
+display: flex;
+align-items: flex-end;
+flex: 1;
+}
+#chart-body.vertical .bar-fill {
+width: 100%;
+border-radius: 3px 3px 0 0;
+min-height: 2px;
+transition: height 0.2s ease;
+}
+#chart-body.vertical .bar-label {
+font-size: 11px; color: var(--pd-text-muted); margin-top: 6px;
+max-width: 100%; overflow: hidden; text-overflow: ellipsis;
+white-space: nowrap; text-align: center;
+}
+#chart-body.horizontal {
+display: flex;
+flex-direction: column;
+gap: 8px;
+height: 100%;
+overflow-y: auto;
+overflow-x: hidden;
+}
+#chart-body.horizontal .bar-item {
+display: flex;
+align-items: center;
+gap: 8px;
+}
+#chart-body.horizontal .bar-label {
+font-size: 11px; color: var(--pd-text-muted);
+width: 90px; flex: 0 0 90px;
+overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+#chart-body.horizontal .bar-track {
+flex: 1;
+background: var(--pd-track);
+border-radius: 3px;
+overflow: hidden;
+}
+#chart-body.horizontal .bar-fill {
+height: 18px;
+border-radius: 3px;
+min-width: 2px;
+transition: width 0.2s ease;
+}
+#chart-body.horizontal .bar-value {
+font-size: 11px; font-weight: 700; color: var(--pd-text);
+width: 60px; flex: 0 0 60px; text-align: left;
+overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.bar-fill { position: relative; overflow: hidden; }
+.bar-overlay { position: absolute; background: var(--pd-accent-1); transition: all 0.2s ease; }
+#chart-body.vertical .bar-overlay { left: 0; right: 0; bottom: 0; }
+#chart-body.horizontal .bar-overlay { left: 0; top: 0; bottom: 0; }
+.bar-value .ov { display: block; color: var(--pd-accent-1); }
+#chart-body.horizontal .bar-value.has-ov { width: 100px; flex-basis: 100px; }
+#chart-body.horizontal .bar-value .ov { display: inline; margin-left: 4px; }
+.pd-tip {
+position: fixed; z-index: 9999; pointer-events: none; display: none;
+max-width: 260px; box-sizing: border-box; padding: 8px 12px;
+font-family: var(--pd-font); font-size: 12px; line-height: 1.35; color: var(--pd-text);
+background: var(--pd-tooltip-bg, var(--pd-surface));
+border: 1px solid var(--pd-tooltip-border, var(--pd-card-border-color));
+border-radius: var(--pd-tooltip-radius, 6px);
+box-shadow: var(--pd-tooltip-shadow, 0 6px 18px rgba(0,0,0,.35));
+}
+.pd-tip.on { display: block; }
+.pd-tip .tt-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+.pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
+.pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
+.pd-click { cursor: pointer; }
+.pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
-
 <div id="chart-root" class="align-left">
-  <div id="chart-title">Carregando...</div>
-  <div id="chart-body" class="vertical"></div>
+<div id="chart-title">Carregando...</div>
+<div id="chart-body" class="vertical"></div>
 </div>
-
 <script>
 (function () {
-  var root = document.getElementById('chart-root');
-  var titleEl = document.getElementById('chart-title');
-  var bodyEl = document.getElementById('chart-body');
-
-  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
-
-  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
-
-  function formatCompact(v) {
-    var dec = parseInt(state.decimals, 10);
-    var hasDec = !isNaN(dec) && dec >= 0;
-    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
-    var fixed = DISPLAY_UNITS[state.displayUnits];
-    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
-    var abs = Math.abs(v);
-    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
-    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
-    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
-    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
-    return v.toLocaleString('pt-BR', opts);
-  }
-
-  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
-  function fmtCell(cell) {
-    if (!cell) return '';
-    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
-    return cell.formattedValue;
-  }
-
-  var state = {
-    displayUnits: '', decimals: '',
-    accent: '', customLabel: '', showLabel: true,
-    dimensionField: '', measureField: '',
-    orientation: 'vertical', sortOrder: '', maxBars: '',
-    showValues: true, heatmap: false,
-    highlight: '', highlightOnly: false,
-    overlayField: '', baseColor: '', overlayColor: ''
-  };
-
-  function applyLayout() {
-    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
-    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
-    var customAccent = state.accent && state.accent.charAt(0) === '#';
-    if (state.accent && !customAccent) root.classList.add(state.accent);
-    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
-    else root.style.removeProperty('--pd-accent-1');
-    titleEl.classList.toggle('hidden', state.showLabel === false);
-    bodyEl.className = state.orientation === 'horizontal' ? 'horizontal' : 'vertical';
-  }
-
-  function loadState() {
-    try {
-      var saved = tableau.extensions.settings.get('projedataBarChartState');
-      if (saved) state = Object.assign(state, JSON.parse(saved));
-    } catch (e) { /* sem config salva ainda */ }
-    applyLayout();
-  }
-
-  function findColumnIndex(columns, fieldName, fallback) {
-    if (fieldName) {
-      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
-      if (idx !== -1) return idx;
-      // o Tableau entrega cálculo agregado como AGG(nome) ou AGREG(nome), conforme o idioma: casa também sem o prefixo
-      var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
-      idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
-      if (idx !== -1) return idx;
-    }
-    return fallback;
-  }
-
-  function defaultDimensionIndex(columns) {
-    var idx = columns.findIndex(function (c) { return c.dataType === 'string'; });
-    return idx !== -1 ? idx : 0;
-  }
-
-  function defaultMeasureIndex(columns, dimIdx) {
-    var idx = columns.findIndex(function (c, i) {
-      return i !== dimIdx && (c.dataType === 'int' || c.dataType === 'float');
-    });
-    if (idx !== -1) return idx;
-    return dimIdx === 0 && columns.length > 1 ? 1 : 0;
-  }
-
-  function renderBars(rows) {
-    bodyEl.innerHTML = '';
-
-    if (rows.length === 0) {
-      var empty = document.createElement('div');
-      empty.id = 'chart-status';
-      empty.textContent = 'Sem dados';
-      bodyEl.appendChild(empty);
-      return;
-    }
-
-    var maxAbs = Math.max.apply(null, rows.map(function (r) {
-      return Math.max(Math.abs(r.value) || 0, Math.abs(r.overlay) || 0);
-    })) || 1;
-
-    // Mapa de calor: a cor de destaque fica mais forte nos valores maiores
-    var minVal = Math.min.apply(null, rows.map(function (r) { return r.value; }));
-    var maxVal = Math.max.apply(null, rows.map(function (r) { return r.value; }));
-
-    // Destaque: uma barra em cor cheia, as demais mais claras
-    var hlIdx = -1;
-    if (state.highlight === 'last') hlIdx = rows.length - 1;
-    else if (state.highlight === 'max') hlIdx = rows.map(function (r) { return r.value; }).indexOf(maxVal);
-    else if (state.highlight === 'min') hlIdx = rows.map(function (r) { return r.value; }).indexOf(minVal);
-
-    rows.forEach(function (r, idx) {
-      var pct = Math.max((Math.abs(r.value) / maxAbs) * 100, 0);
-
-      var item = document.createElement('div');
-      item.className = 'bar-item';
-
-      var label = document.createElement('div');
-      label.className = 'bar-label';
-      label.textContent = r.label;
-      label.title = r.label;
-
-      var value = document.createElement('div');
-      value.className = 'bar-value';
-      value.textContent = r.formatted;
-      if (state.highlightOnly && hlIdx >= 0 && idx !== hlIdx) value.style.visibility = 'hidden';
-
-      var track = document.createElement('div');
-      track.className = 'bar-track';
-      var fill = document.createElement('div');
-      fill.className = 'bar-fill';
-      if (hlIdx >= 0) {
-        fill.style.opacity = idx === hlIdx ? '1' : '0.4';
-      } else if (state.heatmap) {
-        var t = maxVal === minVal ? 1 : (r.value - minVal) / (maxVal - minVal);
-        fill.style.opacity = (0.2 + 0.8 * t).toFixed(2);
-      }
-
-      fill.title = r.label + ': ' + (r.overlay != null ? r.formatted + ' (' + r.overlayFormatted + ')' : r.formatted);
-
-      // sobreposição: a 2ª medida desenhada dentro da barra da 1ª
-      if (r.overlay != null) {
-        var baseColor = state.baseColor || 'var(--pd-accent-2)';
-        var overlayColor = state.overlayColor || 'var(--pd-accent-1)';
-        fill.style.background = baseColor;
-        var ov = document.createElement('div');
-        ov.className = 'bar-overlay';
-        ov.style.background = overlayColor;
-        var share = r.value ? Math.min(100, Math.abs(r.overlay) / Math.abs(r.value) * 100) : 0;
-        if (state.orientation === 'horizontal') ov.style.width = share + '%'; else ov.style.height = share + '%';
-        fill.appendChild(ov);
-        value.classList.add('has-ov');
-        var ovText = document.createElement('span');
-        ovText.className = 'ov';
-        ovText.style.color = overlayColor;
-        ovText.textContent = r.overlayFormatted;
-        value.appendChild(ovText);
-      }
-
-      if (state.orientation === 'horizontal') {
-        fill.style.width = pct + '%';
-        track.appendChild(fill);
-        item.appendChild(label);
-        item.appendChild(track);
-        if (state.showValues !== false) item.appendChild(value);
-      } else {
-        fill.style.height = pct + '%';
-        track.appendChild(fill);
-        if (state.showValues !== false) item.appendChild(value);
-        item.appendChild(track);
-        item.appendChild(label);
-      }
-
-      pdBindClick(item, r.dimRaw);
-      bodyEl.appendChild(item);
-    });
-    pdApplySelection();
-  }
-
-  var loadTimeoutId = null;
-  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
-  var clickDim = { field: '' };
-  var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
-  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
-  function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
-  function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
-  // pares {fieldName, value} das colunas idxs de uma linha (ignora campos sem valor)
-  function pdSel(cols, row, idxs) {
-    var out = [];
-    idxs.forEach(function (i) {
-      if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
-    });
-    return out;
-  }
-  // target: valor da dimensão (usa clickDim.field) ou lista de pares {fieldName, value}
-  function pdBindClick(el, target) {
-    if (state.clickFilter === false || target === null || target === undefined) return;
-    var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
-    if (!pairs.length || !pairs[0].fieldName) return;
-    var key = pdKeyOf(pairs), names = pdNames(pairs);
-    clickSets[names] = pairs.map(function (p) { return p.fieldName; });
-    el.setAttribute('data-pd-key', key);
-    el.classList.add('pd-click');
-    el.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      var T = tableau.SelectionUpdateType, ws = pdWs();
-      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
-      var already = !!(selectedKeys && selectedKeys[key]);
-      var p;
-      if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
-      else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
-      else p = ws.selectMarksByValueAsync(pairs, T.Replace);
-      p.catch(function () {});
-    });
-  }
-  function pdApplySelection() {
-    var els = document.querySelectorAll('[data-pd-key]');
-    for (var i = 0; i < els.length; i++) {
-      var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
-      els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
-      els[i].classList.toggle('pd-sel', on);
-    }
-    if (!selLoaded && Object.keys(clickSets).length) { selLoaded = true; pdRefreshSelection(); }
-  }
-  function pdRefreshSelection() {
-    if (state.clickFilter === false || !Object.keys(clickSets).length) return;
-    pdWs().getSelectedMarksAsync().then(function (m) {
-      var keys = null, counts = {}, t = m && m.data && m.data[0];
-      if (t && t.data.length) {
-        keys = {};
-        Object.keys(clickSets).forEach(function (names) {
-          var fields = clickSets[names];
-          var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
-          if (!ci.every(function (k) { return k !== -1; })) return;
-          t.data.forEach(function (r) {
-            var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
-            if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
-          });
-        });
-      }
-      if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
-      selectedKeys = keys;
-      selCount = counts;
-      pdApplySelection();
-    }).catch(function () {});
-  }
-  function pdInitClick() {
-    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
-    // clique fora das marcas limpa a seleção
-    document.addEventListener('click', function () {
-      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
-    });
-    pdRefreshSelection();
-  }
-
-  function updateChart() {
-    titleEl.textContent = 'Carregando...';
-
-    if (loadTimeoutId) clearTimeout(loadTimeoutId);
-    loadTimeoutId = setTimeout(function () {
-      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
-      bodyEl.innerHTML = '';
-    }, 8000);
-
-    var worksheet = tableau.extensions.worksheetContent.worksheet;
-    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
-      clearTimeout(loadTimeoutId);
-
-      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
-        titleEl.textContent = 'Arraste campos para as Marcas';
-        bodyEl.innerHTML = '';
-        return;
-      }
-
-      var dimIdx = defaultDimensionIndex(sumData.columns);
-      dimIdx = findColumnIndex(sumData.columns, state.dimensionField, dimIdx);
-      var measIdx = defaultMeasureIndex(sumData.columns, dimIdx);
-      measIdx = findColumnIndex(sumData.columns, state.measureField, measIdx);
-
-      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
-        ? state.customLabel
-        : sumData.columns[measIdx].fieldName;
-      titleEl.classList.toggle('hidden', state.showLabel === false);
-
-      clickDim.field = sumData.columns[dimIdx].fieldName;
-      var ovIdx = state.overlayField ? findColumnIndex(sumData.columns, state.overlayField, -1) : -1;
-      if (ovIdx === measIdx) ovIdx = -1;
-
-      var rows = (sumData.data || []).map(function (row) {
-        var raw = row[measIdx] ? row[measIdx].value : null;
-        var out = {
-          label: row[dimIdx] ? row[dimIdx].formattedValue : '',
-          dimRaw: row[dimIdx] ? row[dimIdx].value : null,
-          value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
-          formatted: fmtCell(row[measIdx])
-        };
-        if (ovIdx !== -1) {
-          var ovRaw = row[ovIdx] ? row[ovIdx].value : null;
-          out.overlay = (typeof ovRaw === 'number' && !isNaN(ovRaw)) ? ovRaw : 0;
-          out.overlayFormatted = fmtCell(row[ovIdx]);
-        }
-        return out;
-      });
-
-      if (state.sortOrder === 'desc') rows.sort(function (a, b) { return b.value - a.value; });
-      else if (state.sortOrder === 'asc') rows.sort(function (a, b) { return a.value - b.value; });
-
-      var max = parseInt(state.maxBars, 10);
-      if (!isNaN(max) && max > 0) rows = rows.slice(0, max);
-
-      renderBars(rows);
-    }).catch(function (err) {
-      clearTimeout(loadTimeoutId);
-      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
-      bodyEl.innerHTML = '';
-    });
-  }
-
-  function openConfigDialog() {
-    var popupUrl = 'https://renatoheinzen.github.io/tableau-skin/html/bar-chart-config.html';
-    tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 800, width: 340 })
-      .then(function () {
-        loadState();
-        updateChart();
-      })
-      .catch(function (error) {
-      });
-  }
-
-  if (typeof tableau === 'undefined' || !tableau.extensions) {
-    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
-    return;
-  }
-
-  var initTimeoutId = setTimeout(function () {
-    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
-  }, 15000);
-
-  try {
-    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
-      clearTimeout(initTimeoutId);
-      loadState();
-      var worksheet = tableau.extensions.worksheetContent.worksheet;
-      worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
-      pdInitClick();
-      updateChart();
-    }).catch(function (err) {
-      clearTimeout(initTimeoutId);
-      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
-    });
-  } catch (syncErr) {
-    clearTimeout(initTimeoutId);
-    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
-  }
+var root = document.getElementById('chart-root');
+var titleEl = document.getElementById('chart-title');
+var bodyEl = document.getElementById('chart-body');
+var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+function formatCompact(v) {
+var dec = parseInt(state.decimals, 10);
+var hasDec = !isNaN(dec) && dec >= 0;
+var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+var fixed = DISPLAY_UNITS[state.displayUnits];
+if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+var abs = Math.abs(v);
+if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+return v.toLocaleString('pt-BR', opts);
+}
+function fmtCell(cell) {
+if (!cell) return '';
+if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+return cell.formattedValue;
+}
+var state = {
+displayUnits: '', decimals: '',
+accent: '', customLabel: '', showLabel: true,
+dimensionField: '', measureField: '',
+orientation: 'vertical', sortOrder: '', maxBars: '',
+showValues: true, heatmap: false,
+highlight: '', highlightOnly: false,
+overlayField: '', baseColor: '', overlayColor: ''
+};
+function applyLayout() {
+ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+var customAccent = state.accent && state.accent.charAt(0) === '#';
+if (state.accent && !customAccent) root.classList.add(state.accent);
+if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+else root.style.removeProperty('--pd-accent-1');
+titleEl.classList.toggle('hidden', state.showLabel === false);
+bodyEl.className = state.orientation === 'horizontal' ? 'horizontal' : 'vertical';
+}
+function loadState() {
+try {
+var saved = tableau.extensions.settings.get('projedataBarChartState');
+if (saved) state = Object.assign(state, JSON.parse(saved));
+} catch (e) { /* sem config salva ainda */ }
+applyLayout();
+}
+function findColumnIndex(columns, fieldName, fallback) {
+if (fieldName) {
+var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+if (idx !== -1) return idx;
+var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
+idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
+if (idx !== -1) return idx;
+}
+return fallback;
+}
+function defaultDimensionIndex(columns) {
+var idx = columns.findIndex(function (c) { return c.dataType === 'string'; });
+return idx !== -1 ? idx : 0;
+}
+function defaultMeasureIndex(columns, dimIdx) {
+var idx = columns.findIndex(function (c, i) {
+return i !== dimIdx && (c.dataType === 'int' || c.dataType === 'float');
+});
+if (idx !== -1) return idx;
+return dimIdx === 0 && columns.length > 1 ? 1 : 0;
+}
+function renderBars(rows) {
+bodyEl.innerHTML = '';
+if (rows.length === 0) {
+var empty = document.createElement('div');
+empty.id = 'chart-status';
+empty.textContent = 'Sem dados';
+bodyEl.appendChild(empty);
+return;
+}
+var maxAbs = Math.max.apply(null, rows.map(function (r) {
+return Math.max(Math.abs(r.value) || 0, Math.abs(r.overlay) || 0);
+})) || 1;
+var minVal = Math.min.apply(null, rows.map(function (r) { return r.value; }));
+var maxVal = Math.max.apply(null, rows.map(function (r) { return r.value; }));
+var hlIdx = -1;
+if (state.highlight === 'last') hlIdx = rows.length - 1;
+else if (state.highlight === 'max') hlIdx = rows.map(function (r) { return r.value; }).indexOf(maxVal);
+else if (state.highlight === 'min') hlIdx = rows.map(function (r) { return r.value; }).indexOf(minVal);
+rows.forEach(function (r, idx) {
+var pct = Math.max((Math.abs(r.value) / maxAbs) * 100, 0);
+var item = document.createElement('div');
+item.className = 'bar-item';
+var label = document.createElement('div');
+label.className = 'bar-label';
+label.textContent = r.label;
+label.title = r.label;
+var value = document.createElement('div');
+value.className = 'bar-value';
+value.textContent = r.formatted;
+if (state.highlightOnly && hlIdx >= 0 && idx !== hlIdx) value.style.visibility = 'hidden';
+var track = document.createElement('div');
+track.className = 'bar-track';
+var fill = document.createElement('div');
+fill.className = 'bar-fill';
+if (hlIdx >= 0) {
+fill.style.opacity = idx === hlIdx ? '1' : '0.4';
+} else if (state.heatmap) {
+var t = maxVal === minVal ? 1 : (r.value - minVal) / (maxVal - minVal);
+fill.style.opacity = (0.2 + 0.8 * t).toFixed(2);
+}
+fill.title = r.label + ': ' + (r.overlay != null ? r.formatted + ' (' + r.overlayFormatted + ')' : r.formatted);
+if (r.overlay != null) {
+var baseColor = state.baseColor || 'var(--pd-accent-2)';
+var overlayColor = state.overlayColor || 'var(--pd-accent-1)';
+fill.style.background = baseColor;
+var ov = document.createElement('div');
+ov.className = 'bar-overlay';
+ov.style.background = overlayColor;
+var share = r.value ? Math.min(100, Math.abs(r.overlay) / Math.abs(r.value) * 100) : 0;
+if (state.orientation === 'horizontal') ov.style.width = share + '%'; else ov.style.height = share + '%';
+fill.appendChild(ov);
+value.classList.add('has-ov');
+var ovText = document.createElement('span');
+ovText.className = 'ov';
+ovText.style.color = overlayColor;
+ovText.textContent = r.overlayFormatted;
+value.appendChild(ovText);
+}
+if (state.orientation === 'horizontal') {
+fill.style.width = pct + '%';
+track.appendChild(fill);
+item.appendChild(label);
+item.appendChild(track);
+if (state.showValues !== false) item.appendChild(value);
+} else {
+fill.style.height = pct + '%';
+track.appendChild(fill);
+if (state.showValues !== false) item.appendChild(value);
+item.appendChild(track);
+item.appendChild(label);
+}
+pdBindClick(item, r.dimRaw);
+bodyEl.appendChild(item);
+});
+pdApplySelection();
+}
+var loadTimeoutId = null;
+/* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+var clickDim = { field: '' };
+var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
+function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
+function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
+function pdSel(cols, row, idxs) {
+var out = [];
+idxs.forEach(function (i) {
+if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
+});
+return out;
+}
+function pdBindClick(el, target) {
+if (state.clickFilter === false || target === null || target === undefined) return;
+var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
+if (!pairs.length || !pairs[0].fieldName) return;
+var key = pdKeyOf(pairs), names = pdNames(pairs);
+clickSets[names] = pairs.map(function (p) { return p.fieldName; });
+el.setAttribute('data-pd-key', key);
+el.classList.add('pd-click');
+el.addEventListener('click', function (ev) {
+ev.stopPropagation();
+var T = tableau.SelectionUpdateType, ws = pdWs();
+var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+var already = !!(selectedKeys && selectedKeys[key]);
+var p;
+if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
+else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
+else p = ws.selectMarksByValueAsync(pairs, T.Replace);
+p.catch(function () {});
+});
+}
+function pdApplySelection() {
+var els = document.querySelectorAll('[data-pd-key]');
+for (var i = 0; i < els.length; i++) {
+var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
+els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
+els[i].classList.toggle('pd-sel', on);
+}
+}
+function pdRefreshSelection() {
+if (state.clickFilter === false || !Object.keys(clickSets).length) return;
+pdWs().getSelectedMarksAsync().then(function (m) {
+var keys = null, counts = {}, t = m && m.data && m.data[0];
+if (t && t.data.length) {
+keys = {};
+Object.keys(clickSets).forEach(function (names) {
+var fields = clickSets[names];
+var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
+if (!ci.every(function (k) { return k !== -1; })) return;
+t.data.forEach(function (r) {
+var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
+if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
+});
+});
+}
+if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
+selectedKeys = keys;
+selCount = counts;
+pdApplySelection();
+}).catch(function () {});
+}
+function pdInitClick() {
+pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+document.addEventListener('click', function () {
+if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+});
+pdRefreshSelection();
+}
+function updateChart() {
+titleEl.textContent = 'Carregando...';
+if (loadTimeoutId) clearTimeout(loadTimeoutId);
+loadTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+bodyEl.innerHTML = '';
+}, 8000);
+var worksheet = tableau.extensions.worksheetContent.worksheet;
+worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+clearTimeout(loadTimeoutId);
+if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+titleEl.textContent = 'Arraste campos para as Marcas';
+bodyEl.innerHTML = '';
+return;
+}
+var dimIdx = defaultDimensionIndex(sumData.columns);
+dimIdx = findColumnIndex(sumData.columns, state.dimensionField, dimIdx);
+var measIdx = defaultMeasureIndex(sumData.columns, dimIdx);
+measIdx = findColumnIndex(sumData.columns, state.measureField, measIdx);
+titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+? state.customLabel
+: sumData.columns[measIdx].fieldName;
+titleEl.classList.toggle('hidden', state.showLabel === false);
+clickDim.field = sumData.columns[dimIdx].fieldName;
+var ovIdx = state.overlayField ? findColumnIndex(sumData.columns, state.overlayField, -1) : -1;
+if (ovIdx === measIdx) ovIdx = -1;
+var rows = (sumData.data || []).map(function (row) {
+var raw = row[measIdx] ? row[measIdx].value : null;
+var out = {
+label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+dimRaw: row[dimIdx] ? row[dimIdx].value : null,
+value: (typeof raw === 'number' && !isNaN(raw)) ? raw : 0,
+formatted: fmtCell(row[measIdx])
+};
+if (ovIdx !== -1) {
+var ovRaw = row[ovIdx] ? row[ovIdx].value : null;
+out.overlay = (typeof ovRaw === 'number' && !isNaN(ovRaw)) ? ovRaw : 0;
+out.overlayFormatted = fmtCell(row[ovIdx]);
+}
+return out;
+});
+if (state.sortOrder === 'desc') rows.sort(function (a, b) { return b.value - a.value; });
+else if (state.sortOrder === 'asc') rows.sort(function (a, b) { return a.value - b.value; });
+var max = parseInt(state.maxBars, 10);
+if (!isNaN(max) && max > 0) rows = rows.slice(0, max);
+renderBars(rows);
+}).catch(function (err) {
+clearTimeout(loadTimeoutId);
+titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+bodyEl.innerHTML = '';
+});
+}
+function openConfigDialog() {
+var popupUrl = 'https://renatoheinzen.github.io/tableau-skin/html/bar-chart-config.html';
+tableau.extensions.ui.displayDialogAsync(popupUrl, '', { height: 800, width: 340 })
+.then(function () {
+loadState();
+updateChart();
+})
+.catch(function (error) {
+});
+}
+if (typeof tableau === 'undefined' || !tableau.extensions) {
+titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+return;
+}
+var initTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+}, 15000);
+try {
+tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+clearTimeout(initTimeoutId);
+loadState();
+var worksheet = tableau.extensions.worksheetContent.worksheet;
+worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+pdInitClick();
+updateChart();
+}).catch(function (err) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+});
+} catch (syncErr) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+}
 })();
 </script>
-
 <script>
-// dica de ferramenta própria: converte title (HTML) e <title> (SVG) em um cartão estilizado
 (function () {
-  var tip = document.createElement('div');
-  tip.className = 'pd-tip';
-  document.body.appendChild(tip);
-  function textOf(n) {
-    if (n.namespaceURI === 'http://www.w3.org/2000/svg') {
-      for (var i = 0; i < n.children.length; i++) {
-        if (n.children[i].localName === 'title') { var t = n.children[i].textContent; n.removeChild(n.children[i]); n.setAttribute('data-tip', t); break; }
-      }
-    } else if (n.hasAttribute && n.hasAttribute('title')) {
-      n.setAttribute('data-tip', n.getAttribute('title')); n.removeAttribute('title');
-    }
-    return n.getAttribute ? n.getAttribute('data-tip') : null;
-  }
-  function find(t) {
-    for (var n = t; n && n !== document.body; n = n.parentNode) { if (n.nodeType === 1 && textOf(n)) return n; }
-    return null;
-  }
-  function color(n) {
-    if (n.namespaceURI !== 'http://www.w3.org/2000/svg') { var bg = getComputedStyle(n).backgroundColor; return bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : ''; }
-    var cs = getComputedStyle(n), c = cs.fill;
-    if (!c || c === 'none' || c.indexOf('url(') === 0) c = cs.stroke;
-    return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
-  }
-  function add(cls, txt) { var d = document.createElement('div'); d.className = cls; d.textContent = txt; tip.appendChild(d); }
-  function show(n, e) {
-    var lines = n.getAttribute('data-tip').split('\n'), head = lines[0], cat = '', val = '', m;
-    if ((m = /^(.*?) · (.*): ([^:]*)$/.exec(head))) { head = m[1]; cat = m[2]; val = m[3]; }
-    else if (lines.length === 1 && (m = /^(.*): ([^:]*)$/.exec(head))) { head = m[1]; val = m[2]; }
-    tip.innerHTML = '';
-    var h = document.createElement('div'); h.className = 'tt-h';
-    var c = color(n);
-    if (c) { var sw = document.createElement('i'); sw.style.background = c; h.appendChild(sw); }
-    var nm = document.createElement('span'); nm.textContent = head; h.appendChild(nm); tip.appendChild(h);
-    if (cat) add('tt-c', cat);
-    lines.slice(1).forEach(function (l) { add('tt-c', l); });
-    if (val) add('tt-v', val);
-    tip.classList.add('on'); move(e);
-  }
-  function move(e) {
-    var w = tip.offsetWidth, h = tip.offsetHeight, x = e.clientX + 14, y = e.clientY + 14;
-    if (x + w > window.innerWidth - 4) x = e.clientX - w - 14;
-    if (y + h > window.innerHeight - 4) y = e.clientY - h - 14;
-    tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
-  }
-  document.addEventListener('mouseover', function (e) { var n = find(e.target); if (n) show(n, e); else tip.classList.remove('on'); });
-  document.addEventListener('mousemove', function (e) { if (tip.classList.contains('on')) { var n = find(e.target); if (n) move(e); else tip.classList.remove('on'); } });
-  document.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+var tip = document.createElement('div');
+tip.className = 'pd-tip';
+document.body.appendChild(tip);
+function textOf(n) {
+if (n.namespaceURI === 'http://www.w3.org/2000/svg') {
+for (var i = 0; i < n.children.length; i++) {
+if (n.children[i].localName === 'title') { var t = n.children[i].textContent; n.removeChild(n.children[i]); n.setAttribute('data-tip', t); break; }
+}
+} else if (n.hasAttribute && n.hasAttribute('title')) {
+n.setAttribute('data-tip', n.getAttribute('title')); n.removeAttribute('title');
+}
+return n.getAttribute ? n.getAttribute('data-tip') : null;
+}
+function find(t) {
+for (var n = t; n && n !== document.body; n = n.parentNode) { if (n.nodeType === 1 && textOf(n)) return n; }
+return null;
+}
+function color(n) {
+if (n.namespaceURI !== 'http://www.w3.org/2000/svg') { var bg = getComputedStyle(n).backgroundColor; return bg && bg !== 'rgba(0, 0, 0, 0)' && bg !== 'transparent' ? bg : ''; }
+var cs = getComputedStyle(n), c = cs.fill;
+if (!c || c === 'none' || c.indexOf('url(') === 0) c = cs.stroke;
+return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
+}
+function add(cls, txt) { var d = document.createElement('div'); d.className = cls; d.textContent = txt; tip.appendChild(d); }
+function show(n, e) {
+var lines = n.getAttribute('data-tip').split('\n'), head = lines[0], cat = '', val = '', m;
+if ((m = /^(.*?) · (.*): ([^:]*)$/.exec(head))) { head = m[1]; cat = m[2]; val = m[3]; }
+else if (lines.length === 1 && (m = /^(.*): ([^:]*)$/.exec(head))) { head = m[1]; val = m[2]; }
+tip.innerHTML = '';
+var h = document.createElement('div'); h.className = 'tt-h';
+var c = color(n);
+if (c) { var sw = document.createElement('i'); sw.style.background = c; h.appendChild(sw); }
+var nm = document.createElement('span'); nm.textContent = head; h.appendChild(nm); tip.appendChild(h);
+if (cat) add('tt-c', cat);
+lines.slice(1).forEach(function (l) { add('tt-c', l); });
+if (val) add('tt-v', val);
+tip.classList.add('on'); move(e);
+}
+function move(e) {
+var w = tip.offsetWidth, h = tip.offsetHeight, x = e.clientX + 14, y = e.clientY + 14;
+if (x + w > window.innerWidth - 4) x = e.clientX - w - 14;
+if (y + h > window.innerHeight - 4) y = e.clientY - h - 14;
+tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
+}
+document.addEventListener('mouseover', function (e) { var n = find(e.target); if (n) show(n, e); else tip.classList.remove('on'); });
+document.addEventListener('mousemove', function (e) { if (tip.classList.contains('on')) { var n = find(e.target); if (n) move(e); else tip.classList.remove('on'); } });
+document.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
 })();
 </script>
 </body>

@@ -3,438 +3,397 @@
 <head>
 <meta charset="UTF-8">
 <title>Projedata Lista de Cards</title>
-<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api@1.17.0/lib/tableau.extensions.1.latest.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
-  html, body {
-    margin: 0; padding: 0; width: 100%; height: 100%;
-    font-family: var(--pd-font);
-    overflow: hidden;
-    background: transparent;
-  }
-  #chart-root {
-    width: 100%; height: 100%;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: var(--pd-card-padding);
-    background: var(--pd-card-bg);
-    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
-    border-radius: var(--pd-card-radius);
-    box-shadow: var(--pd-card-shadow);
-  }
-  #chart-title {
-    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
-    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
-    margin-bottom: 8px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  #chart-title.hidden { display: none !important; }
-  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
-
-  #chart-body {
-    flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
-    display: grid; gap: 8px; align-content: start;
-    grid-template-columns: 1fr;
-  }
-  #chart-root.cols-2 #chart-body { grid-template-columns: 1fr 1fr; }
-
-  .card {
-    position: relative; display: flex; align-items: flex-start; gap: 10px; min-width: 0;
-    box-sizing: border-box; padding: 10px 12px;
-    background: var(--pd-surface); border: 1px solid var(--pd-track); border-radius: 10px;
-  }
-  #chart-root.accent-bar .card { padding-left: 16px; }
-  #chart-root.accent-bar .card::before {
-    content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0;
-    background: var(--pd-accent-1);
-  }
-  #chart-root.accent-laranja.accent-bar .card::before { background: var(--pd-accent-2); }
-  #chart-root.accent-amarelo.accent-bar .card::before { background: var(--pd-accent-3); }
-  #chart-root.accent-azul-escuro.accent-bar .card::before { background: var(--pd-accent-4); }
-
-  .card-main { flex: 1 1 0; min-width: 0; }
-  .card-title { font-size: 13px; font-weight: 700; color: var(--pd-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .card-sub { font-size: 11px; color: var(--pd-text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .card-details { margin-top: 6px; display: grid; gap: 2px; }
-  .detail { font-size: 11px; color: var(--pd-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .detail b { color: var(--pd-text); font-weight: 600; }
-
-  .card-value { flex: 0 0 auto; text-align: right; }
-  .card-value .num { font-size: 18px; font-weight: 700; color: var(--pd-accent-1); line-height: 1.1; white-space: nowrap; }
-  .card-value .cap { font-size: 10px; color: var(--pd-text-muted); margin-top: 2px; white-space: nowrap; text-transform: var(--pd-title-transform); letter-spacing: 0.5px; }
-  #chart-root.accent-laranja .card-value .num { color: var(--pd-accent-2); }
-  #chart-root.accent-amarelo .card-value .num { color: var(--pd-accent-3); }
-  #chart-root.accent-azul-escuro .card-value .num { color: var(--pd-accent-4); }
-  /* cor por registro (colorMode): vem do ciclo de cores do tema ou de um campo */
-  #chart-root.accent-bar .card.has-color::before { background: var(--card-color); }
-  #chart-root .card.has-color .card-value .num { color: var(--card-color); }
-  /* rodapé com o total geral */
-  .card.total { align-items: center; margin-top: 2px; }
-  .card.total .card-title { font-size: 12px; text-transform: var(--pd-title-transform); letter-spacing: 0.5px; color: var(--pd-text-muted); }
-  /* clique filtra o dashboard (seleção de marcas) */
-  .pd-click { cursor: pointer; }
-  .pd-dim { opacity: 0.35; }
+html, body {
+margin: 0; padding: 0; width: 100%; height: 100%;
+font-family: var(--pd-font);
+overflow: hidden;
+background: transparent;
+}
+#chart-root {
+width: 100%; height: 100%;
+display: flex;
+flex-direction: column;
+box-sizing: border-box;
+padding: var(--pd-card-padding);
+background: var(--pd-card-bg);
+border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+border-radius: var(--pd-card-radius);
+box-shadow: var(--pd-card-shadow);
+}
+#chart-title {
+font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+margin-bottom: 8px;
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#chart-title.hidden { display: none !important; }
+#chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+#chart-body {
+flex: 1; min-height: 0; overflow-y: auto; overflow-x: hidden;
+display: grid; gap: 8px; align-content: start;
+grid-template-columns: 1fr;
+}
+#chart-root.cols-2 #chart-body { grid-template-columns: 1fr 1fr; }
+.card {
+position: relative; display: flex; align-items: flex-start; gap: 10px; min-width: 0;
+box-sizing: border-box; padding: 10px 12px;
+background: var(--pd-surface); border: 1px solid var(--pd-track); border-radius: 10px;
+}
+#chart-root.accent-bar .card { padding-left: 16px; }
+#chart-root.accent-bar .card::before {
+content: ''; position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px; border-radius: 0 3px 3px 0;
+background: var(--pd-accent-1);
+}
+#chart-root.accent-laranja.accent-bar .card::before { background: var(--pd-accent-2); }
+#chart-root.accent-amarelo.accent-bar .card::before { background: var(--pd-accent-3); }
+#chart-root.accent-azul-escuro.accent-bar .card::before { background: var(--pd-accent-4); }
+.card-main { flex: 1 1 0; min-width: 0; }
+.card-title { font-size: 13px; font-weight: 700; color: var(--pd-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-sub { font-size: 11px; color: var(--pd-text-muted); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-details { margin-top: 6px; display: grid; gap: 2px; }
+.detail { font-size: 11px; color: var(--pd-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.detail b { color: var(--pd-text); font-weight: 600; }
+.card-value { flex: 0 0 auto; text-align: right; }
+.card-value .num { font-size: 18px; font-weight: 700; color: var(--pd-accent-1); line-height: 1.1; white-space: nowrap; }
+.card-value .cap { font-size: 10px; color: var(--pd-text-muted); margin-top: 2px; white-space: nowrap; text-transform: var(--pd-title-transform); letter-spacing: 0.5px; }
+#chart-root.accent-laranja .card-value .num { color: var(--pd-accent-2); }
+#chart-root.accent-amarelo .card-value .num { color: var(--pd-accent-3); }
+#chart-root.accent-azul-escuro .card-value .num { color: var(--pd-accent-4); }
+#chart-root.accent-bar .card.has-color::before { background: var(--card-color); }
+#chart-root .card.has-color .card-value .num { color: var(--card-color); }
+.card.total { align-items: center; margin-top: 2px; }
+.card.total .card-title { font-size: 12px; text-transform: var(--pd-title-transform); letter-spacing: 0.5px; color: var(--pd-text-muted); }
+.pd-click { cursor: pointer; }
+.pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
-
 <div id="chart-root" class="accent-bar">
-  <div id="chart-title">Carregando...</div>
-  <div id="chart-body"></div>
+<div id="chart-title">Carregando...</div>
+<div id="chart-body"></div>
 </div>
-
 <script>
 (function () {
-  var STATE_KEY = 'projedataCardListState';
-  var root = document.getElementById('chart-root');
-  var titleEl = document.getElementById('chart-title');
-  var bodyEl = document.getElementById('chart-body');
-  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
-
-  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
-
-  function formatCompact(v) {
-    var dec = parseInt(state.decimals, 10);
-    var hasDec = !isNaN(dec) && dec >= 0;
-    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
-    var fixed = DISPLAY_UNITS[state.displayUnits];
-    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
-    var abs = Math.abs(v);
-    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
-    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
-    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
-    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
-    return v.toLocaleString('pt-BR', opts);
-  }
-
-  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
-  function fmtCell(cell) {
-    if (!cell) return '';
-    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
-    return cell.formattedValue;
-  }
-
-  var state = {
-    displayUnits: '', decimals: '',
-    accent: '', customLabel: '', showLabel: true,
-    titleField: '', subtitleField: '', valueField: '',
-    detail1Field: '', detail2Field: '', detail3Field: '', detail4Field: '',
-    showDetailLabels: true, accentBar: true, columns: '1', maxItems: 5, sortOrder: '',
-    colorMode: '', colorField: '', showTotal: false, totalLabel: ''
-  };
-  var lastCards = [];
-  var lastTotal = null;
-
-  // Cor do card: "#RRGGBB" ou "1".."4" (cor de destaque do tema) vindos do campo; ou ciclo das 4 cores do tema
-  function cardColor(raw, i) {
-    if (state.colorMode === 'cycle') return 'var(--pd-accent-' + (i % 4 + 1) + ')';
-    if (state.colorMode !== 'field' || raw === null || raw === undefined) return '';
-    var s = String(raw).trim();
-    if (/^#[0-9a-f]{3,8}$/i.test(s)) return s;
-    if (/^[1-4]$/.test(s)) return 'var(--pd-accent-' + s + ')';
-    return '';
-  }
-
-  function applyLayout() {
-    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
-    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
-    var customAccent = state.accent && state.accent.charAt(0) === '#';
-    if (state.accent && !customAccent) root.classList.add(state.accent);
-    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
-    else root.style.removeProperty('--pd-accent-1');
-    root.classList.toggle('accent-bar', state.accentBar !== false);
-    root.classList.toggle('cols-2', String(state.columns) === '2');
-    titleEl.classList.toggle('hidden', state.showLabel === false);
-  }
-
-  function loadState() {
-    try {
-      var saved = tableau.extensions.settings.get(STATE_KEY);
-      if (saved) state = Object.assign(state, JSON.parse(saved));
-    } catch (e) { /* sem config salva ainda */ }
-    applyLayout();
-  }
-
-  function findColumnIndex(columns, fieldName, fallback) {
-    if (fieldName) {
-      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
-      if (idx !== -1) return idx;
-      // o Tableau entrega cálculo agregado como AGG(nome) ou AGREG(nome), conforme o idioma: casa também sem o prefixo
-      var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
-      idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
-      if (idx !== -1) return idx;
-    }
-    return fallback;
-  }
-
-  function render() {
-    bodyEl.innerHTML = '';
-    if (lastCards.length === 0) {
-      var empty = document.createElement('div');
-      empty.id = 'chart-status';
-      empty.textContent = 'Sem dados';
-      bodyEl.appendChild(empty);
-      return;
-    }
-    lastCards.forEach(function (c) {
-      var card = document.createElement('div');
-      card.className = 'card';
-      if (c.color) {
-        card.classList.add('has-color');
-        card.style.setProperty('--card-color', c.color);
-      }
-
-      var main = document.createElement('div');
-      main.className = 'card-main';
-      var title = document.createElement('div');
-      title.className = 'card-title';
-      title.textContent = c.title;
-      title.title = c.title;
-      main.appendChild(title);
-      if (c.subtitle) {
-        var sub = document.createElement('div');
-        sub.className = 'card-sub';
-        sub.textContent = c.subtitle;
-        main.appendChild(sub);
-      }
-      if (c.details.length) {
-        var det = document.createElement('div');
-        det.className = 'card-details';
-        c.details.forEach(function (d) {
-          var line = document.createElement('div');
-          line.className = 'detail';
-          if (state.showDetailLabels !== false) {
-            var b = document.createElement('b');
-            b.textContent = d.label + ': ';
-            line.appendChild(b);
-          }
-          line.appendChild(document.createTextNode(d.value));
-          line.title = d.label + ': ' + d.value;
-          det.appendChild(line);
-        });
-        main.appendChild(det);
-      }
-      card.appendChild(main);
-
-      if (c.value !== null) {
-        var val = document.createElement('div');
-        val.className = 'card-value';
-        var num = document.createElement('div');
-        num.className = 'num';
-        num.textContent = c.value;
-        val.appendChild(num);
-        if (c.valueLabel) {
-          var cap = document.createElement('div');
-          cap.className = 'cap';
-          cap.textContent = c.valueLabel;
-          val.appendChild(cap);
-        }
-        card.appendChild(val);
-      }
-      pdBindClick(card, c.sel);
-      bodyEl.appendChild(card);
-    });
-    if (state.showTotal && lastTotal !== null) {
-      var tot = document.createElement('div');
-      tot.className = 'card total';
-      if (String(state.columns) === '2') tot.style.gridColumn = '1 / -1';
-      var tmain = document.createElement('div');
-      tmain.className = 'card-main';
-      var tt = document.createElement('div');
-      tt.className = 'card-title';
-      tt.textContent = state.totalLabel && state.totalLabel.trim() !== '' ? state.totalLabel : 'Total';
-      tmain.appendChild(tt);
-      tot.appendChild(tmain);
-      var tval = document.createElement('div');
-      tval.className = 'card-value';
-      var tnum = document.createElement('div');
-      tnum.className = 'num';
-      tnum.textContent = lastTotal;
-      tval.appendChild(tnum);
-      tot.appendChild(tval);
-      bodyEl.appendChild(tot);
-    }
-    pdApplySelection();
-  }
-
-  var loadTimeoutId = null;
-  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
-  var clickDim = { field: '' };
-  var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
-  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
-  function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
-  function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
-  // pares {fieldName, value} das colunas idxs de uma linha (ignora campos sem valor)
-  function pdSel(cols, row, idxs) {
-    var out = [];
-    idxs.forEach(function (i) {
-      if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
-    });
-    return out;
-  }
-  // target: valor da dimensão (usa clickDim.field) ou lista de pares {fieldName, value}
-  function pdBindClick(el, target) {
-    if (state.clickFilter === false || target === null || target === undefined) return;
-    var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
-    if (!pairs.length || !pairs[0].fieldName) return;
-    var key = pdKeyOf(pairs), names = pdNames(pairs);
-    clickSets[names] = pairs.map(function (p) { return p.fieldName; });
-    el.setAttribute('data-pd-key', key);
-    el.classList.add('pd-click');
-    el.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      var T = tableau.SelectionUpdateType, ws = pdWs();
-      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
-      var already = !!(selectedKeys && selectedKeys[key]);
-      var p;
-      if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
-      else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
-      else p = ws.selectMarksByValueAsync(pairs, T.Replace);
-      p.catch(function () {});
-    });
-  }
-  function pdApplySelection() {
-    var els = document.querySelectorAll('[data-pd-key]');
-    for (var i = 0; i < els.length; i++) {
-      var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
-      els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
-      els[i].classList.toggle('pd-sel', on);
-    }
-    if (!selLoaded && Object.keys(clickSets).length) { selLoaded = true; pdRefreshSelection(); }
-  }
-  function pdRefreshSelection() {
-    if (state.clickFilter === false || !Object.keys(clickSets).length) return;
-    pdWs().getSelectedMarksAsync().then(function (m) {
-      var keys = null, counts = {}, t = m && m.data && m.data[0];
-      if (t && t.data.length) {
-        keys = {};
-        Object.keys(clickSets).forEach(function (names) {
-          var fields = clickSets[names];
-          var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
-          if (!ci.every(function (k) { return k !== -1; })) return;
-          t.data.forEach(function (r) {
-            var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
-            if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
-          });
-        });
-      }
-      if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
-      selectedKeys = keys;
-      selCount = counts;
-      pdApplySelection();
-    }).catch(function () {});
-  }
-  function pdInitClick() {
-    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
-    // clique fora das marcas limpa a seleção
-    document.addEventListener('click', function () {
-      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
-    });
-    pdRefreshSelection();
-  }
-
-  function updateChart() {
-    titleEl.textContent = 'Carregando...';
-    if (loadTimeoutId) clearTimeout(loadTimeoutId);
-    loadTimeoutId = setTimeout(function () {
-      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
-      bodyEl.innerHTML = '';
-    }, 8000);
-
-    var worksheet = tableau.extensions.worksheetContent.worksheet;
-    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
-      clearTimeout(loadTimeoutId);
-      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
-        titleEl.textContent = 'Arraste campos para as Marcas';
-        bodyEl.innerHTML = '';
-        return;
-      }
-
-      var cols = sumData.columns;
-      var titleIdx = findColumnIndex(cols, state.titleField, 0);
-      var subIdx = state.subtitleField ? findColumnIndex(cols, state.subtitleField, -1) : -1;
-      var valIdx = state.valueField ? findColumnIndex(cols, state.valueField, -1) : -1;
-      var colorIdx = state.colorMode === 'field' && state.colorField ? findColumnIndex(cols, state.colorField, -1) : -1;
-      var detailIdxs = [state.detail1Field, state.detail2Field, state.detail3Field, state.detail4Field]
-        .map(function (f) { return f ? findColumnIndex(cols, f, -1) : -1; })
-        .filter(function (i) { return i !== -1; });
-
-      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
-      titleEl.classList.toggle('hidden', state.showLabel === false || titleEl.textContent === '');
-
-      var cards = (sumData.data || []).map(function (row) {
-        var raw = valIdx !== -1 && row[valIdx] ? row[valIdx].value : null;
-        return {
-          title: row[titleIdx] ? row[titleIdx].formattedValue : '',
-          sel: pdSel(cols, row, [titleIdx]),
-          subtitle: subIdx !== -1 && row[subIdx] ? row[subIdx].formattedValue : '',
-          value: valIdx !== -1 ? fmtCell(row[valIdx]) : null,
-          valueLabel: valIdx !== -1 ? cols[valIdx].fieldName : '',
-          sortValue: typeof raw === 'number' && !isNaN(raw) ? raw : 0,
-          colorRaw: colorIdx !== -1 && row[colorIdx] ? row[colorIdx].value : null,
-          details: detailIdxs.map(function (i) {
-            return { label: cols[i].fieldName, value: row[i] ? row[i].formattedValue : '' };
-          })
-        };
-      });
-
-      if (state.sortOrder === 'desc') cards.sort(function (a, b) { return b.sortValue - a.sortValue; });
-      else if (state.sortOrder === 'asc') cards.sort(function (a, b) { return a.sortValue - b.sortValue; });
-
-      // total geral de todos os registros (antes de limitar a quantidade), só se há campo de valor
-      lastTotal = null;
-      if (state.showTotal && valIdx !== -1) {
-        var sum = cards.reduce(function (s, c) { return s + c.sortValue; }, 0);
-        lastTotal = formatCompact(sum);
-      }
-
-      var max = parseInt(state.maxItems, 10);
-      if (!isNaN(max) && max > 0) cards = cards.slice(0, max);
-      cards.forEach(function (c, i) { c.color = cardColor(c.colorRaw, i); });
-
-      lastCards = cards;
-      render();
-    }).catch(function (err) {
-      clearTimeout(loadTimeoutId);
-      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
-      bodyEl.innerHTML = '';
-    });
-  }
-
-  function openConfigDialog() {
-    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/card-list-config.html', '', { height: 800, width: 340 })
-      .then(function () { loadState(); updateChart(); })
-      .catch(function (error) {
-      });
-  }
-
-  if (typeof tableau === 'undefined' || !tableau.extensions) {
-    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
-    return;
-  }
-
-  var initTimeoutId = setTimeout(function () {
-    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
-  }, 15000);
-
-  try {
-    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
-      clearTimeout(initTimeoutId);
-      loadState();
-      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
-      pdInitClick();
-      updateChart();
-    }).catch(function (err) {
-      clearTimeout(initTimeoutId);
-      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
-    });
-  } catch (syncErr) {
-    clearTimeout(initTimeoutId);
-    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
-  }
+var STATE_KEY = 'projedataCardListState';
+var root = document.getElementById('chart-root');
+var titleEl = document.getElementById('chart-title');
+var bodyEl = document.getElementById('chart-body');
+var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+function formatCompact(v) {
+var dec = parseInt(state.decimals, 10);
+var hasDec = !isNaN(dec) && dec >= 0;
+var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+var fixed = DISPLAY_UNITS[state.displayUnits];
+if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+var abs = Math.abs(v);
+if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+return v.toLocaleString('pt-BR', opts);
+}
+function fmtCell(cell) {
+if (!cell) return '';
+if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+return cell.formattedValue;
+}
+var state = {
+displayUnits: '', decimals: '',
+accent: '', customLabel: '', showLabel: true,
+titleField: '', subtitleField: '', valueField: '',
+detail1Field: '', detail2Field: '', detail3Field: '', detail4Field: '',
+showDetailLabels: true, accentBar: true, columns: '1', maxItems: 5, sortOrder: '',
+colorMode: '', colorField: '', showTotal: false, totalLabel: ''
+};
+var lastCards = [];
+var lastTotal = null;
+function cardColor(raw, i) {
+if (state.colorMode === 'cycle') return 'var(--pd-accent-' + (i % 4 + 1) + ')';
+if (state.colorMode !== 'field' || raw === null || raw === undefined) return '';
+var s = String(raw).trim();
+if (/^#[0-9a-f]{3,8}$/i.test(s)) return s;
+if (/^[1-4]$/.test(s)) return 'var(--pd-accent-' + s + ')';
+return '';
+}
+function applyLayout() {
+ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+var customAccent = state.accent && state.accent.charAt(0) === '#';
+if (state.accent && !customAccent) root.classList.add(state.accent);
+if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+else root.style.removeProperty('--pd-accent-1');
+root.classList.toggle('accent-bar', state.accentBar !== false);
+root.classList.toggle('cols-2', String(state.columns) === '2');
+titleEl.classList.toggle('hidden', state.showLabel === false);
+}
+function loadState() {
+try {
+var saved = tableau.extensions.settings.get(STATE_KEY);
+if (saved) state = Object.assign(state, JSON.parse(saved));
+} catch (e) { /* sem config salva ainda */ }
+applyLayout();
+}
+function findColumnIndex(columns, fieldName, fallback) {
+if (fieldName) {
+var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+if (idx !== -1) return idx;
+var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
+idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
+if (idx !== -1) return idx;
+}
+return fallback;
+}
+function render() {
+bodyEl.innerHTML = '';
+if (lastCards.length === 0) {
+var empty = document.createElement('div');
+empty.id = 'chart-status';
+empty.textContent = 'Sem dados';
+bodyEl.appendChild(empty);
+return;
+}
+lastCards.forEach(function (c) {
+var card = document.createElement('div');
+card.className = 'card';
+if (c.color) {
+card.classList.add('has-color');
+card.style.setProperty('--card-color', c.color);
+}
+var main = document.createElement('div');
+main.className = 'card-main';
+var title = document.createElement('div');
+title.className = 'card-title';
+title.textContent = c.title;
+title.title = c.title;
+main.appendChild(title);
+if (c.subtitle) {
+var sub = document.createElement('div');
+sub.className = 'card-sub';
+sub.textContent = c.subtitle;
+main.appendChild(sub);
+}
+if (c.details.length) {
+var det = document.createElement('div');
+det.className = 'card-details';
+c.details.forEach(function (d) {
+var line = document.createElement('div');
+line.className = 'detail';
+if (state.showDetailLabels !== false) {
+var b = document.createElement('b');
+b.textContent = d.label + ': ';
+line.appendChild(b);
+}
+line.appendChild(document.createTextNode(d.value));
+line.title = d.label + ': ' + d.value;
+det.appendChild(line);
+});
+main.appendChild(det);
+}
+card.appendChild(main);
+if (c.value !== null) {
+var val = document.createElement('div');
+val.className = 'card-value';
+var num = document.createElement('div');
+num.className = 'num';
+num.textContent = c.value;
+val.appendChild(num);
+if (c.valueLabel) {
+var cap = document.createElement('div');
+cap.className = 'cap';
+cap.textContent = c.valueLabel;
+val.appendChild(cap);
+}
+card.appendChild(val);
+}
+pdBindClick(card, c.sel);
+bodyEl.appendChild(card);
+});
+if (state.showTotal && lastTotal !== null) {
+var tot = document.createElement('div');
+tot.className = 'card total';
+if (String(state.columns) === '2') tot.style.gridColumn = '1 / -1';
+var tmain = document.createElement('div');
+tmain.className = 'card-main';
+var tt = document.createElement('div');
+tt.className = 'card-title';
+tt.textContent = state.totalLabel && state.totalLabel.trim() !== '' ? state.totalLabel : 'Total';
+tmain.appendChild(tt);
+tot.appendChild(tmain);
+var tval = document.createElement('div');
+tval.className = 'card-value';
+var tnum = document.createElement('div');
+tnum.className = 'num';
+tnum.textContent = lastTotal;
+tval.appendChild(tnum);
+tot.appendChild(tval);
+bodyEl.appendChild(tot);
+}
+pdApplySelection();
+}
+var loadTimeoutId = null;
+/* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+var clickDim = { field: '' };
+var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
+function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
+function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
+function pdSel(cols, row, idxs) {
+var out = [];
+idxs.forEach(function (i) {
+if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
+});
+return out;
+}
+function pdBindClick(el, target) {
+if (state.clickFilter === false || target === null || target === undefined) return;
+var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
+if (!pairs.length || !pairs[0].fieldName) return;
+var key = pdKeyOf(pairs), names = pdNames(pairs);
+clickSets[names] = pairs.map(function (p) { return p.fieldName; });
+el.setAttribute('data-pd-key', key);
+el.classList.add('pd-click');
+el.addEventListener('click', function (ev) {
+ev.stopPropagation();
+var T = tableau.SelectionUpdateType, ws = pdWs();
+var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+var already = !!(selectedKeys && selectedKeys[key]);
+var p;
+if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
+else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
+else p = ws.selectMarksByValueAsync(pairs, T.Replace);
+p.catch(function () {});
+});
+}
+function pdApplySelection() {
+var els = document.querySelectorAll('[data-pd-key]');
+for (var i = 0; i < els.length; i++) {
+var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
+els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
+els[i].classList.toggle('pd-sel', on);
+}
+}
+function pdRefreshSelection() {
+if (state.clickFilter === false || !Object.keys(clickSets).length) return;
+pdWs().getSelectedMarksAsync().then(function (m) {
+var keys = null, counts = {}, t = m && m.data && m.data[0];
+if (t && t.data.length) {
+keys = {};
+Object.keys(clickSets).forEach(function (names) {
+var fields = clickSets[names];
+var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
+if (!ci.every(function (k) { return k !== -1; })) return;
+t.data.forEach(function (r) {
+var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
+if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
+});
+});
+}
+if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
+selectedKeys = keys;
+selCount = counts;
+pdApplySelection();
+}).catch(function () {});
+}
+function pdInitClick() {
+pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+document.addEventListener('click', function () {
+if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+});
+pdRefreshSelection();
+}
+function updateChart() {
+titleEl.textContent = 'Carregando...';
+if (loadTimeoutId) clearTimeout(loadTimeoutId);
+loadTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+bodyEl.innerHTML = '';
+}, 8000);
+var worksheet = tableau.extensions.worksheetContent.worksheet;
+worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+clearTimeout(loadTimeoutId);
+if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+titleEl.textContent = 'Arraste campos para as Marcas';
+bodyEl.innerHTML = '';
+return;
+}
+var cols = sumData.columns;
+var titleIdx = findColumnIndex(cols, state.titleField, 0);
+var subIdx = state.subtitleField ? findColumnIndex(cols, state.subtitleField, -1) : -1;
+var valIdx = state.valueField ? findColumnIndex(cols, state.valueField, -1) : -1;
+var colorIdx = state.colorMode === 'field' && state.colorField ? findColumnIndex(cols, state.colorField, -1) : -1;
+var detailIdxs = [state.detail1Field, state.detail2Field, state.detail3Field, state.detail4Field]
+.map(function (f) { return f ? findColumnIndex(cols, f, -1) : -1; })
+.filter(function (i) { return i !== -1; });
+titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '') ? state.customLabel : '';
+titleEl.classList.toggle('hidden', state.showLabel === false || titleEl.textContent === '');
+var cards = (sumData.data || []).map(function (row) {
+var raw = valIdx !== -1 && row[valIdx] ? row[valIdx].value : null;
+return {
+title: row[titleIdx] ? row[titleIdx].formattedValue : '',
+sel: pdSel(cols, row, [titleIdx]),
+subtitle: subIdx !== -1 && row[subIdx] ? row[subIdx].formattedValue : '',
+value: valIdx !== -1 ? fmtCell(row[valIdx]) : null,
+valueLabel: valIdx !== -1 ? cols[valIdx].fieldName : '',
+sortValue: typeof raw === 'number' && !isNaN(raw) ? raw : 0,
+colorRaw: colorIdx !== -1 && row[colorIdx] ? row[colorIdx].value : null,
+details: detailIdxs.map(function (i) {
+return { label: cols[i].fieldName, value: row[i] ? row[i].formattedValue : '' };
+})
+};
+});
+if (state.sortOrder === 'desc') cards.sort(function (a, b) { return b.sortValue - a.sortValue; });
+else if (state.sortOrder === 'asc') cards.sort(function (a, b) { return a.sortValue - b.sortValue; });
+lastTotal = null;
+if (state.showTotal && valIdx !== -1) {
+var sum = cards.reduce(function (s, c) { return s + c.sortValue; }, 0);
+lastTotal = formatCompact(sum);
+}
+var max = parseInt(state.maxItems, 10);
+if (!isNaN(max) && max > 0) cards = cards.slice(0, max);
+cards.forEach(function (c, i) { c.color = cardColor(c.colorRaw, i); });
+lastCards = cards;
+render();
+}).catch(function (err) {
+clearTimeout(loadTimeoutId);
+titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+bodyEl.innerHTML = '';
+});
+}
+function openConfigDialog() {
+tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/card-list-config.html', '', { height: 800, width: 340 })
+.then(function () { loadState(); updateChart(); })
+.catch(function (error) {
+});
+}
+if (typeof tableau === 'undefined' || !tableau.extensions) {
+titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+return;
+}
+var initTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+}, 15000);
+try {
+tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+clearTimeout(initTimeoutId);
+loadState();
+tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+pdInitClick();
+updateChart();
+}).catch(function (err) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+});
+} catch (syncErr) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+}
 })();
 </script>
-
 </body>
 </html>

@@ -3,473 +3,432 @@
 <head>
 <meta charset="UTF-8">
 <title>Projedata Lista Ranqueada</title>
-<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api@1.17.0/lib/tableau.extensions.1.latest.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
-  html, body {
-    margin: 0; padding: 0; width: 100%; height: 100%;
-    font-family: var(--pd-font);
-    overflow: hidden;
-    background: transparent;
-  }
-  #chart-root {
-    width: 100%; height: 100%;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: var(--pd-card-padding);
-    background: var(--pd-card-bg);
-    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
-    border-radius: var(--pd-card-radius);
-    box-shadow: var(--pd-card-shadow);
-  }
-  #chart-title {
-    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
-    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
-    margin-bottom: 8px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  #chart-title.hidden { display: none !important; }
-  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
-
-  #chart-body {
-    flex: 1; min-height: 0;
-    display: flex; flex-direction: column; justify-content: space-around; gap: 6px;
-    overflow-y: auto; overflow-x: hidden;
-  }
-  .rk-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
-  .rk-pos { flex: 0 0 18px; font-size: 12px; color: var(--pd-text-muted); text-align: left; }
-  .rk-label {
-    flex: 1 1 0; min-width: 0;
-    font-size: 12px; color: var(--pd-text);
-    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  }
-  .rk-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
-  .rk-main .rk-label { flex: none; }
-  .rk-bar { height: 4px; border-radius: 2px; background: var(--pd-track); overflow: hidden; }
-  .rk-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--pd-accent-1); }
-  #chart-root.accent-laranja .rk-bar > i { background: var(--pd-accent-2); }
-  #chart-root.accent-amarelo .rk-bar > i { background: var(--pd-accent-3); }
-  #chart-root.accent-azul-escuro .rk-bar > i { background: var(--pd-accent-4); }
-  .rk-spark { flex: 0 0 auto; display: block; overflow: visible; }
-  .rk-spark .sp-line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
-  .rk-spark .sp-area, .rk-spark .sp-dot, .rk-spark .sp-bar { fill: currentColor; stroke: none; }
-  .rk-spark .sp-area { opacity: 0.18; }
-  .rk-spark.c-accent { color: var(--pd-accent-1); }
-  #chart-root.accent-laranja .rk-spark.c-accent { color: var(--pd-accent-2); }
-  #chart-root.accent-amarelo .rk-spark.c-accent { color: var(--pd-accent-3); }
-  #chart-root.accent-azul-escuro .rk-spark.c-accent { color: var(--pd-accent-4); }
-  .rk-spark.c-muted { color: var(--pd-text-muted); }
-  .rk-spark.c-up { color: var(--pd-positive); }
-  .rk-spark.c-down { color: var(--pd-negative); }
-  .rk-badge {
-    flex: 0 0 auto; min-width: 38px; box-sizing: border-box;
-    padding: 5px 9px; border-radius: 8px; border: 1px solid transparent;
-    font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap;
-  }
-  .rk-badge.a { background: var(--pd-accent-1); color: #fff; }
-  #chart-root.accent-laranja .rk-badge.a { background: var(--pd-accent-2); }
-  #chart-root.accent-amarelo .rk-badge.a { background: var(--pd-accent-3); }
-  #chart-root.accent-azul-escuro .rk-badge.a { background: var(--pd-accent-4); }
-  /* o selo 2 usa texto/superfície do tema: contraste garantido em temas claros e escuros */
-  .rk-badge.b-dark { background: var(--pd-text); color: var(--pd-surface); }
-  .rk-badge.b-outline { background: transparent; color: var(--pd-text); border-color: var(--pd-text-muted); }
-  .rk-badge.b-light { background: var(--pd-track); color: var(--pd-text); }
-  /* clique filtra o dashboard (seleção de marcas) */
-  .pd-click { cursor: pointer; }
-  .pd-dim { opacity: 0.35; }
+html, body {
+margin: 0; padding: 0; width: 100%; height: 100%;
+font-family: var(--pd-font);
+overflow: hidden;
+background: transparent;
+}
+#chart-root {
+width: 100%; height: 100%;
+display: flex;
+flex-direction: column;
+box-sizing: border-box;
+padding: var(--pd-card-padding);
+background: var(--pd-card-bg);
+border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+border-radius: var(--pd-card-radius);
+box-shadow: var(--pd-card-shadow);
+}
+#chart-title {
+font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+margin-bottom: 8px;
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#chart-title.hidden { display: none !important; }
+#chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+#chart-body {
+flex: 1; min-height: 0;
+display: flex; flex-direction: column; justify-content: space-around; gap: 6px;
+overflow-y: auto; overflow-x: hidden;
+}
+.rk-row { display: flex; align-items: center; gap: 10px; min-width: 0; }
+.rk-pos { flex: 0 0 18px; font-size: 12px; color: var(--pd-text-muted); text-align: left; }
+.rk-label {
+flex: 1 1 0; min-width: 0;
+font-size: 12px; color: var(--pd-text);
+overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rk-main { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.rk-main .rk-label { flex: none; }
+.rk-bar { height: 4px; border-radius: 2px; background: var(--pd-track); overflow: hidden; }
+.rk-bar > i { display: block; height: 100%; border-radius: 2px; background: var(--pd-accent-1); }
+#chart-root.accent-laranja .rk-bar > i { background: var(--pd-accent-2); }
+#chart-root.accent-amarelo .rk-bar > i { background: var(--pd-accent-3); }
+#chart-root.accent-azul-escuro .rk-bar > i { background: var(--pd-accent-4); }
+.rk-spark { flex: 0 0 auto; display: block; overflow: visible; }
+.rk-spark .sp-line { fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linejoin: round; stroke-linecap: round; }
+.rk-spark .sp-area, .rk-spark .sp-dot, .rk-spark .sp-bar { fill: currentColor; stroke: none; }
+.rk-spark .sp-area { opacity: 0.18; }
+.rk-spark.c-accent { color: var(--pd-accent-1); }
+#chart-root.accent-laranja .rk-spark.c-accent { color: var(--pd-accent-2); }
+#chart-root.accent-amarelo .rk-spark.c-accent { color: var(--pd-accent-3); }
+#chart-root.accent-azul-escuro .rk-spark.c-accent { color: var(--pd-accent-4); }
+.rk-spark.c-muted { color: var(--pd-text-muted); }
+.rk-spark.c-up { color: var(--pd-positive); }
+.rk-spark.c-down { color: var(--pd-negative); }
+.rk-badge {
+flex: 0 0 auto; min-width: 38px; box-sizing: border-box;
+padding: 5px 9px; border-radius: 8px; border: 1px solid transparent;
+font-size: 12px; font-weight: 700; text-align: center; white-space: nowrap;
+}
+.rk-badge.a { background: var(--pd-accent-1); color: #fff; }
+#chart-root.accent-laranja .rk-badge.a { background: var(--pd-accent-2); }
+#chart-root.accent-amarelo .rk-badge.a { background: var(--pd-accent-3); }
+#chart-root.accent-azul-escuro .rk-badge.a { background: var(--pd-accent-4); }
+.rk-badge.b-dark { background: var(--pd-text); color: var(--pd-surface); }
+.rk-badge.b-outline { background: transparent; color: var(--pd-text); border-color: var(--pd-text-muted); }
+.rk-badge.b-light { background: var(--pd-track); color: var(--pd-text); }
+.pd-click { cursor: pointer; }
+.pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
-
 <div id="chart-root">
-  <div id="chart-title">Carregando...</div>
-  <div id="chart-body"></div>
+<div id="chart-title">Carregando...</div>
+<div id="chart-body"></div>
 </div>
-
 <script>
 (function () {
-  var STATE_KEY = 'projedataRankState';
-  var root = document.getElementById('chart-root');
-  var titleEl = document.getElementById('chart-title');
-  var bodyEl = document.getElementById('chart-body');
-  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
-
-  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
-
-  function formatCompact(v) {
-    var dec = parseInt(state.decimals, 10);
-    var hasDec = !isNaN(dec) && dec >= 0;
-    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
-    var fixed = DISPLAY_UNITS[state.displayUnits];
-    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
-    var abs = Math.abs(v);
-    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
-    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
-    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
-    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
-    return v.toLocaleString('pt-BR', opts);
-  }
-
-  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
-  function fmtCell(cell) {
-    if (!cell) return '';
-    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
-    return cell.formattedValue;
-  }
-
-  var state = {
-    displayUnits: '', decimals: '',
-    accent: '', customLabel: '', showLabel: true,
-    dimensionField: '', valueField: '', value2Field: '',
-    topN: 5, sortOrder: 'desc', showRank: true, badge2Style: 'dark',
-    trendField: '', trendValueField: '', aggregate: 'sum', sparkStyle: 'line', sparkWidth: 'medium', sparkColor: 'accent', showBar: false
-  };
-  var lastRows = [];
-
-  function applyLayout() {
-    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
-    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
-    var customAccent = state.accent && state.accent.charAt(0) === '#';
-    if (state.accent && !customAccent) root.classList.add(state.accent);
-    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
-    else root.style.removeProperty('--pd-accent-1');
-    titleEl.classList.toggle('hidden', state.showLabel === false);
-  }
-
-  function loadState() {
-    try {
-      var saved = tableau.extensions.settings.get(STATE_KEY);
-      if (saved) state = Object.assign(state, JSON.parse(saved));
-    } catch (e) { /* sem config salva ainda */ }
-    applyLayout();
-  }
-
-  function findColumnIndex(columns, fieldName, fallback) {
-    if (fieldName) {
-      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
-      if (idx !== -1) return idx;
-      // o Tableau entrega cálculo agregado como AGG(nome) ou AGREG(nome), conforme o idioma: casa também sem o prefixo
-      var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
-      idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
-      if (idx !== -1) return idx;
-    }
-    return fallback;
-  }
-  function defaultDimensionIndex(columns) {
-    var idx = columns.findIndex(function (c) { return c.dataType === 'string'; });
-    return idx !== -1 ? idx : 0;
-  }
-  function defaultMeasureIndex(columns, dimIdx) {
-    var idx = columns.findIndex(function (c, i) {
-      return i !== dimIdx && (c.dataType === 'int' || c.dataType === 'float');
-    });
-    if (idx !== -1) return idx;
-    return dimIdx === 0 && columns.length > 1 ? 1 : 0;
-  }
-
-  // Escolhe texto claro/escuro conforme a luminância da cor do selo principal
-  function readableOn(el) {
-    var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).backgroundColor);
-    if (!m) return '';
-    var lum = (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) / 255;
-    return lum > 0.62 ? '#161616' : '#ffffff';
-  }
-
-  var SPARK_W = { small: 60, medium: 90, large: 130 };
-
-  function sparkSvg(vals, colorClass) {
-    var W = SPARK_W[state.sparkWidth] || 90, H = 24, pad = 3;
-    var svg = '<svg class="rk-spark c-' + colorClass + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
-    var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
-    if (state.sparkStyle === 'bars') min = Math.min(0, min); // barras partem do zero
-    var span = max - min || 1;
-    var n = vals.length;
-    var x = function (i) { return n === 1 ? W / 2 : pad + i * (W - 2 * pad) / (n - 1); };
-    var y = function (v) { return H - pad - (v - min) / span * (H - 2 * pad); };
-    if (state.sparkStyle === 'bars') {
-      var bw = Math.max(1.5, (W - 2 * pad) / n - 1.5), y0 = y(0);
-      vals.forEach(function (v, i) {
-        var yy = y(v), top = Math.min(yy, y0), h = Math.max(Math.abs(y0 - yy), 1);
-        svg += '<rect class="sp-bar" x="' + (pad + i * (W - 2 * pad) / n).toFixed(1) + '" y="' + top.toFixed(1) +
-          '" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" opacity="' + (i === n - 1 ? 1 : 0.45) + '"/>';
-      });
-    } else {
-      var pts = vals.map(function (v, i) { return x(i).toFixed(1) + ',' + y(v).toFixed(1); });
-      if (n > 1) {
-        if (state.sparkStyle === 'area') {
-          svg += '<polygon class="sp-area" points="' + pts.join(' ') + ' ' + x(n - 1).toFixed(1) + ',' + (H - pad) + ' ' + x(0).toFixed(1) + ',' + (H - pad) + '"/>';
-        }
-        svg += '<polyline class="sp-line" points="' + pts.join(' ') + '"/>';
-      }
-      svg += '<circle class="sp-dot" cx="' + x(n - 1).toFixed(1) + '" cy="' + y(vals[n - 1]).toFixed(1) + '" r="2.4"/>';
-    }
-    return svg + '</svg>';
-  }
-
-  function render() {
-    bodyEl.innerHTML = '';
-    if (lastRows.length === 0) {
-      var empty = document.createElement('div');
-      empty.id = 'chart-status';
-      empty.textContent = 'Sem dados';
-      bodyEl.appendChild(empty);
-      return;
-    }
-    var badge2Cls = 'b-' + (state.badge2Style || 'dark');
-    var maxA = Math.max.apply(null, lastRows.map(function (r) { return r.a; }));
-    lastRows.forEach(function (r, i) {
-      var row = document.createElement('div');
-      row.className = 'rk-row';
-
-      if (state.showRank !== false) {
-        var pos = document.createElement('div');
-        pos.className = 'rk-pos';
-        pos.textContent = String(i + 1);
-        row.appendChild(pos);
-      }
-
-      var main = document.createElement('div');
-      main.className = 'rk-main';
-      var label = document.createElement('div');
-      label.className = 'rk-label';
-      label.textContent = r.label;
-      label.title = r.label;
-      main.appendChild(label);
-      if (state.showBar) {
-        var bar = document.createElement('div');
-        bar.className = 'rk-bar';
-        var fill = document.createElement('i');
-        fill.style.width = (maxA > 0 ? Math.max(0, Math.min(100, r.a / maxA * 100)) : 0).toFixed(1) + '%';
-        bar.appendChild(fill);
-        main.appendChild(bar);
-      }
-      row.appendChild(main);
-
-      if (r.trend && r.trend.length) {
-        var cls = state.sparkColor === 'delta' ? (r.trend[r.trend.length - 1] >= r.trend[0] ? 'up' : 'down') : (state.sparkColor || 'accent');
-        var holder = document.createElement('div');
-        holder.style.display = 'flex';
-        holder.innerHTML = sparkSvg(r.trend, cls);
-        holder.title = r.trend.map(function (v) { return formatCompact(v); }).join(' \u2192 ');
-        row.appendChild(holder);
-      }
-
-      var a = document.createElement('div');
-      a.className = 'rk-badge a';
-      a.textContent = r.aFormatted;
-      row.appendChild(a);
-
-      if (r.bFormatted !== null) {
-        var b = document.createElement('div');
-        b.className = 'rk-badge ' + badge2Cls;
-        b.textContent = r.bFormatted;
-        row.appendChild(b);
-      }
-      pdBindClick(row, r.dimRaw);
-      bodyEl.appendChild(row);
-      a.style.color = readableOn(a);
-    });
-    pdApplySelection();
-  }
-
-  var loadTimeoutId = null;
-  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
-  var clickDim = { field: '' };
-  var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
-  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
-  function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
-  function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
-  // pares {fieldName, value} das colunas idxs de uma linha (ignora campos sem valor)
-  function pdSel(cols, row, idxs) {
-    var out = [];
-    idxs.forEach(function (i) {
-      if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
-    });
-    return out;
-  }
-  // target: valor da dimensão (usa clickDim.field) ou lista de pares {fieldName, value}
-  function pdBindClick(el, target) {
-    if (state.clickFilter === false || target === null || target === undefined) return;
-    var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
-    if (!pairs.length || !pairs[0].fieldName) return;
-    var key = pdKeyOf(pairs), names = pdNames(pairs);
-    clickSets[names] = pairs.map(function (p) { return p.fieldName; });
-    el.setAttribute('data-pd-key', key);
-    el.classList.add('pd-click');
-    el.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      var T = tableau.SelectionUpdateType, ws = pdWs();
-      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
-      var already = !!(selectedKeys && selectedKeys[key]);
-      var p;
-      if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
-      else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
-      else p = ws.selectMarksByValueAsync(pairs, T.Replace);
-      p.catch(function () {});
-    });
-  }
-  function pdApplySelection() {
-    var els = document.querySelectorAll('[data-pd-key]');
-    for (var i = 0; i < els.length; i++) {
-      var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
-      els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
-      els[i].classList.toggle('pd-sel', on);
-    }
-    if (!selLoaded && Object.keys(clickSets).length) { selLoaded = true; pdRefreshSelection(); }
-  }
-  function pdRefreshSelection() {
-    if (state.clickFilter === false || !Object.keys(clickSets).length) return;
-    pdWs().getSelectedMarksAsync().then(function (m) {
-      var keys = null, counts = {}, t = m && m.data && m.data[0];
-      if (t && t.data.length) {
-        keys = {};
-        Object.keys(clickSets).forEach(function (names) {
-          var fields = clickSets[names];
-          var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
-          if (!ci.every(function (k) { return k !== -1; })) return;
-          t.data.forEach(function (r) {
-            var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
-            if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
-          });
-        });
-      }
-      if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
-      selectedKeys = keys;
-      selCount = counts;
-      pdApplySelection();
-    }).catch(function () {});
-  }
-  function pdInitClick() {
-    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
-    // clique fora das marcas limpa a seleção
-    document.addEventListener('click', function () {
-      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
-    });
-    pdRefreshSelection();
-  }
-
-  function updateChart() {
-    titleEl.textContent = 'Carregando...';
-    if (loadTimeoutId) clearTimeout(loadTimeoutId);
-    loadTimeoutId = setTimeout(function () {
-      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
-      bodyEl.innerHTML = '';
-    }, 8000);
-
-    var worksheet = tableau.extensions.worksheetContent.worksheet;
-    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
-      clearTimeout(loadTimeoutId);
-      if (!sumData || !sumData.columns || sumData.columns.length === 0) {
-        titleEl.textContent = 'Arraste campos para as Marcas';
-        bodyEl.innerHTML = '';
-        return;
-      }
-
-      var dimIdx = findColumnIndex(sumData.columns, state.dimensionField, defaultDimensionIndex(sumData.columns));
-      var aIdx = findColumnIndex(sumData.columns, state.valueField, defaultMeasureIndex(sumData.columns, dimIdx));
-      var bIdx = state.value2Field ? findColumnIndex(sumData.columns, state.value2Field, -1) : -1;
-
-      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
-        ? state.customLabel
-        : sumData.columns[aIdx].fieldName;
-      titleEl.classList.toggle('hidden', state.showLabel === false);
-
-      clickDim.field = sumData.columns[dimIdx].fieldName;
-      var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
-      var tIdx = state.trendField ? findColumnIndex(sumData.columns, state.trendField, -1) : -1;
-      var sIdx = findColumnIndex(sumData.columns, state.trendValueField, aIdx);
-      var rows;
-      if (tIdx === -1) {
-        rows = (sumData.data || []).map(function (row) {
-          return {
-            label: row[dimIdx] ? row[dimIdx].formattedValue : '',
-            dimRaw: row[dimIdx] ? row[dimIdx].value : null,
-            a: num(row[aIdx]),
-            aFormatted: fmtCell(row[aIdx]),
-            bFormatted: bIdx !== -1 ? fmtCell(row[bIdx]) : null
-          };
-        });
-      } else {
-        // uma linha por categoria x período: agrupa por categoria, ordena os períodos e agrega o selo
-        var tType = sumData.columns[tIdx].dataType;
-        var groups = [], byLabel = {};
-        (sumData.data || []).forEach(function (row, i) {
-          var label = row[dimIdx] ? row[dimIdx].formattedValue : '';
-          var g = byLabel[label];
-          if (!g) { g = byLabel[label] = { label: label, dimRaw: row[dimIdx] ? row[dimIdx].value : null, points: [] }; groups.push(g); }
-          var raw = row[tIdx] ? row[tIdx].value : null;
-          var k = typeof raw === 'number' ? raw : ((tType === 'date' || tType === 'date-time') ? Date.parse(raw) : NaN);
-          g.points.push({ k: k, i: i, a: num(row[aIdx]), b: bIdx !== -1 ? num(row[bIdx]) : 0, s: num(row[sIdx]) });
-        });
-        var sum = function (v) { return v.reduce(function (x, y) { return x + y; }, 0); };
-        var aggs = {
-          sum: sum,
-          last: function (v) { return v[v.length - 1]; },
-          avg: function (v) { return sum(v) / v.length; },
-          max: function (v) { return Math.max.apply(null, v); },
-          min: function (v) { return Math.min.apply(null, v); }
-        };
-        var agg = aggs[state.aggregate] || aggs.sum;
-        rows = groups.map(function (g) {
-          if (g.points.every(function (p) { return !isNaN(p.k); })) g.points.sort(function (p, q) { return p.k - q.k || p.i - q.i; });
-          var a = agg(g.points.map(function (p) { return p.a; }));
-          return {
-            label: g.label, dimRaw: g.dimRaw, a: a, aFormatted: formatCompact(a),
-            bFormatted: bIdx !== -1 ? formatCompact(agg(g.points.map(function (p) { return p.b; }))) : null,
-            trend: g.points.map(function (p) { return p.s; })
-          };
-        });
-      }
-
-      if (state.sortOrder === 'desc') rows.sort(function (x, y) { return y.a - x.a; });
-      else if (state.sortOrder === 'asc') rows.sort(function (x, y) { return x.a - y.a; });
-
-      var n = parseInt(state.topN, 10);
-      if (!isNaN(n) && n > 0) rows = rows.slice(0, n);
-
-      lastRows = rows;
-      render();
-    }).catch(function (err) {
-      clearTimeout(loadTimeoutId);
-      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
-      bodyEl.innerHTML = '';
-    });
-  }
-
-  function openConfigDialog() {
-    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/rank-list-config.html', '', { height: 640, width: 340 })
-      .then(function () { loadState(); updateChart(); })
-      .catch(function (error) {
-      });
-  }
-
-  if (typeof tableau === 'undefined' || !tableau.extensions) {
-    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
-    return;
-  }
-
-  var initTimeoutId = setTimeout(function () {
-    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
-  }, 15000);
-
-  try {
-    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
-      clearTimeout(initTimeoutId);
-      loadState();
-      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
-      pdInitClick();
-      updateChart();
-    }).catch(function (err) {
-      clearTimeout(initTimeoutId);
-      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
-    });
-  } catch (syncErr) {
-    clearTimeout(initTimeoutId);
-    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
-  }
+var STATE_KEY = 'projedataRankState';
+var root = document.getElementById('chart-root');
+var titleEl = document.getElementById('chart-title');
+var bodyEl = document.getElementById('chart-body');
+var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+function formatCompact(v) {
+var dec = parseInt(state.decimals, 10);
+var hasDec = !isNaN(dec) && dec >= 0;
+var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+var fixed = DISPLAY_UNITS[state.displayUnits];
+if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+var abs = Math.abs(v);
+if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+return v.toLocaleString('pt-BR', opts);
+}
+function fmtCell(cell) {
+if (!cell) return '';
+if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+return cell.formattedValue;
+}
+var state = {
+displayUnits: '', decimals: '',
+accent: '', customLabel: '', showLabel: true,
+dimensionField: '', valueField: '', value2Field: '',
+topN: 5, sortOrder: 'desc', showRank: true, badge2Style: 'dark',
+trendField: '', trendValueField: '', aggregate: 'sum', sparkStyle: 'line', sparkWidth: 'medium', sparkColor: 'accent', showBar: false
+};
+var lastRows = [];
+function applyLayout() {
+ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+var customAccent = state.accent && state.accent.charAt(0) === '#';
+if (state.accent && !customAccent) root.classList.add(state.accent);
+if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+else root.style.removeProperty('--pd-accent-1');
+titleEl.classList.toggle('hidden', state.showLabel === false);
+}
+function loadState() {
+try {
+var saved = tableau.extensions.settings.get(STATE_KEY);
+if (saved) state = Object.assign(state, JSON.parse(saved));
+} catch (e) { /* sem config salva ainda */ }
+applyLayout();
+}
+function findColumnIndex(columns, fieldName, fallback) {
+if (fieldName) {
+var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+if (idx !== -1) return idx;
+var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
+idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
+if (idx !== -1) return idx;
+}
+return fallback;
+}
+function defaultDimensionIndex(columns) {
+var idx = columns.findIndex(function (c) { return c.dataType === 'string'; });
+return idx !== -1 ? idx : 0;
+}
+function defaultMeasureIndex(columns, dimIdx) {
+var idx = columns.findIndex(function (c, i) {
+return i !== dimIdx && (c.dataType === 'int' || c.dataType === 'float');
+});
+if (idx !== -1) return idx;
+return dimIdx === 0 && columns.length > 1 ? 1 : 0;
+}
+function readableOn(el) {
+var m = /rgba?\((\d+),\s*(\d+),\s*(\d+)/.exec(getComputedStyle(el).backgroundColor);
+if (!m) return '';
+var lum = (0.299 * m[1] + 0.587 * m[2] + 0.114 * m[3]) / 255;
+return lum > 0.62 ? '#161616' : '#ffffff';
+}
+var SPARK_W = { small: 60, medium: 90, large: 130 };
+function sparkSvg(vals, colorClass) {
+var W = SPARK_W[state.sparkWidth] || 90, H = 24, pad = 3;
+var svg = '<svg class="rk-spark c-' + colorClass + '" width="' + W + '" height="' + H + '" viewBox="0 0 ' + W + ' ' + H + '">';
+var min = Math.min.apply(null, vals), max = Math.max.apply(null, vals);
+if (state.sparkStyle === 'bars') min = Math.min(0, min); // barras partem do zero
+var span = max - min || 1;
+var n = vals.length;
+var x = function (i) { return n === 1 ? W / 2 : pad + i * (W - 2 * pad) / (n - 1); };
+var y = function (v) { return H - pad - (v - min) / span * (H - 2 * pad); };
+if (state.sparkStyle === 'bars') {
+var bw = Math.max(1.5, (W - 2 * pad) / n - 1.5), y0 = y(0);
+vals.forEach(function (v, i) {
+var yy = y(v), top = Math.min(yy, y0), h = Math.max(Math.abs(y0 - yy), 1);
+svg += '<rect class="sp-bar" x="' + (pad + i * (W - 2 * pad) / n).toFixed(1) + '" y="' + top.toFixed(1) +
+'" width="' + bw.toFixed(1) + '" height="' + h.toFixed(1) + '" opacity="' + (i === n - 1 ? 1 : 0.45) + '"/>';
+});
+} else {
+var pts = vals.map(function (v, i) { return x(i).toFixed(1) + ',' + y(v).toFixed(1); });
+if (n > 1) {
+if (state.sparkStyle === 'area') {
+svg += '<polygon class="sp-area" points="' + pts.join(' ') + ' ' + x(n - 1).toFixed(1) + ',' + (H - pad) + ' ' + x(0).toFixed(1) + ',' + (H - pad) + '"/>';
+}
+svg += '<polyline class="sp-line" points="' + pts.join(' ') + '"/>';
+}
+svg += '<circle class="sp-dot" cx="' + x(n - 1).toFixed(1) + '" cy="' + y(vals[n - 1]).toFixed(1) + '" r="2.4"/>';
+}
+return svg + '</svg>';
+}
+function render() {
+bodyEl.innerHTML = '';
+if (lastRows.length === 0) {
+var empty = document.createElement('div');
+empty.id = 'chart-status';
+empty.textContent = 'Sem dados';
+bodyEl.appendChild(empty);
+return;
+}
+var badge2Cls = 'b-' + (state.badge2Style || 'dark');
+var maxA = Math.max.apply(null, lastRows.map(function (r) { return r.a; }));
+lastRows.forEach(function (r, i) {
+var row = document.createElement('div');
+row.className = 'rk-row';
+if (state.showRank !== false) {
+var pos = document.createElement('div');
+pos.className = 'rk-pos';
+pos.textContent = String(i + 1);
+row.appendChild(pos);
+}
+var main = document.createElement('div');
+main.className = 'rk-main';
+var label = document.createElement('div');
+label.className = 'rk-label';
+label.textContent = r.label;
+label.title = r.label;
+main.appendChild(label);
+if (state.showBar) {
+var bar = document.createElement('div');
+bar.className = 'rk-bar';
+var fill = document.createElement('i');
+fill.style.width = (maxA > 0 ? Math.max(0, Math.min(100, r.a / maxA * 100)) : 0).toFixed(1) + '%';
+bar.appendChild(fill);
+main.appendChild(bar);
+}
+row.appendChild(main);
+if (r.trend && r.trend.length) {
+var cls = state.sparkColor === 'delta' ? (r.trend[r.trend.length - 1] >= r.trend[0] ? 'up' : 'down') : (state.sparkColor || 'accent');
+var holder = document.createElement('div');
+holder.style.display = 'flex';
+holder.innerHTML = sparkSvg(r.trend, cls);
+holder.title = r.trend.map(function (v) { return formatCompact(v); }).join(' \u2192 ');
+row.appendChild(holder);
+}
+var a = document.createElement('div');
+a.className = 'rk-badge a';
+a.textContent = r.aFormatted;
+row.appendChild(a);
+if (r.bFormatted !== null) {
+var b = document.createElement('div');
+b.className = 'rk-badge ' + badge2Cls;
+b.textContent = r.bFormatted;
+row.appendChild(b);
+}
+pdBindClick(row, r.dimRaw);
+bodyEl.appendChild(row);
+a.style.color = readableOn(a);
+});
+pdApplySelection();
+}
+var loadTimeoutId = null;
+/* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+var clickDim = { field: '' };
+var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
+function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
+function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
+function pdSel(cols, row, idxs) {
+var out = [];
+idxs.forEach(function (i) {
+if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
+});
+return out;
+}
+function pdBindClick(el, target) {
+if (state.clickFilter === false || target === null || target === undefined) return;
+var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
+if (!pairs.length || !pairs[0].fieldName) return;
+var key = pdKeyOf(pairs), names = pdNames(pairs);
+clickSets[names] = pairs.map(function (p) { return p.fieldName; });
+el.setAttribute('data-pd-key', key);
+el.classList.add('pd-click');
+el.addEventListener('click', function (ev) {
+ev.stopPropagation();
+var T = tableau.SelectionUpdateType, ws = pdWs();
+var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+var already = !!(selectedKeys && selectedKeys[key]);
+var p;
+if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
+else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
+else p = ws.selectMarksByValueAsync(pairs, T.Replace);
+p.catch(function () {});
+});
+}
+function pdApplySelection() {
+var els = document.querySelectorAll('[data-pd-key]');
+for (var i = 0; i < els.length; i++) {
+var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
+els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
+els[i].classList.toggle('pd-sel', on);
+}
+}
+function pdRefreshSelection() {
+if (state.clickFilter === false || !Object.keys(clickSets).length) return;
+pdWs().getSelectedMarksAsync().then(function (m) {
+var keys = null, counts = {}, t = m && m.data && m.data[0];
+if (t && t.data.length) {
+keys = {};
+Object.keys(clickSets).forEach(function (names) {
+var fields = clickSets[names];
+var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
+if (!ci.every(function (k) { return k !== -1; })) return;
+t.data.forEach(function (r) {
+var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
+if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
+});
+});
+}
+if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
+selectedKeys = keys;
+selCount = counts;
+pdApplySelection();
+}).catch(function () {});
+}
+function pdInitClick() {
+pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+document.addEventListener('click', function () {
+if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+});
+pdRefreshSelection();
+}
+function updateChart() {
+titleEl.textContent = 'Carregando...';
+if (loadTimeoutId) clearTimeout(loadTimeoutId);
+loadTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+bodyEl.innerHTML = '';
+}, 8000);
+var worksheet = tableau.extensions.worksheetContent.worksheet;
+worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+clearTimeout(loadTimeoutId);
+if (!sumData || !sumData.columns || sumData.columns.length === 0) {
+titleEl.textContent = 'Arraste campos para as Marcas';
+bodyEl.innerHTML = '';
+return;
+}
+var dimIdx = findColumnIndex(sumData.columns, state.dimensionField, defaultDimensionIndex(sumData.columns));
+var aIdx = findColumnIndex(sumData.columns, state.valueField, defaultMeasureIndex(sumData.columns, dimIdx));
+var bIdx = state.value2Field ? findColumnIndex(sumData.columns, state.value2Field, -1) : -1;
+titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+? state.customLabel
+: sumData.columns[aIdx].fieldName;
+titleEl.classList.toggle('hidden', state.showLabel === false);
+clickDim.field = sumData.columns[dimIdx].fieldName;
+var num = function (cell) { return cell && typeof cell.value === 'number' && !isNaN(cell.value) ? cell.value : 0; };
+var tIdx = state.trendField ? findColumnIndex(sumData.columns, state.trendField, -1) : -1;
+var sIdx = findColumnIndex(sumData.columns, state.trendValueField, aIdx);
+var rows;
+if (tIdx === -1) {
+rows = (sumData.data || []).map(function (row) {
+return {
+label: row[dimIdx] ? row[dimIdx].formattedValue : '',
+dimRaw: row[dimIdx] ? row[dimIdx].value : null,
+a: num(row[aIdx]),
+aFormatted: fmtCell(row[aIdx]),
+bFormatted: bIdx !== -1 ? fmtCell(row[bIdx]) : null
+};
+});
+} else {
+var tType = sumData.columns[tIdx].dataType;
+var groups = [], byLabel = {};
+(sumData.data || []).forEach(function (row, i) {
+var label = row[dimIdx] ? row[dimIdx].formattedValue : '';
+var g = byLabel[label];
+if (!g) { g = byLabel[label] = { label: label, dimRaw: row[dimIdx] ? row[dimIdx].value : null, points: [] }; groups.push(g); }
+var raw = row[tIdx] ? row[tIdx].value : null;
+var k = typeof raw === 'number' ? raw : ((tType === 'date' || tType === 'date-time') ? Date.parse(raw) : NaN);
+g.points.push({ k: k, i: i, a: num(row[aIdx]), b: bIdx !== -1 ? num(row[bIdx]) : 0, s: num(row[sIdx]) });
+});
+var sum = function (v) { return v.reduce(function (x, y) { return x + y; }, 0); };
+var aggs = {
+sum: sum,
+last: function (v) { return v[v.length - 1]; },
+avg: function (v) { return sum(v) / v.length; },
+max: function (v) { return Math.max.apply(null, v); },
+min: function (v) { return Math.min.apply(null, v); }
+};
+var agg = aggs[state.aggregate] || aggs.sum;
+rows = groups.map(function (g) {
+if (g.points.every(function (p) { return !isNaN(p.k); })) g.points.sort(function (p, q) { return p.k - q.k || p.i - q.i; });
+var a = agg(g.points.map(function (p) { return p.a; }));
+return {
+label: g.label, dimRaw: g.dimRaw, a: a, aFormatted: formatCompact(a),
+bFormatted: bIdx !== -1 ? formatCompact(agg(g.points.map(function (p) { return p.b; }))) : null,
+trend: g.points.map(function (p) { return p.s; })
+};
+});
+}
+if (state.sortOrder === 'desc') rows.sort(function (x, y) { return y.a - x.a; });
+else if (state.sortOrder === 'asc') rows.sort(function (x, y) { return x.a - y.a; });
+var n = parseInt(state.topN, 10);
+if (!isNaN(n) && n > 0) rows = rows.slice(0, n);
+lastRows = rows;
+render();
+}).catch(function (err) {
+clearTimeout(loadTimeoutId);
+titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+bodyEl.innerHTML = '';
+});
+}
+function openConfigDialog() {
+tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/rank-list-config.html', '', { height: 640, width: 340 })
+.then(function () { loadState(); updateChart(); })
+.catch(function (error) {
+});
+}
+if (typeof tableau === 'undefined' || !tableau.extensions) {
+titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+return;
+}
+var initTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+}, 15000);
+try {
+tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+clearTimeout(initTimeoutId);
+loadState();
+tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+pdInitClick();
+updateChart();
+}).catch(function (err) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+});
+} catch (syncErr) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+}
 })();
 </script>
-
 </body>
 </html>

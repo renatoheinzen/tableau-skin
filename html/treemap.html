@@ -3,518 +3,474 @@
 <head>
 <meta charset="UTF-8">
 <title>Projedata Treemap</title>
-<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api/lib/tableau.extensions.1.latest.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/tableau/extensions-api@1.17.0/lib/tableau.extensions.1.latest.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700&display=swap">
 <link rel="stylesheet" href="../assets/tokens.css">
 <style>
-  html, body {
-    margin: 0; padding: 0; width: 100%; height: 100%;
-    font-family: var(--pd-font);
-    overflow: hidden;
-    background: transparent;
-  }
-  #chart-root {
-    width: 100%; height: 100%;
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    padding: var(--pd-card-padding);
-    background: var(--pd-card-bg);
-    border: var(--pd-card-border-width) solid var(--pd-card-border-color);
-    border-radius: var(--pd-card-radius);
-    box-shadow: var(--pd-card-shadow);
-  }
-  #chart-title {
-    font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
-    text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
-    margin-bottom: 8px;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-  }
-  #chart-title.hidden { display: none !important; }
-  #chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
-
-  #chart-body { flex: 1; min-height: 0; position: relative; }
-  .tile, .group {
-    position: absolute; box-sizing: border-box; overflow: hidden;
-  }
-  .tile {
-    padding: 4px 6px;
-    display: flex; flex-direction: column; justify-content: flex-start; gap: 1px;
-    background: var(--pd-track); color: var(--pd-text);
-  }
-  #chart-root.rounded .tile { border-radius: 6px; }
-  .tile-name { font-size: 11px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  .tile-value { font-size: 11px; font-weight: 700; line-height: 1.25; white-space: nowrap; opacity: 0.9; }
-  .group-head {
-    font-size: 11px; font-weight: 700; color: var(--pd-text-muted);
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    position: absolute; left: 0; top: 0; right: 0; height: 16px; line-height: 16px;
-  }
-  .pd-tip {
-    position: fixed; z-index: 9999; pointer-events: none; display: none;
-    max-width: 260px; box-sizing: border-box; padding: 8px 12px;
-    font-family: var(--pd-font); font-size: 12px; line-height: 1.35; color: var(--pd-text);
-    background: var(--pd-tooltip-bg, var(--pd-surface));
-    border: 1px solid var(--pd-tooltip-border, var(--pd-card-border-color));
-    border-radius: var(--pd-tooltip-radius, 6px);
-    box-shadow: var(--pd-tooltip-shadow, 0 6px 18px rgba(0,0,0,.35));
-  }
-  .pd-tip.on { display: block; }
-  .pd-tip .tt-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
-  .pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
-  .pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
-  .pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
-  /* clique filtra o dashboard (seleção de marcas) */
-  .pd-click { cursor: pointer; }
-  .pd-dim { opacity: 0.35; }
+html, body {
+margin: 0; padding: 0; width: 100%; height: 100%;
+font-family: var(--pd-font);
+overflow: hidden;
+background: transparent;
+}
+#chart-root {
+width: 100%; height: 100%;
+display: flex;
+flex-direction: column;
+box-sizing: border-box;
+padding: var(--pd-card-padding);
+background: var(--pd-card-bg);
+border: var(--pd-card-border-width) solid var(--pd-card-border-color);
+border-radius: var(--pd-card-radius);
+box-shadow: var(--pd-card-shadow);
+}
+#chart-title {
+font-size: var(--pd-title-size); font-weight: var(--pd-title-weight); color: var(--pd-text-muted);
+text-transform: var(--pd-title-transform); letter-spacing: var(--pd-title-spacing);
+margin-bottom: 8px;
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+#chart-title.hidden { display: none !important; }
+#chart-status { font-size: 13px; color: var(--pd-text-muted); padding: 8px 0; }
+#chart-body { flex: 1; min-height: 0; position: relative; }
+.tile, .group {
+position: absolute; box-sizing: border-box; overflow: hidden;
+}
+.tile {
+padding: 4px 6px;
+display: flex; flex-direction: column; justify-content: flex-start; gap: 1px;
+background: var(--pd-track); color: var(--pd-text);
+}
+#chart-root.rounded .tile { border-radius: 6px; }
+.tile-name { font-size: 11px; font-weight: 600; line-height: 1.25; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tile-value { font-size: 11px; font-weight: 700; line-height: 1.25; white-space: nowrap; opacity: 0.9; }
+.group-head {
+font-size: 11px; font-weight: 700; color: var(--pd-text-muted);
+white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+position: absolute; left: 0; top: 0; right: 0; height: 16px; line-height: 16px;
+}
+.pd-tip {
+position: fixed; z-index: 9999; pointer-events: none; display: none;
+max-width: 260px; box-sizing: border-box; padding: 8px 12px;
+font-family: var(--pd-font); font-size: 12px; line-height: 1.35; color: var(--pd-text);
+background: var(--pd-tooltip-bg, var(--pd-surface));
+border: 1px solid var(--pd-tooltip-border, var(--pd-card-border-color));
+border-radius: var(--pd-tooltip-radius, 6px);
+box-shadow: var(--pd-tooltip-shadow, 0 6px 18px rgba(0,0,0,.35));
+}
+.pd-tip.on { display: block; }
+.pd-tip .tt-h { display: flex; align-items: center; gap: 6px; font-weight: 600; }
+.pd-tip .tt-h i { width: 8px; height: 8px; border-radius: 2px; flex: 0 0 auto; }
+.pd-tip .tt-c { margin-top: 3px; font-size: 11px; color: var(--pd-text-muted); }
+.pd-tip .tt-v { margin-top: 2px; font-size: 15px; font-weight: 700; }
+.pd-click { cursor: pointer; }
+.pd-dim { opacity: 0.35; }
 </style>
 </head>
 <body>
-
 <div id="chart-root" class="rounded">
-  <div id="chart-title">Carregando...</div>
-  <div id="chart-body"></div>
+<div id="chart-title">Carregando...</div>
+<div id="chart-body"></div>
 </div>
-
 <script>
 (function () {
-  var STATE_KEY = 'projedataTreemapState';
-  var root = document.getElementById('chart-root');
-  var titleEl = document.getElementById('chart-title');
-  var bodyEl = document.getElementById('chart-body');
-
-  var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
-
-  function formatCompact(v) {
-    var dec = parseInt(state.decimals, 10);
-    var hasDec = !isNaN(dec) && dec >= 0;
-    var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
-    var fixed = DISPLAY_UNITS[state.displayUnits];
-    if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
-    var abs = Math.abs(v);
-    if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
-    if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
-    if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
-    if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
-    return v.toLocaleString('pt-BR', opts);
-  }
-
-  // Valores: padrão = texto formatado pelo Tableau; com unidade/casas escolhidas, usa o formato compacto
-  function fmtCell(cell) {
-    if (!cell) return '';
-    if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
-    return cell.formattedValue;
-  }
-
-  var state = {
-    accent: '', displayUnits: '', decimals: '',
-    customLabel: '', showLabel: true,
-    dimensionField: '', sizeField: '', colorField: '', groupField: '',
-    colorMode: 'scale', scale: 'accent',
-    showNames: true, showValues: true, tileShape: 'rounded', gap: '2', maxItems: 30
-  };
-  var model = null; // { items: [{ name, group, size, color, sizeText, colorText }] }
-
-  var SCALE_BASE = { accent: 'var(--pd-accent-1)', accent2: 'var(--pd-accent-2)', dark: 'var(--pd-text)' };
-  var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
-
-  function loadState() {
-    try {
-      var saved = tableau.extensions.settings.get(STATE_KEY);
-      if (saved) state = Object.assign(state, JSON.parse(saved));
-    } catch (e) { /* sem config salva ainda */ }
-    ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
-    // accent pode ser uma classe do tema ou uma cor personalizada (#RRGGBB)
-    var customAccent = state.accent && state.accent.charAt(0) === '#';
-    if (state.accent && !customAccent) root.classList.add(state.accent);
-    if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
-    else root.style.removeProperty('--pd-accent-1');
-    root.classList.toggle('rounded', state.tileShape !== 'square');
-    titleEl.classList.toggle('hidden', state.showLabel === false);
-  }
-
-  function findColumnIndex(columns, fieldName, fallback) {
-    if (fieldName) {
-      var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
-      if (idx !== -1) return idx;
-      // o Tableau entrega cálculo agregado como AGG(nome) ou AGREG(nome), conforme o idioma: casa também sem o prefixo
-      var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
-      idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
-      if (idx !== -1) return idx;
-    }
-    return fallback;
-  }
-
-  // Aceita rgb(), rgba() e color(srgb r g b) (formatos que o navegador devolve para color-mix)
-  function luminanceOf(cssColor) {
-    var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(cssColor);
-    var r, g, b;
-    if (m) { r = +m[1] / 255; g = +m[2] / 255; b = +m[3] / 255; }
-    else {
-      m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(cssColor);
-      if (!m) return null;
-      r = +m[1]; g = +m[2]; b = +m[3];
-    }
-    return 0.299 * r + 0.587 * g + 0.114 * b;
-  }
-
-  /* ---------- layout squarified ---------- */
-  // items: [{ v }] já ordenados do maior para o menor; devolve [{ item, x, y, w, h }]
-  function squarify(items, x, y, w, h) {
-    var out = [];
-    var total = items.reduce(function (s, i) { return s + i.v; }, 0);
-    if (!items.length || total <= 0 || w <= 0 || h <= 0) return out;
-    var scale = (w * h) / total;
-    var areas = items.map(function (i) { return i.v * scale; });
-
-    function worst(row, side) {
-      var s = row.reduce(function (a, b) { return a + b; }, 0);
-      var mx = Math.max.apply(null, row), mn = Math.min.apply(null, row);
-      return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
-    }
-
-    var i = 0;
-    while (i < items.length) {
-      var side = Math.min(w, h);
-      var row = [areas[i]], j = i + 1;
-      while (j < items.length && worst(row.concat(areas[j]), side) <= worst(row, side)) { row.push(areas[j]); j++; }
-      var rowArea = row.reduce(function (a, b) { return a + b; }, 0);
-      var thick = rowArea / side; // espessura da faixa
-      var off = 0;
-      for (var k = 0; k < row.length; k++) {
-        var len = row[k] / thick;
-        if (w >= h) out.push({ item: items[i + k], x: x, y: y + off, w: thick, h: len });
-        else out.push({ item: items[i + k], x: x + off, y: y, w: len, h: thick });
-        off += len;
-      }
-      if (w >= h) { x += thick; w -= thick; } else { y += thick; h -= thick; }
-      i = j;
-    }
-    return out;
-  }
-
-  function render() {
-    bodyEl.innerHTML = '';
-    if (!model || model.items.length === 0) {
-      var empty = document.createElement('div');
-      empty.id = 'chart-status';
-      empty.textContent = 'Sem dados';
-      bodyEl.appendChild(empty);
-      return;
-    }
-    var W = bodyEl.clientWidth, H = bodyEl.clientHeight;
-    if (W <= 0 || H <= 0) return;
-    var gap = Math.max(0, parseInt(state.gap, 10) || 0);
-    var items = model.items;
-
-    // escala de cor (medida de cor, ou o próprio tamanho quando não há)
-    var cvals = items.map(function (i) { return i.color; });
-    var cmin = Math.min.apply(null, cvals), cmax = Math.max.apply(null, cvals);
-    var base = SCALE_BASE[state.scale] || SCALE_BASE.accent;
-    var seriesColors = {};
-    var seriesKeys = [];
-    var seriesBy = state.groupField ? 'group' : 'name';
-    items.forEach(function (i) { if (seriesKeys.indexOf(i[seriesBy]) === -1) seriesKeys.push(i[seriesBy]); });
-    seriesKeys.forEach(function (k, idx) { seriesColors[k] = 'var(--pd-series-' + ((idx % 8) + 1) + ')'; });
-
-    var tiles = [];
-    function addTile(it, x, y, w, h) {
-      var el = document.createElement('div');
-      el.className = 'tile';
-      var rx = x + gap / 2, ry = y + gap / 2, rw = Math.max(0, w - gap), rh = Math.max(0, h - gap);
-      el.style.left = rx + 'px'; el.style.top = ry + 'px'; el.style.width = rw + 'px'; el.style.height = rh + 'px';
-      el.title = it.name + (it.group ? ' (' + it.group + ')' : '') + ': ' + it.sizeText;
-      if (state.colorMode === 'series') {
-        el.style.background = seriesColors[it[seriesBy]];
-      } else {
-        var t = cmax === cmin ? 1 : (it.color - cmin) / (cmax - cmin);
-        el.style.background = 'color-mix(in srgb, ' + base + ' ' + Math.round(18 + 82 * t) + '%, var(--pd-track))';
-      }
-      if (state.showNames !== false && rw >= 48 && rh >= 24) {
-        var n = document.createElement('div');
-        n.className = 'tile-name';
-        n.textContent = it.name;
-        el.appendChild(n);
-        if (state.showValues !== false && rh >= 40) {
-          var v = document.createElement('div');
-          v.className = 'tile-value';
-          v.textContent = it.sizeText;
-          el.appendChild(v);
-        }
-      }
-      pdBindClick(el, it.sel);
-      bodyEl.appendChild(el);
-      tiles.push(el);
-    }
-
-    if (state.groupField) {
-      var groups = [], byGroup = {};
-      items.forEach(function (i) {
-        if (!byGroup[i.group]) { byGroup[i.group] = { name: i.group, v: 0, items: [] }; groups.push(byGroup[i.group]); }
-        byGroup[i.group].v += i.size; byGroup[i.group].items.push(i);
-      });
-      groups.sort(function (a, b) { return b.v - a.v; });
-      squarify(groups, 0, 0, W, H).forEach(function (g) {
-        var grp = g.item;
-        var head = g.h >= 40 && g.w >= 60 ? 16 : 0;
-        if (head) {
-          var hd = document.createElement('div');
-          hd.className = 'group-head';
-          hd.style.left = (g.x + gap / 2) + 'px'; hd.style.top = (g.y + gap / 2) + 'px';
-          hd.style.width = Math.max(0, g.w - gap) + 'px'; hd.style.right = 'auto';
-          hd.textContent = grp.name;
-          bodyEl.appendChild(hd);
-        }
-        var inner = grp.items.slice().sort(function (a, b) { return b.size - a.size; }).map(function (i) { i.v = i.size; return i; });
-        squarify(inner, g.x, g.y + head, g.w, g.h - head).forEach(function (r) { addTile(r.item, r.x, r.y, r.w, r.h); });
-      });
-    } else {
-      var flat = items.slice().sort(function (a, b) { return b.size - a.size; }).map(function (i) { i.v = i.size; return i; });
-      squarify(flat, 0, 0, W, H).forEach(function (r) { addTile(r.item, r.x, r.y, r.w, r.h); });
-    }
-
-    // texto claro/escuro conforme a cor final do bloco
-    tiles.forEach(function (el) {
-      var lum = luminanceOf(getComputedStyle(el).backgroundColor);
-      el.style.color = lum != null && lum < 0.55 ? '#ffffff' : '#161616';
-    });
-    pdApplySelection();
-  }
-
-  var loadTimeoutId = null;
-  /* ===== Clique seleciona a marca (filtra o dashboard) ===== */
-  var clickDim = { field: '' };
-  var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
-  function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
-  function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
-  function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
-  // pares {fieldName, value} das colunas idxs de uma linha (ignora campos sem valor)
-  function pdSel(cols, row, idxs) {
-    var out = [];
-    idxs.forEach(function (i) {
-      if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
-    });
-    return out;
-  }
-  // target: valor da dimensão (usa clickDim.field) ou lista de pares {fieldName, value}
-  function pdBindClick(el, target) {
-    if (state.clickFilter === false || target === null || target === undefined) return;
-    var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
-    if (!pairs.length || !pairs[0].fieldName) return;
-    var key = pdKeyOf(pairs), names = pdNames(pairs);
-    clickSets[names] = pairs.map(function (p) { return p.fieldName; });
-    el.setAttribute('data-pd-key', key);
-    el.classList.add('pd-click');
-    el.addEventListener('click', function (ev) {
-      ev.stopPropagation();
-      var T = tableau.SelectionUpdateType, ws = pdWs();
-      var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
-      var already = !!(selectedKeys && selectedKeys[key]);
-      var p;
-      if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
-      else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
-      else p = ws.selectMarksByValueAsync(pairs, T.Replace);
-      p.catch(function () {});
-    });
-  }
-  function pdApplySelection() {
-    var els = document.querySelectorAll('[data-pd-key]');
-    for (var i = 0; i < els.length; i++) {
-      var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
-      els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
-      els[i].classList.toggle('pd-sel', on);
-    }
-    if (!selLoaded && Object.keys(clickSets).length) { selLoaded = true; pdRefreshSelection(); }
-  }
-  function pdRefreshSelection() {
-    if (state.clickFilter === false || !Object.keys(clickSets).length) return;
-    pdWs().getSelectedMarksAsync().then(function (m) {
-      var keys = null, counts = {}, t = m && m.data && m.data[0];
-      if (t && t.data.length) {
-        keys = {};
-        Object.keys(clickSets).forEach(function (names) {
-          var fields = clickSets[names];
-          var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
-          if (!ci.every(function (k) { return k !== -1; })) return;
-          t.data.forEach(function (r) {
-            var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
-            if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
-          });
-        });
-      }
-      if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
-      selectedKeys = keys;
-      selCount = counts;
-      pdApplySelection();
-    }).catch(function () {});
-  }
-  function pdInitClick() {
-    pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
-    // clique fora das marcas limpa a seleção
-    document.addEventListener('click', function () {
-      if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
-    });
-    pdRefreshSelection();
-  }
-
-  function updateChart() {
-    titleEl.textContent = 'Carregando...';
-    if (loadTimeoutId) clearTimeout(loadTimeoutId);
-    loadTimeoutId = setTimeout(function () {
-      titleEl.textContent = 'Tempo excedido — abra o console (F12)';
-      bodyEl.innerHTML = '';
-    }, 8000);
-
-    var worksheet = tableau.extensions.worksheetContent.worksheet;
-    worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
-      clearTimeout(loadTimeoutId);
-      if (!sumData || !sumData.columns || sumData.columns.length < 2) {
-        titleEl.textContent = 'Arraste 1 campo de texto e 1 medida para as Marcas';
-        bodyEl.innerHTML = '';
-        return;
-      }
-
-      var cols = sumData.columns;
-      var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
-      var dimIdx = findColumnIndex(cols, state.dimensionField, cols.findIndex(function (c) { return !isNum(c); }));
-      if (dimIdx === -1) dimIdx = 0;
-      var sizeIdx = findColumnIndex(cols, state.sizeField, -1);
-      if (sizeIdx === -1) {
-        sizeIdx = cols.findIndex(function (c, i) { return i !== dimIdx && isNum(c); });
-        if (sizeIdx === -1) sizeIdx = cols.length - 1;
-      }
-      var colorIdx = findColumnIndex(cols, state.colorField, -1);
-      var groupIdx = findColumnIndex(cols, state.groupField, -1);
-
-      titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
-        ? state.customLabel
-        : cols[sizeIdx].fieldName;
-      titleEl.classList.toggle('hidden', state.showLabel === false);
-
-      var items = [];
-      (sumData.data || []).forEach(function (row) {
-        var raw = row[sizeIdx] ? row[sizeIdx].value : null;
-        var size = (typeof raw === 'number' && !isNaN(raw)) ? raw : 0;
-        if (size <= 0) return; // tamanho precisa ser positivo
-        var craw = colorIdx !== -1 && row[colorIdx] ? row[colorIdx].value : null;
-        items.push({
-          name: row[dimIdx] ? row[dimIdx].formattedValue : '',
-          sel: pdSel(cols, row, [dimIdx, groupIdx]),
-          group: groupIdx !== -1 && row[groupIdx] ? row[groupIdx].formattedValue : '',
-          size: size,
-          color: (colorIdx !== -1 && typeof craw === 'number' && !isNaN(craw)) ? craw : size,
-          sizeText: fmtCell(row[sizeIdx])
-        });
-      });
-
-      // limite de blocos: o resto vira "Outros" (soma dos tamanhos)
-      var max = parseInt(state.maxItems, 10);
-      if (max > 0 && items.length > max) {
-        items.sort(function (a, b) { return b.size - a.size; });
-        var rest = items.slice(max - 1);
-        var restSize = rest.reduce(function (s, i) { return s + i.size; }, 0);
-        items = items.slice(0, max - 1);
-        items.push({ name: 'Outros', group: '', size: restSize, color: restSize / rest.length, sizeText: formatCompact(restSize) });
-      }
-      model = { items: items };
-      render();
-    }).catch(function (err) {
-      clearTimeout(loadTimeoutId);
-      titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
-      bodyEl.innerHTML = '';
-    });
-  }
-
-  function openConfigDialog() {
-    tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/treemap-config.html', '', { height: 760, width: 340 })
-      .then(function () { loadState(); updateChart(); })
-      .catch(function (error) {
-      });
-  }
-
-  if (typeof tableau === 'undefined' || !tableau.extensions) {
-    titleEl.textContent = 'Falha ao carregar script da API do Tableau';
-    return;
-  }
-
-  // reencaixa os blocos quando o tamanho da zona muda
-  var resizeTimer = null;
-  window.addEventListener('resize', function () {
-    clearTimeout(resizeTimer);
-    resizeTimer = setTimeout(render, 80);
-  });
-
-  var initTimeoutId = setTimeout(function () {
-    titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
-  }, 15000);
-
-  try {
-    tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
-      clearTimeout(initTimeoutId);
-      loadState();
-      tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
-      pdInitClick();
-      updateChart();
-    }).catch(function (err) {
-      clearTimeout(initTimeoutId);
-      titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
-    });
-  } catch (syncErr) {
-    clearTimeout(initTimeoutId);
-    titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
-  }
+var STATE_KEY = 'projedataTreemapState';
+var root = document.getElementById('chart-root');
+var titleEl = document.getElementById('chart-title');
+var bodyEl = document.getElementById('chart-body');
+var DISPLAY_UNITS = { K: [1e3, ' K'], M: [1e6, ' M'], B: [1e9, ' B'], T: [1e12, ' T'] };
+function formatCompact(v) {
+var dec = parseInt(state.decimals, 10);
+var hasDec = !isNaN(dec) && dec >= 0;
+var opts = hasDec ? { minimumFractionDigits: dec, maximumFractionDigits: dec } : { maximumFractionDigits: 1 };
+var fixed = DISPLAY_UNITS[state.displayUnits];
+if (fixed) return (v / fixed[0]).toLocaleString('pt-BR', opts) + fixed[1];
+var abs = Math.abs(v);
+if (abs >= 1e12) return (v / 1e12).toLocaleString('pt-BR', opts) + ' T';
+if (abs >= 1e9) return (v / 1e9).toLocaleString('pt-BR', opts) + ' B';
+if (abs >= 1e6) return (v / 1e6).toLocaleString('pt-BR', opts) + ' M';
+if (abs >= 1e3) return (v / 1e3).toLocaleString('pt-BR', opts) + ' K';
+return v.toLocaleString('pt-BR', opts);
+}
+function fmtCell(cell) {
+if (!cell) return '';
+if ((state.displayUnits || state.decimals !== '') && typeof cell.value === 'number' && !isNaN(cell.value)) return formatCompact(cell.value);
+return cell.formattedValue;
+}
+var state = {
+accent: '', displayUnits: '', decimals: '',
+customLabel: '', showLabel: true,
+dimensionField: '', sizeField: '', colorField: '', groupField: '',
+colorMode: 'scale', scale: 'accent',
+showNames: true, showValues: true, tileShape: 'rounded', gap: '2', maxItems: 30
+};
+var model = null; // { items: [{ name, group, size, color, sizeText, colorText }] }
+var SCALE_BASE = { accent: 'var(--pd-accent-1)', accent2: 'var(--pd-accent-2)', dark: 'var(--pd-text)' };
+var ACCENT_CLASSES = ['accent-laranja', 'accent-amarelo', 'accent-azul-escuro'];
+function loadState() {
+try {
+var saved = tableau.extensions.settings.get(STATE_KEY);
+if (saved) state = Object.assign(state, JSON.parse(saved));
+} catch (e) { /* sem config salva ainda */ }
+ACCENT_CLASSES.forEach(function (c) { root.classList.remove(c); });
+var customAccent = state.accent && state.accent.charAt(0) === '#';
+if (state.accent && !customAccent) root.classList.add(state.accent);
+if (customAccent) root.style.setProperty('--pd-accent-1', state.accent);
+else root.style.removeProperty('--pd-accent-1');
+root.classList.toggle('rounded', state.tileShape !== 'square');
+titleEl.classList.toggle('hidden', state.showLabel === false);
+}
+function findColumnIndex(columns, fieldName, fallback) {
+if (fieldName) {
+var idx = columns.findIndex(function (c) { return c.fieldName === fieldName; });
+if (idx !== -1) return idx;
+var bare = function (n) { var m = /^[^()]+\((.*)\)$/.exec(n || ''); return m ? m[1] : n; };
+idx = columns.findIndex(function (c) { return bare(c.fieldName) === bare(fieldName); });
+if (idx !== -1) return idx;
+}
+return fallback;
+}
+function luminanceOf(cssColor) {
+var m = /rgba?\(\s*(\d+)[,\s]+(\d+)[,\s]+(\d+)/.exec(cssColor);
+var r, g, b;
+if (m) { r = +m[1] / 255; g = +m[2] / 255; b = +m[3] / 255; }
+else {
+m = /color\(srgb\s+([\d.]+)\s+([\d.]+)\s+([\d.]+)/.exec(cssColor);
+if (!m) return null;
+r = +m[1]; g = +m[2]; b = +m[3];
+}
+return 0.299 * r + 0.587 * g + 0.114 * b;
+}
+/* ---------- layout squarified ---------- */
+function squarify(items, x, y, w, h) {
+var out = [];
+var total = items.reduce(function (s, i) { return s + i.v; }, 0);
+if (!items.length || total <= 0 || w <= 0 || h <= 0) return out;
+var scale = (w * h) / total;
+var areas = items.map(function (i) { return i.v * scale; });
+function worst(row, side) {
+var s = row.reduce(function (a, b) { return a + b; }, 0);
+var mx = Math.max.apply(null, row), mn = Math.min.apply(null, row);
+return Math.max((side * side * mx) / (s * s), (s * s) / (side * side * mn));
+}
+var i = 0;
+while (i < items.length) {
+var side = Math.min(w, h);
+var row = [areas[i]], j = i + 1;
+while (j < items.length && worst(row.concat(areas[j]), side) <= worst(row, side)) { row.push(areas[j]); j++; }
+var rowArea = row.reduce(function (a, b) { return a + b; }, 0);
+var thick = rowArea / side; // espessura da faixa
+var off = 0;
+for (var k = 0; k < row.length; k++) {
+var len = row[k] / thick;
+if (w >= h) out.push({ item: items[i + k], x: x, y: y + off, w: thick, h: len });
+else out.push({ item: items[i + k], x: x + off, y: y, w: len, h: thick });
+off += len;
+}
+if (w >= h) { x += thick; w -= thick; } else { y += thick; h -= thick; }
+i = j;
+}
+return out;
+}
+function render() {
+bodyEl.innerHTML = '';
+if (!model || model.items.length === 0) {
+var empty = document.createElement('div');
+empty.id = 'chart-status';
+empty.textContent = 'Sem dados';
+bodyEl.appendChild(empty);
+return;
+}
+var W = bodyEl.clientWidth, H = bodyEl.clientHeight;
+if (W <= 0 || H <= 0) return;
+var gap = Math.max(0, parseInt(state.gap, 10) || 0);
+var items = model.items;
+var cvals = items.map(function (i) { return i.color; });
+var cmin = Math.min.apply(null, cvals), cmax = Math.max.apply(null, cvals);
+var base = SCALE_BASE[state.scale] || SCALE_BASE.accent;
+var seriesColors = {};
+var seriesKeys = [];
+var seriesBy = state.groupField ? 'group' : 'name';
+items.forEach(function (i) { if (seriesKeys.indexOf(i[seriesBy]) === -1) seriesKeys.push(i[seriesBy]); });
+seriesKeys.forEach(function (k, idx) { seriesColors[k] = 'var(--pd-series-' + ((idx % 8) + 1) + ')'; });
+var tiles = [];
+function addTile(it, x, y, w, h) {
+var el = document.createElement('div');
+el.className = 'tile';
+var rx = x + gap / 2, ry = y + gap / 2, rw = Math.max(0, w - gap), rh = Math.max(0, h - gap);
+el.style.left = rx + 'px'; el.style.top = ry + 'px'; el.style.width = rw + 'px'; el.style.height = rh + 'px';
+el.title = it.name + (it.group ? ' (' + it.group + ')' : '') + ': ' + it.sizeText;
+if (state.colorMode === 'series') {
+el.style.background = seriesColors[it[seriesBy]];
+} else {
+var t = cmax === cmin ? 1 : (it.color - cmin) / (cmax - cmin);
+el.style.background = 'color-mix(in srgb, ' + base + ' ' + Math.round(18 + 82 * t) + '%, var(--pd-track))';
+}
+if (state.showNames !== false && rw >= 48 && rh >= 24) {
+var n = document.createElement('div');
+n.className = 'tile-name';
+n.textContent = it.name;
+el.appendChild(n);
+if (state.showValues !== false && rh >= 40) {
+var v = document.createElement('div');
+v.className = 'tile-value';
+v.textContent = it.sizeText;
+el.appendChild(v);
+}
+}
+pdBindClick(el, it.sel);
+bodyEl.appendChild(el);
+tiles.push(el);
+}
+if (state.groupField) {
+var groups = [], byGroup = {};
+items.forEach(function (i) {
+if (!byGroup[i.group]) { byGroup[i.group] = { name: i.group, v: 0, items: [] }; groups.push(byGroup[i.group]); }
+byGroup[i.group].v += i.size; byGroup[i.group].items.push(i);
+});
+groups.sort(function (a, b) { return b.v - a.v; });
+squarify(groups, 0, 0, W, H).forEach(function (g) {
+var grp = g.item;
+var head = g.h >= 40 && g.w >= 60 ? 16 : 0;
+if (head) {
+var hd = document.createElement('div');
+hd.className = 'group-head';
+hd.style.left = (g.x + gap / 2) + 'px'; hd.style.top = (g.y + gap / 2) + 'px';
+hd.style.width = Math.max(0, g.w - gap) + 'px'; hd.style.right = 'auto';
+hd.textContent = grp.name;
+bodyEl.appendChild(hd);
+}
+var inner = grp.items.slice().sort(function (a, b) { return b.size - a.size; }).map(function (i) { i.v = i.size; return i; });
+squarify(inner, g.x, g.y + head, g.w, g.h - head).forEach(function (r) { addTile(r.item, r.x, r.y, r.w, r.h); });
+});
+} else {
+var flat = items.slice().sort(function (a, b) { return b.size - a.size; }).map(function (i) { i.v = i.size; return i; });
+squarify(flat, 0, 0, W, H).forEach(function (r) { addTile(r.item, r.x, r.y, r.w, r.h); });
+}
+tiles.forEach(function (el) {
+var lum = luminanceOf(getComputedStyle(el).backgroundColor);
+el.style.color = lum != null && lum < 0.55 ? '#ffffff' : '#161616';
+});
+pdApplySelection();
+}
+var loadTimeoutId = null;
+/* ===== Clique seleciona a marca (filtra o dashboard) ===== */
+var clickDim = { field: '' };
+var clickSets = {}, selectedKeys = null, selCount = {}, selLoaded = false;
+function pdWs() { return tableau.extensions.worksheetContent.worksheet; }
+function pdNames(pairs) { return pairs.map(function (p) { return p.fieldName; }).join('\u0002'); }
+function pdKeyOf(pairs) { return pdNames(pairs) + '\u0003' + pairs.map(function (p) { return String(p.value); }).join('\u0001'); }
+function pdSel(cols, row, idxs) {
+var out = [];
+idxs.forEach(function (i) {
+if (i >= 0 && row[i] && row[i].value !== null && row[i].value !== undefined) out.push({ fieldName: cols[i].fieldName, value: row[i].value });
+});
+return out;
+}
+function pdBindClick(el, target) {
+if (state.clickFilter === false || target === null || target === undefined) return;
+var pairs = Array.isArray(target) ? target : [{ fieldName: clickDim.field, value: target }];
+if (!pairs.length || !pairs[0].fieldName) return;
+var key = pdKeyOf(pairs), names = pdNames(pairs);
+clickSets[names] = pairs.map(function (p) { return p.fieldName; });
+el.setAttribute('data-pd-key', key);
+el.classList.add('pd-click');
+el.addEventListener('click', function (ev) {
+ev.stopPropagation();
+var T = tableau.SelectionUpdateType, ws = pdWs();
+var multi = ev.ctrlKey || ev.metaKey || ev.shiftKey;
+var already = !!(selectedKeys && selectedKeys[key]);
+var p;
+if (multi) p = ws.selectMarksByValueAsync(pairs, already ? T.Remove : T.Add);
+else if (already && selCount[names] === 1) p = ws.clearSelectedMarksAsync();
+else p = ws.selectMarksByValueAsync(pairs, T.Replace);
+p.catch(function () {});
+});
+}
+function pdApplySelection() {
+var els = document.querySelectorAll('[data-pd-key]');
+for (var i = 0; i < els.length; i++) {
+var on = !!selectedKeys && !!selectedKeys[els[i].getAttribute('data-pd-key')];
+els[i].classList.toggle('pd-dim', !!selectedKeys && !on);
+els[i].classList.toggle('pd-sel', on);
+}
+}
+function pdRefreshSelection() {
+if (state.clickFilter === false || !Object.keys(clickSets).length) return;
+pdWs().getSelectedMarksAsync().then(function (m) {
+var keys = null, counts = {}, t = m && m.data && m.data[0];
+if (t && t.data.length) {
+keys = {};
+Object.keys(clickSets).forEach(function (names) {
+var fields = clickSets[names];
+var ci = fields.map(function (f) { var k = -1; t.columns.forEach(function (c, i) { if (c.fieldName === f) k = i; }); return k; });
+if (!ci.every(function (k) { return k !== -1; })) return;
+t.data.forEach(function (r) {
+var key = names + '\u0003' + ci.map(function (k) { return String(r[k].value); }).join('\u0001');
+if (!keys[key]) { keys[key] = true; counts[names] = (counts[names] || 0) + 1; }
+});
+});
+}
+if (keys && !Object.keys(keys).length) keys = null; // seleção que não casa com as marcas desenhadas: não esmaece
+selectedKeys = keys;
+selCount = counts;
+pdApplySelection();
+}).catch(function () {});
+}
+function pdInitClick() {
+pdWs().addEventListener(tableau.TableauEventType.MarkSelectionChanged, pdRefreshSelection);
+document.addEventListener('click', function () {
+if (state.clickFilter !== false && selectedKeys) pdWs().clearSelectedMarksAsync().catch(function () {});
+});
+pdRefreshSelection();
+}
+function updateChart() {
+titleEl.textContent = 'Carregando...';
+if (loadTimeoutId) clearTimeout(loadTimeoutId);
+loadTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Tempo excedido — abra o console (F12)';
+bodyEl.innerHTML = '';
+}, 8000);
+var worksheet = tableau.extensions.worksheetContent.worksheet;
+worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+clearTimeout(loadTimeoutId);
+if (!sumData || !sumData.columns || sumData.columns.length < 2) {
+titleEl.textContent = 'Arraste 1 campo de texto e 1 medida para as Marcas';
+bodyEl.innerHTML = '';
+return;
+}
+var cols = sumData.columns;
+var isNum = function (c) { return c.dataType === 'int' || c.dataType === 'float'; };
+var dimIdx = findColumnIndex(cols, state.dimensionField, cols.findIndex(function (c) { return !isNum(c); }));
+if (dimIdx === -1) dimIdx = 0;
+var sizeIdx = findColumnIndex(cols, state.sizeField, -1);
+if (sizeIdx === -1) {
+sizeIdx = cols.findIndex(function (c, i) { return i !== dimIdx && isNum(c); });
+if (sizeIdx === -1) sizeIdx = cols.length - 1;
+}
+var colorIdx = findColumnIndex(cols, state.colorField, -1);
+var groupIdx = findColumnIndex(cols, state.groupField, -1);
+titleEl.textContent = (state.customLabel && state.customLabel.trim() !== '')
+? state.customLabel
+: cols[sizeIdx].fieldName;
+titleEl.classList.toggle('hidden', state.showLabel === false);
+var items = [];
+(sumData.data || []).forEach(function (row) {
+var raw = row[sizeIdx] ? row[sizeIdx].value : null;
+var size = (typeof raw === 'number' && !isNaN(raw)) ? raw : 0;
+if (size <= 0) return; // tamanho precisa ser positivo
+var craw = colorIdx !== -1 && row[colorIdx] ? row[colorIdx].value : null;
+items.push({
+name: row[dimIdx] ? row[dimIdx].formattedValue : '',
+sel: pdSel(cols, row, [dimIdx, groupIdx]),
+group: groupIdx !== -1 && row[groupIdx] ? row[groupIdx].formattedValue : '',
+size: size,
+color: (colorIdx !== -1 && typeof craw === 'number' && !isNaN(craw)) ? craw : size,
+sizeText: fmtCell(row[sizeIdx])
+});
+});
+var max = parseInt(state.maxItems, 10);
+if (max > 0 && items.length > max) {
+items.sort(function (a, b) { return b.size - a.size; });
+var rest = items.slice(max - 1);
+var restSize = rest.reduce(function (s, i) { return s + i.size; }, 0);
+items = items.slice(0, max - 1);
+items.push({ name: 'Outros', group: '', size: restSize, color: restSize / rest.length, sizeText: formatCompact(restSize) });
+}
+model = { items: items };
+render();
+}).catch(function (err) {
+clearTimeout(loadTimeoutId);
+titleEl.textContent = 'Erro: ' + (err && (err.message || err.toString()) || 'ver console (F12)');
+bodyEl.innerHTML = '';
+});
+}
+function openConfigDialog() {
+tableau.extensions.ui.displayDialogAsync('https://renatoheinzen.github.io/tableau-skin/html/treemap-config.html', '', { height: 760, width: 340 })
+.then(function () { loadState(); updateChart(); })
+.catch(function (error) {
+});
+}
+if (typeof tableau === 'undefined' || !tableau.extensions) {
+titleEl.textContent = 'Falha ao carregar script da API do Tableau';
+return;
+}
+var resizeTimer = null;
+window.addEventListener('resize', function () {
+clearTimeout(resizeTimer);
+resizeTimer = setTimeout(render, 80);
+});
+var initTimeoutId = setTimeout(function () {
+titleEl.textContent = 'Timeout: initializeAsync não respondeu em 15s';
+}, 15000);
+try {
+tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
+clearTimeout(initTimeoutId);
+loadState();
+tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+pdInitClick();
+updateChart();
+}).catch(function (err) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido');
+});
+} catch (syncErr) {
+clearTimeout(initTimeoutId);
+titleEl.textContent = 'Erro síncrono: ' + (syncErr && syncErr.message || syncErr);
+}
 })();
 </script>
-
 <script>
-// dica de ferramenta própria: converte title (HTML) e <title> (SVG) em um cartão estilizado
 (function () {
-  var tip = document.createElement('div');
-  tip.className = 'pd-tip';
-  document.body.appendChild(tip);
-  function textOf(n) {
-    if (n.namespaceURI === 'http://www.w3.org/2000/svg') {
-      for (var i = 0; i < n.children.length; i++) {
-        if (n.children[i].localName === 'title') { var t = n.children[i].textContent; n.removeChild(n.children[i]); n.setAttribute('data-tip', t); break; }
-      }
-    } else if (n.hasAttribute && n.hasAttribute('title')) {
-      n.setAttribute('data-tip', n.getAttribute('title')); n.removeAttribute('title');
-    }
-    return n.getAttribute ? n.getAttribute('data-tip') : null;
-  }
-  function find(t) {
-    for (var n = t; n && n !== document.body; n = n.parentNode) { if (n.nodeType === 1 && textOf(n)) return n; }
-    return null;
-  }
-  function color(n) {
-    if (n.namespaceURI !== 'http://www.w3.org/2000/svg') return '';
-    var cs = getComputedStyle(n), c = cs.fill;
-    if (!c || c === 'none' || c.indexOf('url(') === 0) c = cs.stroke;
-    return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
-  }
-  function add(cls, txt) { var d = document.createElement('div'); d.className = cls; d.textContent = txt; tip.appendChild(d); }
-  function show(n, e) {
-    var lines = n.getAttribute('data-tip').split('\n'), head = lines[0], cat = '', val = '', m;
-    if ((m = /^(.*?) · (.*): ([^:]*)$/.exec(head))) { head = m[1]; cat = m[2]; val = m[3]; }
-    else if (lines.length === 1 && (m = /^(.*): ([^:]*)$/.exec(head))) { head = m[1]; val = m[2]; }
-    tip.innerHTML = '';
-    var h = document.createElement('div'); h.className = 'tt-h';
-    var c = color(n);
-    if (c) { var sw = document.createElement('i'); sw.style.background = c; h.appendChild(sw); }
-    var nm = document.createElement('span'); nm.textContent = head; h.appendChild(nm); tip.appendChild(h);
-    if (cat) add('tt-c', cat);
-    lines.slice(1).forEach(function (l) { add('tt-c', l); });
-    if (val) add('tt-v', val);
-    tip.classList.add('on'); move(e);
-  }
-  function move(e) {
-    var w = tip.offsetWidth, h = tip.offsetHeight, x = e.clientX + 14, y = e.clientY + 14;
-    if (x + w > window.innerWidth - 4) x = e.clientX - w - 14;
-    if (y + h > window.innerHeight - 4) y = e.clientY - h - 14;
-    tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
-  }
-  document.addEventListener('mouseover', function (e) { var n = find(e.target); if (n) show(n, e); else tip.classList.remove('on'); });
-  document.addEventListener('mousemove', function (e) { if (tip.classList.contains('on')) { var n = find(e.target); if (n) move(e); else tip.classList.remove('on'); } });
-  document.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
+var tip = document.createElement('div');
+tip.className = 'pd-tip';
+document.body.appendChild(tip);
+function textOf(n) {
+if (n.namespaceURI === 'http://www.w3.org/2000/svg') {
+for (var i = 0; i < n.children.length; i++) {
+if (n.children[i].localName === 'title') { var t = n.children[i].textContent; n.removeChild(n.children[i]); n.setAttribute('data-tip', t); break; }
+}
+} else if (n.hasAttribute && n.hasAttribute('title')) {
+n.setAttribute('data-tip', n.getAttribute('title')); n.removeAttribute('title');
+}
+return n.getAttribute ? n.getAttribute('data-tip') : null;
+}
+function find(t) {
+for (var n = t; n && n !== document.body; n = n.parentNode) { if (n.nodeType === 1 && textOf(n)) return n; }
+return null;
+}
+function color(n) {
+if (n.namespaceURI !== 'http://www.w3.org/2000/svg') return '';
+var cs = getComputedStyle(n), c = cs.fill;
+if (!c || c === 'none' || c.indexOf('url(') === 0) c = cs.stroke;
+return c && c !== 'none' && c.indexOf('url(') !== 0 ? c : '';
+}
+function add(cls, txt) { var d = document.createElement('div'); d.className = cls; d.textContent = txt; tip.appendChild(d); }
+function show(n, e) {
+var lines = n.getAttribute('data-tip').split('\n'), head = lines[0], cat = '', val = '', m;
+if ((m = /^(.*?) · (.*): ([^:]*)$/.exec(head))) { head = m[1]; cat = m[2]; val = m[3]; }
+else if (lines.length === 1 && (m = /^(.*): ([^:]*)$/.exec(head))) { head = m[1]; val = m[2]; }
+tip.innerHTML = '';
+var h = document.createElement('div'); h.className = 'tt-h';
+var c = color(n);
+if (c) { var sw = document.createElement('i'); sw.style.background = c; h.appendChild(sw); }
+var nm = document.createElement('span'); nm.textContent = head; h.appendChild(nm); tip.appendChild(h);
+if (cat) add('tt-c', cat);
+lines.slice(1).forEach(function (l) { add('tt-c', l); });
+if (val) add('tt-v', val);
+tip.classList.add('on'); move(e);
+}
+function move(e) {
+var w = tip.offsetWidth, h = tip.offsetHeight, x = e.clientX + 14, y = e.clientY + 14;
+if (x + w > window.innerWidth - 4) x = e.clientX - w - 14;
+if (y + h > window.innerHeight - 4) y = e.clientY - h - 14;
+tip.style.left = Math.max(4, x) + 'px'; tip.style.top = Math.max(4, y) + 'px';
+}
+document.addEventListener('mouseover', function (e) { var n = find(e.target); if (n) show(n, e); else tip.classList.remove('on'); });
+document.addEventListener('mousemove', function (e) { if (tip.classList.contains('on')) { var n = find(e.target); if (n) move(e); else tip.classList.remove('on'); } });
+document.addEventListener('mouseleave', function () { tip.classList.remove('on'); });
 })();
 </script>
 </body>
