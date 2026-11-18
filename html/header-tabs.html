@@ -136,11 +136,24 @@ filtersBtn.classList.toggle('open', panelOpen);
 filtersLabelEl.textContent = state.filtersLabel || 'Filtros';
 filtersCountEl.textContent = activeFilters ? String(activeFilters) : '';
 }
-function setParameter(value) {
+/* O parâmetro é buscado uma vez (getParametersAsync é um comando na fila do Tableau) e reaproveitado
+nos cliques das abas; o ParameterChanged mantém o objeto atualizado. */
+var paramPromise = null, paramListened = '';
+function parameter() {
 var d = dashboard();
-if (!d || !state.parameterName) return;
-d.getParametersAsync().then(function (params) {
-var p = params.filter(function (x) { return x.name === state.parameterName; })[0];
+if (!d || !state.parameterName) return Promise.resolve(null);
+if (!paramPromise) {
+var name = state.parameterName;
+paramPromise = d.getParametersAsync().then(function (params) {
+return params.filter(function (x) { return x.name === name; })[0] || null;
+});
+paramPromise.catch(function () { paramPromise = null; });
+}
+return paramPromise;
+}
+function setParameter(value) {
+if (!state.parameterName) return;
+parameter().then(function (p) {
 if (p) return p.changeValueAsync(value);
 }).catch(function () {});
 }
@@ -152,23 +165,25 @@ if (!v) return;
 if (/^https?:\/\//i.test(v)) window.open(v, '_blank', 'noopener');
 else setParameter(v);
 }
-function syncFromParameter() {
-var d = dashboard();
-if (!d || !state.parameterName) return;
-d.getParametersAsync().then(function (params) {
-var p = params.filter(function (x) { return x.name === state.parameterName; })[0];
-if (!p) return;
-function pick() {
+function pickTab(p) {
 var cur = String(p.currentValue && (p.currentValue.formattedValue != null ? p.currentValue.formattedValue : p.currentValue.value));
 var idx = tabs.findIndex(function (t) { return t.value === cur; });
 if (idx !== -1) { active = idx; render(); }
 }
-pick();
-if (typeof tableau !== 'undefined' && tableau.TableauEventType && tableau.TableauEventType.ParameterChanged) {
+function syncFromParameter() {
+if (!state.parameterName) return;
+parameter().then(function (p) {
+if (!p) return;
+pickTab(p);
+if (paramListened === p.name || typeof tableau === 'undefined' || !tableau.TableauEventType || !tableau.TableauEventType.ParameterChanged) return;
+paramListened = p.name;
 p.addEventListener(tableau.TableauEventType.ParameterChanged, function (e) {
-e.getParameterAsync().then(function (np) { p = np; pick(); });
+e.getParameterAsync().then(function (np) {
+if (np.name !== state.parameterName) return;
+paramPromise = Promise.resolve(np);
+pickTab(np);
 });
-}
+});
 }).catch(function () { /* sem parâmetros (ex.: fora do Tableau) */ });
 }
 /* ---------- filtros ----------
@@ -186,9 +201,15 @@ var d = dashboard();
 if (!d || !state.filterSheet) return null;
 return (d.worksheets || []).filter(function (w) { return w.name === state.filterSheet; })[0] || null;
 }
-function setPanel(show) {
+function setPanel(show, onlyIfNeeded) {
 var d = dashboard(), z = filterZone();
 if (!d || !z || !d.setZoneVisibilityAsync) return Promise.resolve();
+/* Na carga, a zona normalmente já está no estado certo (salva oculta no layout): não gasta um comando na fila. */
+if (onlyIfNeeded && typeof z.isVisible === 'boolean' && z.isVisible === show) {
+panelOpen = show;
+render();
+return Promise.resolve();
+}
 var V = tableau.ZoneVisibilityType || { Show: 'show', Hide: 'hide' };
 var m = {};
 m[z.id] = show ? V.Show : V.Hide;
@@ -219,6 +240,33 @@ activeFilters = flags.filter(Boolean).length;
 render();
 }).catch(function () { /* sem acesso aos filtros */ });
 }
+/* ---------- canal com o Painel de Filtros ----------
+Quando a planilha de filtros usa a extensão Painel de Filtros, ela já lê filtros e domínios e publica o
+contador por BroadcastChannel (mesma origem). Assim o Cabeçalho não repete getFiltersAsync + getDomainAsync
+na fila do Tableau. Sem resposta do painel em BUS_WAIT ms, o Cabeçalho volta a calcular sozinho. */
+var BUS_WAIT = 5000;
+var bus = { ch: null, sheet: '', alive: false, timer: null };
+function closeBus() {
+clearTimeout(bus.timer);
+if (bus.ch) { try { bus.ch.close(); } catch (e) { /* já fechado */ } }
+bus = { ch: null, sheet: '', alive: false, timer: null };
+}
+function openBus() {
+if (bus.ch && bus.sheet === state.filterSheet) return;
+closeBus();
+if (!state.filterSheet || typeof BroadcastChannel === 'undefined') { refreshCount(); return; }
+try { bus.ch = new BroadcastChannel('pd-filtros:' + state.filterSheet); } catch (e) { refreshCount(); return; }
+bus.sheet = state.filterSheet;
+bus.ch.onmessage = function (e) {
+var m = e.data;
+if (!m || (m.type !== 'ready' && m.type !== 'state')) return;
+bus.alive = true;
+clearTimeout(bus.timer);
+if (m.type === 'state' && typeof m.count === 'number') { activeFilters = m.count; render(); }
+};
+bus.ch.postMessage({ v: 1, type: 'hello', sheet: state.filterSheet });
+bus.timer = setTimeout(function () { if (!bus.alive) refreshCount(); }, BUS_WAIT);
+}
 document.getElementById('filters-btn').addEventListener('click', function () { setPanel(!panelOpen); });
 var listening = false;
 function listenFilters() {
@@ -229,7 +277,7 @@ var t = null;
 w.addEventListener(tableau.TableauEventType.FilterChanged, function () {
 clearTimeout(t);
 t = setTimeout(function () {
-refreshCount();
+if (!bus.alive) refreshCount(); // com o Painel de Filtros no canal, o contador chega por ele
 if (panelOpen && state.hideOnApply) setPanel(false);
 }, 300);
 });
@@ -242,9 +290,10 @@ if (saved) state = Object.assign(state, JSON.parse(saved));
 tabs = parseTabs(state.tabs);
 var n = parseInt(state.activeTab, 10);
 active = !isNaN(n) && n >= 1 && n <= tabs.length ? n - 1 : 0;
+paramPromise = null;
 render();
-if (state.filterSheet) setPanel(false);
-refreshCount();
+if (state.filterSheet) setPanel(false, true);
+openBus();
 listenFilters();
 }
 function openConfigDialog() {

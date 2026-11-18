@@ -218,6 +218,16 @@ svg.appendChild(el('title', {}, tipLabel + ': ' + data.valueText + (hasT ? '\nMe
 bodyEl.appendChild(svg);
 }
 var loadTimeoutId = null;
+/* SummaryDataChanged pode chegar em rajada (vários filtros/ações de uma vez): espera 150 ms e,
+   se uma leitura já estiver em andamento, faz só mais uma ao final — evita getSummaryDataAsync repetido na fila do Tableau. */
+function pdCoalesce(fn, wait) {
+var t = null, busy = false, again = false;
+function run() {
+busy = true; again = false;
+Promise.resolve().then(fn).catch(function () {}).then(function () { busy = false; if (again) run(); });
+}
+return function () { clearTimeout(t); t = setTimeout(function () { if (busy) again = true; else run(); }, wait); };
+}
 function updateChart() {
 titleEl.textContent = 'Carregando...';
 if (loadTimeoutId) clearTimeout(loadTimeoutId);
@@ -226,7 +236,7 @@ titleEl.textContent = 'Tempo excedido — abra o console (F12)';
 bodyEl.innerHTML = '';
 }, 8000);
 var worksheet = tableau.extensions.worksheetContent.worksheet;
-worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
+return worksheet.getSummaryDataAsync({ ignoreSelection: true }).then(function (sumData) {
 clearTimeout(loadTimeoutId);
 if (!sumData || !sumData.columns || sumData.columns.length < 1) {
 titleEl.textContent = 'Arraste o valor e (opcional) a meta para as Marcas';
@@ -276,7 +286,7 @@ try {
 tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
 clearTimeout(initTimeoutId);
 loadState();
-tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, updateChart);
+tableau.extensions.worksheetContent.worksheet.addEventListener(tableau.TableauEventType.SummaryDataChanged, pdCoalesce(updateChart, 150));
 updateChart();
 }).catch(function (err) {
 clearTimeout(initTimeoutId);
