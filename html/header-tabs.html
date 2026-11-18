@@ -204,6 +204,8 @@ return (d.worksheets || []).filter(function (w) { return w.name === state.filter
 function setPanel(show, onlyIfNeeded) {
 var d = dashboard(), z = filterZone();
 if (!d || !z || !d.setZoneVisibilityAsync) return Promise.resolve();
+/* O Painel de Filtros adia a leitura dos dados enquanto está oculto: avisa antes de mostrar, para ele já começar. */
+if (show && bus.ch) { try { bus.ch.postMessage({ v: 1, type: 'open', sheet: state.filterSheet }); } catch (e) { /* canal fechado */ } }
 /* Na carga, a zona normalmente já está no estado certo (salva oculta no layout): não gasta um comando na fila. */
 if (onlyIfNeeded && typeof z.isVisible === 'boolean' && z.isVisible === show) {
 panelOpen = show;
@@ -264,7 +266,7 @@ bus.alive = true;
 clearTimeout(bus.timer);
 if (m.type === 'state' && typeof m.count === 'number') { activeFilters = m.count; render(); }
 };
-bus.ch.postMessage({ v: 1, type: 'hello', sheet: state.filterSheet });
+bus.ch.postMessage({ v: 1, type: 'hello', sheet: state.filterSheet, open: panelOpen });
 bus.timer = setTimeout(function () { if (!bus.alive) refreshCount(); }, BUS_WAIT);
 }
 document.getElementById('filters-btn').addEventListener('click', function () { setPanel(!panelOpen); });

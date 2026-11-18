@@ -187,16 +187,20 @@ return new Date(Date.UTC(p[0], p[1] - 1, p[2], endOfDay ? 23 : 0, endOfDay ? 59 
 /* ---------- cache de domínios ----------
 Cada getDomainAsync é uma consulta na fila (serializada) do Tableau, de 0,5 a 0,9 s.
 O domínio "database" de um filtro categórico não muda na sessão; o domínio padrão (relevante) de um filtro
-de intervalo só muda quando os OUTROS filtros ou os parâmetros mudam — por isso a chave inclui esse contexto. */
+de intervalo muda quando os OUTROS filtros mudam — por isso a chave inclui esse contexto. Parâmetros e
+atualização de dados não aparecem nos filtros: um SummaryDataChanged sem FilterChanged descarta esses domínios
+(dropRelevantDomains). */
 var domainCache = {};
+function dropRelevantDomains() {
+Object.keys(domainCache).forEach(function (k) { if (k.indexOf('\u0003relevant\u0003') !== -1) delete domainCache[k]; });
+}
 function filterSig(f) {
 if (f.filterType === 'categorical') return f.fieldName + '=' + (f.isAllSelected ? '*' : (f.appliedValues || []).map(rawValue).join('\u0001'));
 if (f.filterType === 'range') return f.fieldName + '=' + isoDate(f.minValue) + '..' + isoDate(f.maxValue);
 return f.fieldName + '=' + f.filterType;
 }
-function contextSig(filters, params, except) {
-return filters.filter(function (f) { return f !== except; }).map(filterSig)
-.concat(params.map(function (p) { return p.name + '=' + rawValue(p.currentValue); })).join('\u0002');
+function contextSig(filters, except) {
+return filters.filter(function (f) { return f !== except; }).map(filterSig).join('\u0002');
 }
 function domainOf(tf, type, ctx) {
 var key = tf.fieldName + '\u0003' + (type || 'relevant') + '\u0003' + (type ? '' : ctx);
@@ -206,19 +210,20 @@ domainCache[key] = (type ? tf.getDomainAsync(type) : tf.getDomainAsync()).catch(
 return domainCache[key];
 }
 /* Filtros ativos da planilha (mesma regra do contador do Cabeçalho), publicados para ele pelo canal abaixo. */
-function countActive(filters, params) {
+function countActive(filters) {
 return Promise.all(filters.map(function (f) {
 if (f.filterType === 'categorical') return !f.isAllSelected && (f.appliedValues || []).length > 0;
 if (f.filterType !== 'range') return false;
-return domainOf(f, null, contextSig(filters, params, f)).then(function (dom) {
+return domainOf(f, null, contextSig(filters, f)).then(function (dom) {
 return isoDate(f.minValue) > isoDate(dom.min) || isoDate(f.maxValue) < isoDate(dom.max);
 }).catch(function () { return false; });
 })).then(function (flags) { return flags.filter(Boolean).length; });
 }
 /* ---------- canal com o Cabeçalho (header-tabs) ----------
 Os iframes das extensões são da mesma origem: o Cabeçalho pede o contador por aqui em vez de repetir
-getFiltersAsync + getDomainAsync na planilha de filtros. Mensagens: {type:'hello'} (Cabeçalho → painel),
-{type:'ready'} (painel existe; o contador vem depois) e {type:'state', count} (painel → Cabeçalho). */
+getFiltersAsync + getDomainAsync na planilha de filtros. Mensagens: {type:'hello', open} e {type:'open'}
+(Cabeçalho → painel; open = o painel está/vai ficar visível), {type:'ready'} (painel existe; o contador vem
+depois) e {type:'state', count} (painel → Cabeçalho). */
 var bus = null, lastCount = null;
 function busPost(msg) {
 if (!bus) return;
@@ -229,8 +234,10 @@ function openBus() {
 if (bus || typeof BroadcastChannel === 'undefined') return;
 try { bus = new BroadcastChannel('pd-filtros:' + worksheet().name); } catch (e) { return; }
 bus.onmessage = function (e) {
-if (!e.data || e.data.type !== 'hello') return;
-busPost(lastCount == null ? { type: 'ready' } : { type: 'state', count: lastCount });
+var m = e.data;
+if (!m) return;
+if (m.type === 'open' || (m.type === 'hello' && m.open)) goFull();
+if (m.type === 'hello') busPost(lastCount == null ? { type: 'ready' } : { type: 'state', count: lastCount });
 };
 busPost({ type: 'ready' });
 }
@@ -247,7 +254,7 @@ ws.getFiltersAsync().catch(function () { return []; }),
 ws.getParametersAsync ? ws.getParametersAsync().catch(function () { return []; }) : Promise.resolve([])
 ]).then(function (r) {
 var data = r[0], filters = r[1], params = r[2];
-countActive(filters, params).then(publishCount);
+countActive(filters).then(publishCount);
 var columns = data.columns || [];
 if (columns.length) lastColumns = columns; else columns = lastColumns;
 var defs = columns.length ? defsFromColumns(columns) : defsWithoutData(filters);
@@ -272,7 +279,7 @@ if (!seen[k]) { seen[k] = true; m.values.push({ value: k, label: shownValue(c) }
 if (!tf) return m;
 if (d.kind === 'date' && tf.filterType === 'range') {
 m.from = isoDate(tf.minValue); m.to = isoDate(tf.maxValue);
-return domainOf(tf, null, contextSig(filters, params, tf)).then(function (dom) {
+return domainOf(tf, null, contextSig(filters, tf)).then(function (dom) {
 m.min = isoDate(dom.min) || m.min; m.max = isoDate(dom.max) || m.max;
 return m;
 }).catch(function () { return m; });
@@ -511,8 +518,26 @@ return;
 items.forEach(function (i) { if (i.m.kind !== 'parameter') { i.clear(); i.dirty = true; } });
 apply(items.filter(function (i) { return i.dirty; }));
 });
+/* ---------- carga adiada ----------
+O painel costuma ficar oculto (o Cabeçalho mostra/esconde a zona) e o Tableau inicializa a extensão mesmo
+assim. Enquanto ninguém o vê, ele só lê os filtros (para o contador do Cabeçalho); dados, parâmetros e o
+domínio dos filtros de lista ficam para quando o painel aparece: iframe com tamanho, ou aviso do Cabeçalho. */
+var full = false;
+function isShown() { return window.innerWidth > 1 && window.innerHeight > 1; }
+function goFull() {
+if (full) return;
+full = true;
+refresh();
+}
+function readLight() {
+return worksheet().getFiltersAsync().then(function (filters) {
+snapshot.filters = filters;
+return countActive(filters).then(publishCount);
+});
+}
 function refresh() {
-return readModel().then(render).catch(function (err) {
+var p = full ? readModel().then(render) : readLight();
+return p.catch(function (err) {
 setStatus('Erro ao ler a planilha: ' + (err && err.message || err));
 });
 }
@@ -534,12 +559,30 @@ return;
 }
 tableau.extensions.initializeAsync({ configure: openConfigDialog }).then(function () {
 loadState();
+full = isShown();
+if (!full) console.info('[Projedata Filtros] painel oculto: carga adiada até ele aparecer');
 openBus();
 var ws = worksheet();
-var t = null;
-function later() { if (applying) return; clearTimeout(t); t = setTimeout(refresh, 200); }
-ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, later);
-if (tableau.TableauEventType.FilterChanged) ws.addEventListener(tableau.TableauEventType.FilterChanged, later);
+var t = null, sawFilter = false;
+function later(e) {
+if (e === 'filter') sawFilter = true;
+if (applying) return;
+clearTimeout(t);
+t = setTimeout(function () {
+if (!sawFilter) dropRelevantDomains(); // parâmetro ou atualização de dados: o domínio pode ter mudado
+sawFilter = false;
+refresh();
+}, 200);
+}
+ws.addEventListener(tableau.TableauEventType.SummaryDataChanged, function () { later('data'); });
+if (tableau.TableauEventType.FilterChanged) ws.addEventListener(tableau.TableauEventType.FilterChanged, function () { later('filter'); });
+if (!full) {
+/* resize nem sempre dispara quando a zona volta a aparecer (ex.: aba em segundo plano): confere o tamanho
+a cada 1 s, sem chamar a API, até carregar. */
+var watchShown = function () { if (!full && isShown()) goFull(); if (full) { window.removeEventListener('resize', watchShown); clearInterval(shownTimer); } };
+var shownTimer = setInterval(watchShown, 1000);
+window.addEventListener('resize', watchShown);
+}
 refresh();
 }).catch(function (err) {
 setStatus('Erro no initializeAsync: ' + (err && (err.message || err.toString()) || 'desconhecido'));
